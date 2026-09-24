@@ -23,9 +23,8 @@ export async function MutexFallBack<
 
   // Check if a fallback is already running, if so wait on that
   if (fallBackMap[key] !== undefined) {
-    await fallBackMap[key];
-
-    // When it is done, try again
+    // Whether it worked or not, try again when it is done
+    await fallBackMap[key].catch(() => undefined);
     return MutexFallBack(key, mainFunc, fallBackFunc);
   }
 
@@ -34,9 +33,14 @@ export async function MutexFallBack<
 
   // Save the running fallback, and make sure it is cleared when it is done
   fallBackMap[key] = fallBackPromise;
-  fallBackMap[key].finally(() => {
-    delete fallBackMap[key];
-  });
+  fallBackPromise
+    .finally(() => {
+      delete fallBackMap[key];
+    })
+    // A rejection is handled by whoever awaits fallBackPromise, without this
+    // the promise created by finally() would be an unhandled rejection that
+    // takes the whole process down
+    .catch(() => undefined);
 
   return fallBackPromise;
 }

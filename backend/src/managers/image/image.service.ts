@@ -148,15 +148,22 @@ export class ImageManagerService {
     const targetFileType = ParseFileType(fileType);
     if (HasFailed(targetFileType)) return targetFileType;
 
-    const converted_key = this.getConvertHash({ mime: fileType, ...options });
-
     const allow_editing = await this.sysPref.getBooleanPreference(
       SysPreference.AllowEditing,
     );
     if (HasFailed(allow_editing)) return allow_editing;
 
+    // The cache key has to match what is actually rendered, otherwise an
+    // unedited image would be cached for the edited parameters while editing
+    // is disabled.
+    const effectiveOptions: ImageRequestParams = allow_editing ? options : {};
+    const converted_key = this.getConvertHash({
+      mime: fileType,
+      ...effectiveOptions,
+    });
+
     return MutexFallBack(
-      converted_key,
+      `${imageId}-${converted_key}`,
       () => {
         return this.imageFilesService.getDerivative(imageId, converted_key);
       },
@@ -172,7 +179,7 @@ export class ImageManagerService {
           masterImage.data,
           sourceFileType,
           targetFileType,
-          allow_editing ? options : {},
+          effectiveOptions,
         );
         if (HasFailed(convertResult)) return convertResult;
 
@@ -262,7 +269,13 @@ export class ImageManagerService {
     }
     if (filetype === undefined) {
       const parsed = Mime2FileType(mime);
-      if (HasFailed(parsed)) return parsed;
+      if (HasFailed(parsed)) {
+        return Fail(
+          FT.UsrValidation,
+          'Unsupported file type',
+          parsed.getReason(),
+        );
+      }
       filetype = parsed;
     }
 

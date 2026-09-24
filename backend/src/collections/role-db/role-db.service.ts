@@ -116,7 +116,14 @@ export class RoleDbService {
     }
 
     // If the permission are missing a role specified in RolePermissionsLocks[roleToModify.name], fail
-    const missingPermissions = RolePermissionsLocks[roleToModify.name].filter(
+    // (Custom roles have no locked permissions)
+    const lockedPermissions = Object.hasOwn(
+      RolePermissionsLocks,
+      roleToModify.name,
+    )
+      ? RolePermissionsLocks[roleToModify.name]
+      : [];
+    const missingPermissions = lockedPermissions.filter(
       (permission) => !permissions.includes(permission),
     );
     if (missingPermissions.length > 0) {

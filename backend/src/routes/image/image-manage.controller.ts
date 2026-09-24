@@ -58,7 +58,11 @@ export class ImageManageController {
     let buffer: Buffer;
     try {
       buffer = await file.toBuffer();
-    } catch (e) {
+    } catch (e: any) {
+      // E.g. the file is larger than the configured maximum
+      if (e?.statusCode >= 400 && e?.statusCode < 500) {
+        throw Fail(FT.BadRequest, e.message, e);
+      }
       throw Fail(FT.Internal, e);
     }
 

@@ -5,12 +5,17 @@ import { FindResult } from 'picsur-shared/dist/types/find-result';
 import { generateRandomString } from 'picsur-shared/dist/util/random';
 import { In, LessThan, Repository } from 'typeorm';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
+import { ImageFileDBService } from './image-file-db.service.js';
 
+// Deleting an image deletes its rows first, and only then the data in object
+// storage (if any). A failure halfway leaves unused objects behind, instead
+// of images that are still listed but broken.
 @Injectable()
 export class ImageDBService {
   constructor(
     @InjectRepository(EImageBackend)
     private readonly imageRepo: Repository<EImageBackend>,
+    private readonly imageFiles: ImageFileDBService,
   ) {}
 
   public async create(
@@ -123,25 +128,30 @@ export class ImageDBService {
     if (ids.length === 0) return [];
     if (ids.length > 500) return Fail(FT.UsrValidation, 'Too many results');
 
+    let deletable_images: EImageBackend[];
     try {
-      const deletable_images = await this.imageRepo.find({
+      deletable_images = await this.imageRepo.find({
         where: {
           id: In(ids),
           user_id: userid,
         },
       });
-
-      const available_ids = deletable_images.map((i) => i.id);
-
-      if (available_ids.length === 0)
-        return Fail(FT.NotFound, 'Images not found');
-
-      await this.imageRepo.delete({ id: In(available_ids) });
-
-      return deletable_images;
     } catch (e) {
       return Fail(FT.Database, e);
     }
+
+    const available_ids = deletable_images.map((i) => i.id);
+    if (available_ids.length === 0)
+      return Fail(FT.NotFound, 'Images not found');
+
+    try {
+      await this.imageRepo.delete({ id: In(available_ids) });
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
+
+    await this.imageFiles.deleteStoredData(available_ids);
+    return deletable_images;
   }
 
   public async deleteWithKey(
@@ -157,6 +167,7 @@ export class ImageDBService {
 
       await this.imageRepo.delete({ id: found.id });
 
+      await this.imageFiles.deleteStoredData([found.id]);
       return found;
     } catch (e) {
       return Fail(FT.Database, e);
@@ -175,18 +186,26 @@ export class ImageDBService {
     } catch (e) {
       return Fail(FT.Database, e);
     }
+
+    await this.imageFiles.deleteStoredData('all');
     return true;
   }
 
   public async cleanupExpired(): AsyncFailable<number> {
+    let deleted: { id: string }[];
     try {
-      const res = await this.imageRepo.delete({
-        expires_at: LessThan(new Date()),
-      });
-
-      return res.affected ?? 0;
+      const result = await this.imageRepo
+        .createQueryBuilder()
+        .delete()
+        .where({ expires_at: LessThan(new Date()) })
+        .returning(['id'])
+        .execute();
+      deleted = result.raw;
     } catch (e) {
       return Fail(FT.Database, e);
     }
+
+    await this.imageFiles.deleteStoredData(deleted.map((image) => image.id));
+    return deleted.length;
   }
 }

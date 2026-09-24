@@ -45,6 +45,9 @@ declare module 'vitest' {
     adminPassword: string;
     maxFileSize: number;
     serverLog: string;
+    // The environment the backend runs with, for tests that need to look at
+    // the database or bucket directly, or run the command line tool
+    serverEnv: Record<string, string>;
   }
 }
 
@@ -134,32 +137,33 @@ export default async function setup(project: TestProject) {
 
   const extraEnv = JSON.parse(process.env['E2E_SERVER_ENV'] ?? '{}');
 
+  const serverEnv: Record<string, string> = {
+    PATH: process.env['PATH'] ?? '',
+    HOME: process.env['HOME'] ?? '',
+    TZ: 'UTC',
+    PICSUR_HOST: '127.0.0.1',
+    PICSUR_PORT: String(port),
+    PICSUR_DB_HOST: db.host,
+    PICSUR_DB_PORT: String(db.port),
+    PICSUR_DB_USERNAME: db.user,
+    PICSUR_DB_PASSWORD: db.password,
+    PICSUR_DB_DATABASE: database,
+    PICSUR_ADMIN_PASSWORD: ADMIN_PASSWORD,
+    PICSUR_JWT_SECRET: randomBytes(32).toString('hex'),
+    PICSUR_STATIC_FRONTEND_ROOT: frontendRoot,
+    // Run the real migrations instead of TypeORM's schema synchronisation
+    PICSUR_PRODUCTION: 'true',
+    PICSUR_VERBOSE: 'true',
+    PICSUR_MAX_FILE_SIZE: String(MAX_FILE_SIZE),
+    ...extraEnv,
+  };
+
   const child = spawn(
     process.env['E2E_NODE'] ?? process.execPath,
     ['dist/main.js'],
     {
       cwd: backendRoot,
-      env: {
-        PATH: process.env['PATH'],
-        HOME: process.env['HOME'],
-        TZ: 'UTC',
-        PICSUR_HOST: '127.0.0.1',
-        PICSUR_PORT: String(port),
-        PICSUR_DB_HOST: db.host,
-        PICSUR_DB_PORT: String(db.port),
-        PICSUR_DB_USERNAME: db.user,
-        PICSUR_DB_PASSWORD: db.password,
-        PICSUR_DB_DATABASE: database,
-        PICSUR_ADMIN_PASSWORD: ADMIN_PASSWORD,
-        PICSUR_JWT_SECRET: randomBytes(32).toString('hex'),
-        PICSUR_STATIC_FRONTEND_ROOT: frontendRoot,
-        // Run the real migrations instead of TypeORM's schema synchronisation
-        PICSUR_PRODUCTION: 'true',
-        PICSUR_VERBOSE: 'true',
-        PICSUR_TELEMETRY: 'false',
-        PICSUR_MAX_FILE_SIZE: String(MAX_FILE_SIZE),
-        ...extraEnv,
-      },
+      env: serverEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
     },
   );
@@ -186,6 +190,7 @@ export default async function setup(project: TestProject) {
   project.provide('adminPassword', ADMIN_PASSWORD);
   project.provide('maxFileSize', MAX_FILE_SIZE);
   project.provide('serverLog', serverLog);
+  project.provide('serverEnv', serverEnv);
 
   return async () => {
     const exited = new Promise((r) => child.once('exit', r));

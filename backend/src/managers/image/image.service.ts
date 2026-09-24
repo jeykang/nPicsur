@@ -20,11 +20,12 @@ import {
 import { FindResult } from 'picsur-shared/dist/types/find-result';
 import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
 import { ImageDBService } from '../../collections/image-db/image-db.service.js';
-import { ImageFileDBService } from '../../collections/image-db/image-file-db.service.js';
+import {
+  ImageFileDBService,
+  StoredImage,
+} from '../../collections/image-db/image-file-db.service.js';
 import { SysPreferenceDbService } from '../../collections/preference-db/sys-preference-db.service.js';
 import { UsrPreferenceDbService } from '../../collections/preference-db/usr-preference-db.service.js';
-import { EImageDerivativeBackend } from '../../database/entities/images/image-derivative.entity.js';
-import { EImageFileBackend } from '../../database/entities/images/image-file.entity.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
 import { MutexFallBack } from '../../util/mutex-fallback.js';
 import { ImageConverterService } from './image-converter.service.js';
@@ -144,7 +145,7 @@ export class ImageManagerService {
     imageId: string,
     fileType: string,
     options: ImageRequestParams,
-  ): AsyncFailable<EImageDerivativeBackend> {
+  ): AsyncFailable<StoredImage> {
     const targetFileType = ParseFileType(fileType);
     if (HasFailed(targetFileType)) return targetFileType;
 
@@ -201,7 +202,7 @@ export class ImageManagerService {
 
   // File getters ==============================================================
 
-  public async getMaster(imageId: string): AsyncFailable<EImageFileBackend> {
+  public async getMaster(imageId: string): AsyncFailable<StoredImage> {
     return this.imageFilesService.getFile(imageId, ImageEntryVariant.MASTER);
   }
 
@@ -215,7 +216,7 @@ export class ImageManagerService {
     return ParseFileType(mime['master']);
   }
 
-  public async getOriginal(imageId: string): AsyncFailable<EImageFileBackend> {
+  public async getOriginal(imageId: string): AsyncFailable<StoredImage> {
     return this.imageFilesService.getFile(imageId, ImageEntryVariant.ORIGINAL);
   }
 

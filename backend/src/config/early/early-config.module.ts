@@ -5,6 +5,7 @@ import { EarlyJwtConfigService } from './early-jwt.config.service.js';
 import { HostConfigService } from './host.config.service.js';
 import { MultipartConfigService } from './multipart.config.service.js';
 import { ServeStaticConfigService } from './serve-static.config.service.js';
+import { StorageConfigService } from './storage.config.service.js';
 import { TypeOrmConfigService } from './type-orm.config.service.js';
 
 @Module({
@@ -18,6 +19,7 @@ import { TypeOrmConfigService } from './type-orm.config.service.js';
     EarlyJwtConfigService,
     TypeOrmConfigService,
     ServeStaticConfigService,
+    StorageConfigService,
     HostConfigService,
     AuthConfigService,
     MultipartConfigService,
@@ -27,6 +29,7 @@ import { TypeOrmConfigService } from './type-orm.config.service.js';
     EarlyJwtConfigService,
     TypeOrmConfigService,
     ServeStaticConfigService,
+    StorageConfigService,
     HostConfigService,
     AuthConfigService,
     MultipartConfigService,

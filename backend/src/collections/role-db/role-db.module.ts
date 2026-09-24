@@ -5,9 +5,9 @@ import { EarlyConfigModule } from '../../config/early/early-config.module.js';
 import { HostConfigService } from '../../config/early/host.config.service.js';
 import { ERoleBackend } from '../../database/entities/users/role.entity.js';
 import {
-    ImmutableRolesList,
-    SystemRoleDefaults,
-    SystemRolesList,
+  ImmutableRolesList,
+  SystemRoleDefaults,
+  SystemRolesList,
 } from '../../models/constants/roles.const.js';
 import { RoleDbService } from './role-db.service.js';
 

@@ -3,8 +3,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-local';
 import { EUser } from 'picsur-shared/dist/entities/user.entity';
 import {
-    AsyncFailable,
-    ThrowIfFailed,
+  AsyncFailable,
+  ThrowIfFailed,
 } from 'picsur-shared/dist/types/failable';
 import { UserDbService } from '../../../collections/user-db/user-db.service.js';
 import { EUserBackend2EUser } from '../../../models/transformers/user.transformer.js';

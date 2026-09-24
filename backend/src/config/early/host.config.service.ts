@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
-    ParseBool,
-    ParseInt,
-    ParseString,
+  ParseBool,
+  ParseInt,
+  ParseString,
 } from 'picsur-shared/dist/util/parse-simple';
 import { EnvPrefix } from '../config.static.js';
 
@@ -14,7 +14,9 @@ export class HostConfigService {
   constructor(private readonly configService: ConfigService) {
     this.logger.log('Production: ' + this.isProduction());
     this.logger.log('Verbose: ' + this.isVerbose());
-    this.logger.log('Location: http://' + this.getHost() + ":" + this.getPort());
+    this.logger.log(
+      'Location: http://' + this.getHost() + ':' + this.getPort(),
+    );
 
     if (this.isDemo()) {
       this.logger.log('Running in demo mode');

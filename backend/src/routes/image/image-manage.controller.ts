@@ -1,37 +1,37 @@
 import {
-    Body,
-    Controller,
-    Get,
-    Logger,
-    Param,
-    Post,
-    Res,
+  Body,
+  Controller,
+  Get,
+  Logger,
+  Param,
+  Post,
+  Res,
 } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import {
-    ImageDeleteRequest,
-    ImageDeleteResponse,
-    ImageDeleteWithKeyRequest,
-    ImageDeleteWithKeyResponse,
-    ImageListRequest,
-    ImageListResponse,
-    ImageUpdateRequest,
-    ImageUpdateResponse,
-    ImageUploadResponse,
+  ImageDeleteRequest,
+  ImageDeleteResponse,
+  ImageDeleteWithKeyRequest,
+  ImageDeleteWithKeyResponse,
+  ImageListRequest,
+  ImageListResponse,
+  ImageUpdateRequest,
+  ImageUpdateResponse,
+  ImageUploadResponse,
 } from 'picsur-shared/dist/dto/api/image-manage.dto';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import {
-    FT,
-    Fail,
-    HasFailed,
-    ThrowIfFailed,
+  FT,
+  Fail,
+  HasFailed,
+  ThrowIfFailed,
 } from 'picsur-shared/dist/types/failable';
 import { EasyThrottle } from '../../decorators/easy-throttle.decorator.js';
 import { PostFiles } from '../../decorators/multipart/multipart.decorator.js';
 import type { FileIterator } from '../../decorators/multipart/postfiles.pipe.js';
 import {
-    HasPermission,
-    RequiredPermissions,
+  HasPermission,
+  RequiredPermissions,
 } from '../../decorators/permissions.decorator.js';
 import { ReqUserID } from '../../decorators/request-user.decorator.js';
 import { Returns } from '../../decorators/returns.decorator.js';

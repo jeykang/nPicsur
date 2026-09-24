@@ -1,14 +1,14 @@
 import { Controller, Get } from '@nestjs/common';
 import {
-    AllFormatsResponse,
-    AllPermissionsResponse,
-    InfoResponse,
+  AllFormatsResponse,
+  AllPermissionsResponse,
+  InfoResponse,
 } from 'picsur-shared/dist/dto/api/info.dto';
 import {
-    FileType2Ext,
-    FileType2Mime,
-    SupportedAnimFileTypes,
-    SupportedImageFileTypes,
+  FileType2Ext,
+  FileType2Mime,
+  SupportedAnimFileTypes,
+  SupportedImageFileTypes,
 } from 'picsur-shared/dist/dto/mimes.dto';
 import { TrackingState } from 'picsur-shared/dist/dto/tracking-state.enum';
 import { FallbackIfFailed } from 'picsur-shared/dist/types/failable';

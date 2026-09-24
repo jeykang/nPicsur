@@ -1,10 +1,10 @@
 import { EApiKeySchema } from 'picsur-shared/dist/entities/apikey.entity';
 import {
-    Column,
-    Entity,
-    Index,
-    ManyToOne,
-    PrimaryGeneratedColumn,
+  Column,
+  Entity,
+  Index,
+  ManyToOne,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 import { z } from 'zod';
 import { EUserBackend } from './users/user.entity.js';

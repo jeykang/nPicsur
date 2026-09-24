@@ -1,9 +1,9 @@
 import { Body, Controller, Get, Logger, Param, Post } from '@nestjs/common';
 import {
-    GetPreferenceResponse,
-    MultiplePreferencesResponse,
-    UpdatePreferenceRequest,
-    UpdatePreferenceResponse,
+  GetPreferenceResponse,
+  MultiplePreferencesResponse,
+  UpdatePreferenceRequest,
+  UpdatePreferenceResponse,
 } from 'picsur-shared/dist/dto/api/pref.dto';
 import { ThrowIfFailed } from 'picsur-shared/dist/types/failable';
 import { SysPreferenceDbService } from '../../../collections/preference-db/sys-preference-db.service.js';

@@ -1,16 +1,16 @@
 import { Body, Controller, Get, Logger, Post } from '@nestjs/common';
 import {
-    GetSpecialUsersResponse,
-    UserCreateRequest,
-    UserCreateResponse,
-    UserDeleteRequest,
-    UserDeleteResponse,
-    UserInfoRequest,
-    UserInfoResponse,
-    UserListRequest,
-    UserListResponse,
-    UserUpdateRequest,
-    UserUpdateResponse,
+  GetSpecialUsersResponse,
+  UserCreateRequest,
+  UserCreateResponse,
+  UserDeleteRequest,
+  UserDeleteResponse,
+  UserInfoRequest,
+  UserInfoResponse,
+  UserListRequest,
+  UserListResponse,
+  UserUpdateRequest,
+  UserUpdateResponse,
 } from 'picsur-shared/dist/dto/api/user-manage.dto';
 import { ThrowIfFailed } from 'picsur-shared/dist/types/failable';
 import { UserDbService } from '../../../collections/user-db/user-db.service.js';
@@ -19,9 +19,9 @@ import { RequiredPermissions } from '../../../decorators/permissions.decorator.j
 import { Returns } from '../../../decorators/returns.decorator.js';
 import { Permission } from '../../../models/constants/permissions.const.js';
 import {
-    ImmutableUsersList,
-    LockedLoginUsersList,
-    UndeletableUsersList,
+  ImmutableUsersList,
+  LockedLoginUsersList,
+  UndeletableUsersList,
 } from '../../../models/constants/special-users.const.js';
 import { EUserBackend2EUser } from '../../../models/transformers/user.transformer.js';
 

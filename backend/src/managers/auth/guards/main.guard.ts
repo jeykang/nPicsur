@@ -3,12 +3,12 @@ import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { EUser, EUserSchema } from 'picsur-shared/dist/entities/user.entity';
 import {
-    AsyncFailable,
-    FT,
-    Fail,
-    Failable,
-    HasFailed,
-    ThrowIfFailed,
+  AsyncFailable,
+  FT,
+  Fail,
+  Failable,
+  HasFailed,
+  ThrowIfFailed,
 } from 'picsur-shared/dist/types/failable';
 import { makeUnique } from 'picsur-shared/dist/util/unique';
 import { UserDbService } from '../../../collections/user-db/user-db.service.js';

@@ -5,8 +5,8 @@ import { ApiKeyDbModule } from '../../collections/apikey-db/apikey-db.module.js'
 import { PreferenceDbModule } from '../../collections/preference-db/preference-db.module.js';
 import { UserDbModule } from '../../collections/user-db/user-db.module.js';
 import {
-    JwtConfigService,
-    JwtSecretProvider,
+  JwtConfigService,
+  JwtSecretProvider,
 } from '../../config/late/jwt.config.service.js';
 import { LateConfigModule } from '../../config/late/late-config.module.js';
 import { AuthManagerService } from './auth.service.js';

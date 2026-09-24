@@ -51,7 +51,7 @@ export class UploadComponent implements OnInit {
         this.canUpload = permissions.includes(Permission.ImageUpload);
       });
   }
-  
+
   @HostListener('document:paste', ['$event'])
   onPaste(event: ClipboardEvent) {
     const items = event.clipboardData?.items;

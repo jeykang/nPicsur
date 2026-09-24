@@ -1,26 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
-    DecodedUsrPref,
-    PrefValueType,
-    PrefValueTypeStrings,
+  DecodedUsrPref,
+  PrefValueType,
+  PrefValueTypeStrings,
 } from 'picsur-shared/dist/dto/preferences.dto';
 import {
-    UsrPreference,
-    UsrPreferenceList,
-    UsrPreferenceValidators,
-    UsrPreferenceValueTypes,
+  UsrPreference,
+  UsrPreferenceList,
+  UsrPreferenceValidators,
+  UsrPreferenceValueTypes,
 } from 'picsur-shared/dist/dto/usr-preferences.enum';
 import {
-    AsyncFailable,
-    Fail,
-    FT,
-    HasFailed,
+  AsyncFailable,
+  Fail,
+  FT,
+  HasFailed,
 } from 'picsur-shared/dist/types/failable';
 import { Repository } from 'typeorm';
 import {
-    EUsrPreferenceBackend,
-    EUsrPreferenceSchema,
+  EUsrPreferenceBackend,
+  EUsrPreferenceSchema,
 } from '../../database/entities/system/usr-preference.entity.js';
 import { MutexFallBack } from '../../util/mutex-fallback.js';
 import { PreferenceCommonService } from './preference-common.service.js';

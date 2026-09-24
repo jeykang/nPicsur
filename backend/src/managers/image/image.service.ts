@@ -19,7 +19,6 @@ import {
 } from 'picsur-shared/dist/types/failable';
 import { FindResult } from 'picsur-shared/dist/types/find-result';
 import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
-import { IsQOI } from 'qoi-img';
 import { ImageDBService } from '../../collections/image-db/image-db.service.js';
 import { ImageFileDBService } from '../../collections/image-db/image-file-db.service.js';
 import { SysPreferenceDbService } from '../../collections/preference-db/sys-preference-db.service.js';
@@ -30,7 +29,8 @@ import { EImageBackend } from '../../database/entities/images/image.entity.js';
 import { MutexFallBack } from '../../util/mutex-fallback.js';
 import { ImageConverterService } from './image-converter.service.js';
 import { ImageProcessorService } from './image-processor.service.js';
-import { WebPInfo } from './webpinfo/webpinfo.js';
+import { IsQOI } from '../../workers/codecs/qoi.js';
+import { IsAnimatedWebP } from './webp.js';
 
 @Injectable()
 export class ImageManagerService {
@@ -263,8 +263,7 @@ export class ImageManagerService {
 
     let filetype: string | undefined;
     if (mime === 'image/webp') {
-      const header = await WebPInfo.from(image);
-      if (header.summary.isAnimated) filetype = AnimFileType.WEBP;
+      if (IsAnimatedWebP(image)) filetype = AnimFileType.WEBP;
       else filetype = ImageFileType.WEBP;
     }
     if (filetype === undefined) {

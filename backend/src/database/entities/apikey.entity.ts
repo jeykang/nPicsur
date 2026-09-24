@@ -19,8 +19,7 @@ type OverriddenEApiKey = z.infer<typeof OverriddenEApiKeySchema>;
 @Entity()
 export class EApiKeyBackend<
   T extends string | EUserBackend = string | EUserBackend,
-> implements OverriddenEApiKey
-{
+> implements OverriddenEApiKey {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

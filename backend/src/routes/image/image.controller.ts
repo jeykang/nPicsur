@@ -23,7 +23,10 @@ import { Permission } from '../../models/constants/permissions.const.js';
 import { EUserBackend2EUser } from '../../models/transformers/user.transformer.js';
 import { BrandMessageType, GetBrandMessage } from '../../util/branding.js';
 
-// This is the only controller with CORS enabled
+// Images never change, so they can be cached for a month
+const ImageCacheControl = 'public, max-age=2592000';
+
+// This is the only controller with CORS enabled (see image-headers.ts)
 @Controller('i')
 @RequiredPermissions(Permission.ImageView)
 @SkipThrottle()
@@ -67,6 +70,7 @@ export class ImageController {
         );
 
         res.type(ThrowIfFailed(FileType2Mime(image.filetype)));
+        res.header('Cache-Control', ImageCacheControl);
         return image.data;
       }
 
@@ -79,13 +83,18 @@ export class ImageController {
       );
 
       res.type(ThrowIfFailed(FileType2Mime(image.filetype)));
+      res.header('Cache-Control', ImageCacheControl);
       return image.data;
     } catch (e) {
       if (!IsFailure(e) || e.getType() !== FT.NotFound) throw e;
 
+      // Still an image, so embeds show something, but one that must not be
+      // cached as if it was the real thing
       const message = ThrowIfFailed(
         await GetBrandMessage(BrandMessageType.NotFound),
       );
+      res.status(404);
+      res.header('Cache-Control', 'no-store');
       res.type(message.type);
       return message.data;
     }

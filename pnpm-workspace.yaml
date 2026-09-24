@@ -1,4 +1,21 @@
 packages:
-  - "shared"
-  - "frontend"
-  - "backend"
+  - 'shared'
+  - 'frontend'
+  - 'backend'
+
+# Only these dependencies may run install scripts, everything else is
+# installed without running any code
+onlyBuiltDependencies:
+  - bmp-img
+  - esbuild
+  - lmdb
+  - msgpackr-extract
+  - nice-napi
+  - posix.js
+  - qoi-img
+  - sharp
+
+overrides:
+  # @nestjs/platform-fastify pins an exact fastify version, which lags behind
+  # security releases. One version for everything also keeps the types in sync.
+  fastify: ^5.12.5

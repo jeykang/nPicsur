@@ -158,10 +158,29 @@ describe('image upload and retrieval', () => {
     );
   });
 
-  it('serves a placeholder for unknown images', async () => {
+  it('serves an uncacheable placeholder for unknown images', async () => {
     const res = await Client.guest().get(`/i/${randomUUID()}.png`);
+    expect(res.status).toBe(404);
     expect(res.headers.get('content-type')).toBe('image/png');
+    expect(res.headers.get('cache-control')).toBe('no-store');
     expect((await metadata(res.body)).format).toBe('png');
+  });
+
+  it('answers cross origin preflight requests for images', async () => {
+    const res = await Client.guest().request('OPTIONS', `/i/${imageId}.png`, {
+      headers: {
+        Origin: 'https://example.com',
+        'Access-Control-Request-Method': 'GET',
+      },
+    });
+    expect(res.status).toBe(204);
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
+    expect(res.headers.get('access-control-allow-methods')).toContain('GET');
+  });
+
+  it('does not cache image metadata', async () => {
+    const res = await Client.guest().get(`/i/meta/${imageId}`);
+    expect(res.headers.get('cache-control') ?? '').not.toMatch(/max-age=[1-9]/);
   });
 
   it('reports unknown images in the metadata endpoint', async () => {

@@ -24,6 +24,7 @@ import {
 } from '../../../decorators/request-user.decorator.js';
 import { Returns } from '../../../decorators/returns.decorator.js';
 import { AuthManagerService } from '../../../managers/auth/auth.service.js';
+import { ApiKeyPrefix } from '../../../managers/auth/guards/apikey.strategy.js';
 import { Permission } from '../../../models/constants/permissions.const.js';
 import { EUserBackend2EUser } from '../../../models/transformers/user.transformer.js';
 
@@ -86,7 +87,7 @@ export class UserController {
 
     // An api key can not be exchanged for a session token, that token would
     // keep working after the api key is deleted
-    const viaApiKey = req.headers.authorization?.startsWith('Api-Key ');
+    const viaApiKey = req.headers.authorization?.startsWith(ApiKeyPrefix);
     const token = viaApiKey
       ? ''
       : ThrowIfFailed(await this.authService.createToken(user));

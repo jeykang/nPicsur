@@ -37,11 +37,24 @@ describe('info', () => {
     expect(res.body.toString()).toContain('picsur-e2e');
   });
 
-  // Unknown GET routes currently fall through to the frontend's index.html,
-  // @nestjs/serve-static 4 can't exclude paths when running on fastify
-  it.fails('wraps unknown api routes in an error envelope', async () => {
-    const res = await guest.get('/api/does-not-exist');
-    expect(res.status).toBe(404);
-    expect(res.json.success).toBe(false);
+  it('wraps unknown api routes in an error envelope', async () => {
+    for (const path of ['/api/does-not-exist', '/api', '/api/image']) {
+      const res = await guest.get(path);
+      expect(res.status, path).toBe(404);
+      expect(res.json.success).toBe(false);
+      expect(res.json.data.type).toBe('routenotfound');
+    }
+    const post = await guest.post('/api/does-not-exist', {});
+    expect(post.status).toBe(404);
+    expect(post.json.success).toBe(false);
+  });
+
+  it('serves the frontend for its own routes', async () => {
+    for (const path of ['/upload', '/view/some-id', '/settings/users']) {
+      const res = await guest.get(path);
+      expect(res.status, path).toBe(200);
+      expect(res.headers.get('content-type')).toContain('text/html');
+      expect(res.body.toString()).toContain('picsur-e2e');
+    }
   });
 });

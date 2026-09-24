@@ -1,7 +1,8 @@
 import ms from 'ms';
 import { z } from 'zod';
 
-export const IsValidMS = (min = 0) =>
+// A duration like "7d" or "15s", validated as its value in milliseconds
+export const IsValidMS = (min = 0, max = Number.MAX_SAFE_INTEGER) =>
   z.preprocess(
     (v: any) => {
       try {
@@ -17,5 +18,6 @@ export const IsValidMS = (min = 0) =>
         }),
       })
       .int()
-      .min(min),
+      .min(min)
+      .max(max),
   );

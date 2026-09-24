@@ -70,15 +70,8 @@ export const SysPreferenceUI: {
     category: 'Usage',
   },
   [SysPreference.TrackingId]: {
-    name: 'Ackee trackign website ID',
+    name: 'Ackee tracking website ID',
     helpText: 'ID of the website to track.',
-    category: 'Usage',
-  },
-
-  [SysPreference.EnableTelemetry]: {
-    name: 'Enable System Telemetry',
-    helpText:
-      'Enable system telemetry, this will send anonymous usage data to the developers.',
     category: 'Usage',
   },
 };

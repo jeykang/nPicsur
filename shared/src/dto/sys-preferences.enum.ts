@@ -1,9 +1,11 @@
 import { z } from 'zod';
-import { URLRegex } from '../util/common-regex.js';
 import { IsEntityID } from '../validators/entity-id.validator.js';
 import { IsValidMS } from '../validators/ms.validator.js';
-import { IsPosInt } from '../validators/positive-int.validator.js';
+import { IsHttpUrl } from '../validators/url.validator.js';
 import { PrefValueTypeStrings } from './preferences.dto.js';
+
+const MINUTE = 60 * 1000;
+const DAY = 24 * 60 * MINUTE;
 
 // This enum is only here to make accessing the values easier, and type checking in the backend
 export enum SysPreference {
@@ -22,8 +24,6 @@ export enum SysPreference {
   EnableTracking = 'enable_tracking',
   TrackingUrl = 'tracking_url',
   TrackingId = 'tracking_id',
-
-  EnableTelemetry = 'enable_telemetry',
 }
 
 export type SysPreferences = SysPreference[];
@@ -48,28 +48,27 @@ export const SysPreferenceValueTypes: {
   [SysPreference.EnableTracking]: 'boolean',
   [SysPreference.TrackingUrl]: 'string',
   [SysPreference.TrackingId]: 'string',
-
-  [SysPreference.EnableTelemetry]: 'boolean',
 };
 
 export const SysPreferenceValidators: {
   [key in SysPreference]: z.ZodTypeAny;
 } = {
-  [SysPreference.HostOverride]: z.string().regex(URLRegex).or(z.literal('')),
+  [SysPreference.HostOverride]: IsHttpUrl().or(z.literal('')),
 
-  [SysPreference.JwtSecret]: z.string(),
-  [SysPreference.JwtExpiresIn]: IsValidMS(),
+  [SysPreference.JwtSecret]: z.string().min(32),
+  // Too short and nobody can stay logged in, including the admin
+  [SysPreference.JwtExpiresIn]: IsValidMS(MINUTE, 365 * DAY),
 
-  [SysPreference.BCryptStrength]: IsPosInt(),
-  [SysPreference.RemoveDerivativesAfter]: IsValidMS(60000),
+  // Every increment doubles the time it takes to log in
+  [SysPreference.BCryptStrength]: z.number().int().min(4).max(15),
+  // 0 disables the cleanup
+  [SysPreference.RemoveDerivativesAfter]: IsValidMS(MINUTE).or(IsValidMS(0, 0)),
 
   [SysPreference.AllowEditing]: z.boolean(),
-  [SysPreference.ConversionTimeLimit]: IsValidMS(),
-  [SysPreference.ConversionMemoryLimit]: IsPosInt(),
+  [SysPreference.ConversionTimeLimit]: IsValidMS(0, 10 * MINUTE),
+  [SysPreference.ConversionMemoryLimit]: z.number().int().min(16).max(65536),
 
   [SysPreference.EnableTracking]: z.boolean(),
-  [SysPreference.TrackingUrl]: z.string().regex(URLRegex).or(z.literal('')),
+  [SysPreference.TrackingUrl]: IsHttpUrl().or(z.literal('')),
   [SysPreference.TrackingId]: IsEntityID().or(z.literal('')),
-
-  [SysPreference.EnableTelemetry]: z.boolean(),
 };

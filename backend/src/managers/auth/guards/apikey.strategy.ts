@@ -39,13 +39,13 @@ export class ApiKeyStrategy extends PassportStrategy(
   async validate(apikey: string): Promise<EUser | false> {
     const apiValidation = await IsApiKey().safeParseAsync(apikey);
     if (!apiValidation.success) {
-      this.logger.warn('Invalid apikey format: ' + apikey);
+      this.logger.warn('Invalid apikey format');
       return false;
     }
 
     const apikeyResult = await this.apikeyDB.resolve(apikey);
     if (HasFailed(apikeyResult)) {
-      this.logger.warn('Invalid apikey: ' + apikey);
+      this.logger.warn('Invalid apikey');
       return false;
     }
 

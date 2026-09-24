@@ -10,6 +10,7 @@ import {
   HasSuccess,
 } from 'picsur-shared/dist/types/failable';
 import { FindResult } from 'picsur-shared/dist/types/find-result';
+import { generateRandomString } from 'picsur-shared/dist/util/random';
 import { makeUnique } from 'picsur-shared/dist/util/unique';
 import { Repository } from 'typeorm';
 import { EUserBackend } from '../../database/entities/users/user.entity.js';
@@ -167,13 +168,16 @@ export class UserDbService {
   ): AsyncFailable<EUserBackend> {
     const user = await this.findByUsername(username, true);
     if (HasFailed(user)) {
-      if (user.getType() === FT.NotFound)
+      if (user.getType() === FT.NotFound) {
+        // Spend the same time as checking a real password would, so the
+        // response time does not reveal which usernames exist
+        await bcrypt.compare(password, await this.getDummyHash());
         return Fail(
           FT.Authentication,
           'Wrong username or password',
           user.getDebugMessage(),
         );
-      else return user;
+      } else return user;
     }
 
     if (LockedLoginUsersList.includes(user.username)) {
@@ -276,6 +280,18 @@ export class UserDbService {
   }
 
   // Internal
+
+  private dummyHash: Promise<string> | undefined;
+  private dummyHashStrength: number | undefined;
+
+  private async getDummyHash(): Promise<string> {
+    const strength = await this.getBCryptStrength();
+    if (this.dummyHash === undefined || this.dummyHashStrength !== strength) {
+      this.dummyHashStrength = strength;
+      this.dummyHash = bcrypt.hash(generateRandomString(32), strength);
+    }
+    return this.dummyHash;
+  }
 
   private filterAddedRoles(roles: string[]): string[] {
     const filteredRoles = roles.filter(

@@ -7,7 +7,8 @@ export function generateRandomString(length: number): string {
   let out = '';
   for (let i = 0; i < length; i++) {
     // Yes this is done synchronously, but it's not a big deal
-    out += randomCharacters[randomInt(0, randomCharacters.length - 1)];
+    // The upper bound of randomInt is exclusive
+    out += randomCharacters[randomInt(0, randomCharacters.length)];
   }
   return out;
 }

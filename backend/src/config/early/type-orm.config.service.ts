@@ -22,7 +22,6 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
     this.logger.log('DB database: ' + varOptions.database);
 
     this.logger.verbose('DB username: ' + varOptions.username);
-    this.logger.verbose('DB password: ' + varOptions.password);
   }
 
   public getTypeOrmServerOptions() {

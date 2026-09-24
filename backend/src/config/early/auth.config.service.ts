@@ -7,10 +7,11 @@ import { EnvPrefix } from '../config.static.js';
 export class AuthConfigService {
   constructor(private readonly configService: ConfigService) {}
 
-  public getDefaultAdminPassword(): string {
-    return ParseString(
-      this.configService.get(`${EnvPrefix}ADMIN_PASSWORD`),
-      'picsur',
+  // Only used when the admin user is created, returns undefined when not set
+  public getDefaultAdminPassword(): string | undefined {
+    return (
+      ParseString(this.configService.get(`${EnvPrefix}ADMIN_PASSWORD`)) ??
+      undefined
     );
   }
 }

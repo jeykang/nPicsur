@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Logger, Post } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Req } from '@nestjs/common';
+import type { FastifyRequest } from 'fastify';
 import {
   UserCheckNameRequest,
   UserCheckNameResponse,
@@ -75,12 +76,20 @@ export class UserController {
   @Returns(UserMeResponse)
   @RequiredPermissions(Permission.UserKeepLogin)
   @EasyThrottle(10)
-  async me(@ReqUserID() userid: string): Promise<UserMeResponse> {
+  async me(
+    @ReqUserID() userid: string,
+    @Req() req: FastifyRequest,
+  ): Promise<UserMeResponse> {
     const backenduser = ThrowIfFailed(await this.usersService.findOne(userid));
 
     const user = EUserBackend2EUser(backenduser);
 
-    const token = ThrowIfFailed(await this.authService.createToken(user));
+    // An api key can not be exchanged for a session token, that token would
+    // keep working after the api key is deleted
+    const viaApiKey = req.headers.authorization?.startsWith('Api-Key ');
+    const token = viaApiKey
+      ? ''
+      : ThrowIfFailed(await this.authService.createToken(user));
 
     return { user, token };
   }

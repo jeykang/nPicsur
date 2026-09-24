@@ -150,11 +150,16 @@ export class ImageFileDBService {
       });
       if (!derivative) return null;
 
-      // Ensure read time updated to within 1 day precision
+      // Keep track of when it was last read with a precision of a day, so
+      // not every view has to write to the database. Only the timestamp is
+      // written, saving the entity would write the whole image again.
       const yesterday = new Date(Date.now() - A_DAY_IN_SECONDS * 1000);
-      if (derivative.last_read > yesterday) {
+      if (derivative.last_read < yesterday) {
         derivative.last_read = new Date();
-        return await this.imageDerivativeRepo.save(derivative);
+        await this.imageDerivativeRepo.update(
+          { image_id: imageId, key },
+          { last_read: derivative.last_read },
+        );
       }
 
       return derivative;

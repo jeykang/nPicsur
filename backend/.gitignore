@@ -392,7 +392,9 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-=======
 # Local
 .env
 dist
+
+# Output of the end-to-end tests
+test/e2e/.output

@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "include": ["**/*.ts", "../vitest.e2e.config.ts"],
+  "exclude": [],
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "lib": ["es2022", "dom"]
+  }
+}

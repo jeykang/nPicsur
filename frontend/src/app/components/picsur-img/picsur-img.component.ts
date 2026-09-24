@@ -104,7 +104,7 @@ export class PicsurImgComponent implements OnChanges {
       return response;
     }
 
-    const mimeHeader = response['content-type'] ?? '';
+    const mimeHeader = String(response['content-type'] ?? '');
     const mime = mimeHeader.split(';')[0];
 
     return ParseMime2FileType(mime);

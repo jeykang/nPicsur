@@ -51,14 +51,24 @@ export class UserService {
     this.init().catch(this.logger.error);
   }
 
-  private async init() {
+  private async init(retryDelay = 1000) {
     const apikey = await this.key.get();
     if (!apikey) return;
 
     const fetchedUser = await this.fetchUser();
     if (HasFailed(fetchedUser)) {
       this.logger.error(fetchedUser.getReason());
-      await this.logout();
+      if (fetchedUser.getType() === FT.Permission) {
+        // The login is no longer valid
+        await this.logout();
+      } else {
+        // The server could not be reached, keep the login and try again
+        window.setTimeout(
+          () =>
+            this.init(Math.min(retryDelay * 2, 30000)).catch(this.logger.error),
+          retryDelay,
+        );
+      }
       return;
     }
 

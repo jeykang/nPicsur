@@ -16,8 +16,23 @@
   <mat-sidenav-content>
     <div class="sidenav-content" [class.container]="wrapContentWithContainer">
       <div class="header-spacer"></div>
+      @if (loadFailure) {
+        <div class="grow-full" [class.container]="wrapContentWithContainer">
+          <h1>Picsur could not be loaded</h1>
+          <p>{{ loadFailure.getReason() }}. Trying again automatically.</p>
+          <button
+            mat-raised-button
+            color="primary"
+            [disabled]="retrying"
+            (click)="retry()"
+          >
+            TRY AGAIN
+          </button>
+        </div>
+      }
       <div
         class="grow-full relative"
+        [class.d-none]="loadFailure"
         [class.container]="wrapContentWithContainer"
         [@mainAnimation]="getRouteAnimData()"
       >

@@ -33,29 +33,30 @@ export class PermissionGuard implements CanActivate, CanActivateChild {
 
   private async can(route: ActivatedRouteSnapshot) {
     const requiredPermissions: string[] = this.nestedPermissions(route);
-    const allPermissionsArray = await this.staticInfo.getAllPermissions();
 
-    // Check if permissions array is valid
-    // But only if we actually have the data
-    if (
-      allPermissionsArray !== null &&
-      !isPermissionsArray(requiredPermissions, allPermissionsArray)
-    ) {
-      this.logger.error(
-        `Permissions array is invalid: "${requiredPermissions}" (available: ${allPermissionsArray})`,
-      );
-      return false;
-    }
-
+    // This waits for as long as the server can not be reached
     const ourPermissions = await this.permissionService.getLoadedSnapshot();
     const weHavePermission = requiredPermissions.every((permission) =>
       ourPermissions.includes(permission),
     );
 
-    if (!weHavePermission)
+    if (!weHavePermission) {
+      await this.checkPermissionsExist(requiredPermissions);
       this.router.navigate(['/error/401'], { replaceUrl: true });
+    }
 
     return weHavePermission;
+  }
+
+  // Nobody has permissions that do not exist, so a route requiring one is a
+  // mistake
+  private async checkPermissionsExist(permissions: string[]) {
+    const allPermissions = await this.staticInfo.getAllPermissions();
+    if (!isPermissionsArray(permissions, allPermissions)) {
+      this.logger.error(
+        `Permissions array is invalid: "${permissions}" (available: ${allPermissions})`,
+      );
+    }
   }
 
   // This aggregates nested permission for deep routes

@@ -1,5 +1,6 @@
 import { PortalModule } from '@angular/cdk/portal';
 import { NgModule } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { BrowserModule } from '@angular/platform-browser';
@@ -20,6 +21,7 @@ import { SnackBarManagerModule } from './util/snackbar-manager/snackbar-manager.
     BrowserAnimationsModule,
     PortalModule,
     MatSidenavModule,
+    MatButtonModule,
 
     SnackBarManagerModule.forRoot(),
     CompatibilityManagerModule,

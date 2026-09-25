@@ -14,8 +14,10 @@ import {
   Router,
 } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
+import { Failure } from 'picsur-shared/dist/types/failable';
 import { RouteTransitionAnimations } from './app.animation';
 import { PRouteData } from './models/dto/picsur-routes.dto';
+import { PermissionService } from './services/api/permission.service';
 import { UsageService } from './services/usage/usage.service';
 import { BootstrapService } from './util/bootstrap.service';
 
@@ -41,13 +43,25 @@ export class AppComponent implements OnInit {
   isDesktop = false;
   hasSidebar = false;
 
+  // Nothing works without knowing what we are allowed to do, so the page is
+  // replaced by an error while that can not be loaded
+  loadFailure: Failure | null = null;
+  retrying = false;
+
   public constructor(
     private readonly router: Router,
     private readonly activatedRoute: ActivatedRoute,
     private readonly bootstrapService: BootstrapService,
+    private readonly permissionService: PermissionService,
     usageService: UsageService,
   ) {
     usageService;
+  }
+
+  public async retry() {
+    this.retrying = true;
+    await this.permissionService.retryNow();
+    this.retrying = false;
   }
 
   public getRouteAnimData() {
@@ -60,6 +74,14 @@ export class AppComponent implements OnInit {
   public ngOnInit() {
     this.subscribeRouter();
     this.subscribeMobile();
+    this.subscribeLoadFailure();
+  }
+
+  @AutoUnsubscribe()
+  private subscribeLoadFailure() {
+    return this.permissionService.loadFailure.subscribe((failure) => {
+      this.loadFailure = failure;
+    });
   }
 
   @AutoUnsubscribe()

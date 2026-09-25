@@ -60,3 +60,6 @@ The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0
 - The pages of images whose uploader was deleted failed to load.
 - Deleting an image while a converted version of it was being made gave an error, and could leave a file behind in the bucket.
 - Converting greyscale images with transparency to QOI or BMP failed, and the BMP decoder rejected some valid files.
+- While the server could not be reached, pages stayed empty with the loading bar running forever, and the upload page asked to log in. They now say that the server can not be reached, and continue by themselves once it is back.
+- Being logged in did not survive the server being unreachable while a page loaded.
+- Error messages of the server, like that a rate limit was reached, were shown as "A network error occurred".

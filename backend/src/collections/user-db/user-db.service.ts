@@ -189,6 +189,26 @@ export class UserDbService {
     return userToModify;
   }
 
+  // For users changing their own password, which takes the current one
+  public async changePassword(
+    uuid: string,
+    currentPassword: string,
+    newPassword: string,
+  ): AsyncFailable<EUserBackend> {
+    const user = await this.findOne(uuid);
+    if (HasFailed(user)) return user;
+
+    const verified = await this.authenticate(user.username, currentPassword);
+    if (HasFailed(verified)) {
+      if (verified.getType() === FT.Authentication) {
+        return Fail(FT.Authentication, 'The current password is wrong');
+      }
+      return verified;
+    }
+
+    return await this.updatePassword(uuid, newPassword);
+  }
+
   // Authentication
 
   async authenticate(

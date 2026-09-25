@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Logger, Post, Req } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import {
+  UserChangePasswordRequest,
+  UserChangePasswordResponse,
   UserCheckNameRequest,
   UserCheckNameResponse,
   UserLoginResponse,
@@ -10,7 +12,7 @@ import {
   UserRegisterResponse,
 } from 'picsur-shared/dist/dto/api/user.dto';
 import type { EUser } from 'picsur-shared/dist/entities/user.entity';
-import { ThrowIfFailed } from 'picsur-shared/dist/types/failable';
+import { Fail, FT, ThrowIfFailed } from 'picsur-shared/dist/types/failable';
 import { UserDbService } from '../../../collections/user-db/user-db.service.js';
 import { EasyThrottle } from '../../../decorators/easy-throttle.decorator.js';
 import {
@@ -92,6 +94,35 @@ export class UserController {
       : ThrowIfFailed(await this.authService.createToken(user));
 
     return { user, token };
+  }
+
+  @Post('me/password')
+  @Returns(UserChangePasswordResponse)
+  @RequiredPermissions(Permission.UserKeepLogin)
+  @EasyThrottle(10, 300)
+  async changePassword(
+    @ReqUserID() userid: string,
+    @Body() body: UserChangePasswordRequest,
+    @Req() req: FastifyRequest,
+  ): Promise<UserChangePasswordResponse> {
+    // This hands out a session token, which api keys can not be exchanged for
+    if (req.headers.authorization?.startsWith(ApiKeyPrefix)) {
+      throw Fail(FT.Permission, 'Log in to change your password');
+    }
+
+    const user = ThrowIfFailed(
+      await this.usersService.changePassword(
+        userid,
+        body.current_password,
+        body.new_password,
+      ),
+    );
+
+    // Changing the password logged out every session, this one included
+    const jwt_token = ThrowIfFailed(
+      await this.authService.createToken(EUserBackend2EUser(user)),
+    );
+    return { jwt_token };
   }
 
   // You can always check your permissions

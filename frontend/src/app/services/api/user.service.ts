@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { decodeToken } from '@leteu/jwt-decoder';
 import {
+  UserChangePasswordRequest,
+  UserChangePasswordResponse,
   UserCheckNameRequest,
   UserCheckNameResponse,
   UserLoginRequest,
@@ -112,6 +114,26 @@ export class UserService {
         password,
       },
     ).result;
+  }
+
+  public async changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): AsyncFailable<true> {
+    const response = await this.api.post(
+      UserChangePasswordRequest,
+      UserChangePasswordResponse,
+      '/api/user/me/password',
+      {
+        current_password: currentPassword,
+        new_password: newPassword,
+      },
+    ).result;
+    if (HasFailed(response)) return response;
+
+    // The old token no longer works
+    this.key.set(response.jwt_token);
+    return true;
   }
 
   public async logout(): AsyncFailable<EUser> {

@@ -1,0 +1,86 @@
+<h1>Account</h1>
+
+@if (userService.live | async; as user) {
+  <p>Logged in as {{ user.username }}.</p>
+}
+
+<h2>Change password</h2>
+<p>This logs you out everywhere else.</p>
+
+<form (ngSubmit)="changePassword()">
+  <div class="row">
+    <div class="col-lg-6 col-12">
+      <mat-form-field appearance="outline">
+        <mat-label>Current Password</mat-label>
+        <input
+          matInput
+          type="password"
+          [formControl]="model.currentPassword"
+          name="current-password"
+          autocomplete="current-password"
+          required
+        />
+        @if (model.currentPassword.errors) {
+          <mat-error>
+            {{ model.currentPasswordError }}
+          </mat-error>
+        }
+      </mat-form-field>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-6 col-12">
+      <mat-form-field appearance="outline">
+        <mat-label>New Password</mat-label>
+        <input
+          matInput
+          type="password"
+          [formControl]="model.newPassword"
+          name="new-password"
+          autocomplete="new-password"
+          required
+        />
+        @if (model.newPassword.errors) {
+          <mat-error>
+            {{ model.newPasswordError }}
+          </mat-error>
+        }
+      </mat-form-field>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-6 col-12">
+      <mat-form-field appearance="outline">
+        <mat-label>Confirm New Password</mat-label>
+        <input
+          matInput
+          type="password"
+          [formControl]="model.newPasswordConfirm"
+          name="confirm-new-password"
+          autocomplete="new-password"
+          required
+        />
+        @if (model.newPasswordConfirm.errors) {
+          <mat-error>
+            {{ model.newPasswordConfirmError }}
+          </mat-error>
+        }
+      </mat-form-field>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12 pb-4">
+      <button
+        mat-raised-button
+        type="submit"
+        color="primary"
+        [disabled]="loading"
+      >
+        {{ loading ? 'LOADING...' : 'CHANGE PASSWORD' }}
+      </button>
+    </div>
+  </div>
+</form>

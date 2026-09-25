@@ -29,6 +29,19 @@ const SettingsRoutes: PRoutes = [
         },
       },
       {
+        path: 'account',
+        loadChildren: () =>
+          import('./account/settings-account.module').then((m) => m.default),
+        data: {
+          permissions: [Permission.UserKeepLogin],
+          page: {
+            title: 'Account',
+            icon: 'account_circle',
+            category: 'personal',
+          },
+        },
+      },
+      {
         path: 'apikeys',
         loadChildren: () =>
           import('./apikeys/settings-apikeys.module').then((m) => m.default),

@@ -107,6 +107,78 @@ describe('authentication', () => {
     expect(me.user).not.toHaveProperty('tokens_valid_after');
   });
 
+  it('lets users change their own password', async () => {
+    const admin = await Client.admin();
+    const user = await createUser(admin);
+    const otherSession = await Client.user(user.username, user.password);
+
+    // Tokens only record the second they were made in, tokens from the same
+    // second as the change stay valid
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    const { jwt_token } = expectSuccess(
+      await user.client.post('/api/user/me/password', {
+        current_password: user.password,
+        new_password: 'my-new-password',
+      }),
+    );
+
+    // The session that changed it goes on with a new token, the others are
+    // logged out
+    const current = Client.guest();
+    current.jwt = jwt_token;
+    const me = expectSuccess(await current.get('/api/user/me'));
+    expect(me.user.id).toBe(user.id);
+    expectFailure(await otherSession.get('/api/user/me'), 403, 'permission');
+    expectFailure(await user.client.get('/api/user/me'), 403, 'permission');
+
+    await Client.user(user.username, 'my-new-password');
+    const old = await Client.guest().post('/api/user/login', {
+      username: user.username,
+      password: user.password,
+    });
+    expect(old.json.success).toBe(false);
+  });
+
+  it('needs the current password to change it', async () => {
+    const admin = await Client.admin();
+    const user = await createUser(admin);
+
+    const res = await user.client.post('/api/user/me/password', {
+      current_password: 'not-the-password',
+      new_password: 'my-new-password',
+    });
+    expect(res.json.success).toBe(false);
+    expect(res.json.data.type).toBe('authentication');
+    expect(res.json.data.message).toBe('The current password is wrong');
+
+    expectSuccess(await user.client.get('/api/user/me'));
+    await Client.user(user.username, user.password);
+  });
+
+  it('does not let guests or api keys change passwords', async () => {
+    expectFailure(
+      await Client.guest().post('/api/user/me/password', {
+        current_password: 'whatever',
+        new_password: 'whatever-else',
+      }),
+      403,
+      'permission',
+    );
+
+    const admin = await Client.admin();
+    const user = await createUser(admin);
+    const key = expectSuccess(await user.client.post('/api/apikeys/create'));
+    expectFailure(
+      await Client.withApiKey(key.key).post('/api/user/me/password', {
+        current_password: user.password,
+        new_password: 'my-new-password',
+      }),
+      403,
+      'permission',
+    );
+    await Client.user(user.username, user.password);
+  });
+
   it('gives new users the default user role', async () => {
     const admin = await Client.admin();
     const { client } = await createUser(admin);

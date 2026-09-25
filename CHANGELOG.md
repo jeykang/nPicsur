@@ -21,6 +21,7 @@ The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0
 - Image metadata showed the uploader's roles to anyone who could view the image.
 - Image workers could reach any libvips loader installed, like those for PDF or SVG, and inherited the server's environment and its secrets.
 - The secret, the database password and attempted api keys were written to the logs.
+- The content security policy allowed inline scripts. It no longer does, so markup that makes it into a page can not run scripts.
 - No dependency has a known vulnerability anymore. The server's had 94, 4 of them critical. The frontend used Angular 18, which no longer gets security fixes, with 17 advisories against it that were never fixed for 18, it now uses Angular 22.
 
 ### New

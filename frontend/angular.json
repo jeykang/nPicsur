@@ -44,7 +44,14 @@
               "ms",
               "@leteu/jwt-decoder"
             ],
-            "optimization": true,
+            "optimization": {
+              "scripts": true,
+              "styles": {
+                "minify": true,
+                "inlineCritical": false
+              },
+              "fonts": true
+            },
             "webWorkerTsConfig": "tsconfig.worker.json"
           },
           "configurations": {

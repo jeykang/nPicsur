@@ -52,9 +52,10 @@ describe('security', () => {
 
   it('sets security headers', async () => {
     const res = await Client.guest().get('/');
-    expect(res.headers.get('content-security-policy')).toContain(
-      "default-src 'self'",
-    );
+    const csp = res.headers.get('content-security-policy') ?? '';
+    expect(csp).toContain("default-src 'self'");
+    // Inline scripts can not run
+    expect(csp).toMatch(/script-src 'self'(;|$)/);
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
     expect(res.headers.get('x-frame-options')).toBe('SAMEORIGIN');
     expect(res.headers.get('x-powered-by')).toBeNull();

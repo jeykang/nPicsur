@@ -37,6 +37,7 @@ The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0
 - Unknown `/api` routes answer with a JSON 404 instead of the frontend.
 - Image metadata is no longer cached for a month, and the placeholder for missing images is not cached at all.
 - The "Source Code" link in the footer points to this fork.
+- The package metadata names the AGPL-3.0, the license in `LICENSE`, instead of the GPL-3.0.
 
 ### Fixed
 

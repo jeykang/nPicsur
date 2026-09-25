@@ -626,6 +626,64 @@ describe('formats', () => {
     }
   });
 
+  it('turns and mirrors animations frame by frame', async () => {
+    const webp = await makeAnimatedWebp(40, 20);
+    const { id } = await client.uploadOk(webp, 'edited.webp');
+    const colours = [
+      [255, 0, 0],
+      [0, 255, 0],
+      [0, 0, 255],
+    ];
+
+    for (const query of [
+      'rotate=90',
+      'rotate=180',
+      'rotate=270',
+      'flipx=yes',
+      'flipy=yes',
+      'rotate=90&flipx=yes',
+      'rotate=270&flipy=yes',
+      'rotate=90&width=10',
+    ]) {
+      // How libvips does it for still images, which is the first frame
+      const still = await sharp(
+        (await Client.guest().get(`/i/${id}.png?${query}`)).body,
+      )
+        .removeAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+      const animated = (await Client.guest().get(`/i/${id}.gif?${query}`)).body;
+      const meta = await metadata(animated);
+      expect([meta.width, meta.pageHeight], query).toEqual([
+        still.info.width,
+        still.info.height,
+      ]);
+      expect(meta.pages, query).toBe(3);
+      expect(meta.delay, query).toEqual([100, 200, 300]);
+      // Resized frames have colours in between at the corner
+      if (query.includes('width')) continue;
+
+      // Every frame the same as the first one, in its own colour, and still
+      // in the same order
+      const frames = await sharp(animated, { animated: true })
+        .removeAlpha()
+        .raw()
+        .toBuffer();
+      const size = still.data.length;
+      for (const [frame, colour] of colours.entries()) {
+        const expected = Buffer.from(still.data);
+        for (let i = 0; i < size; i += 3) {
+          if (expected[i] + expected[i + 1] + expected[i + 2] !== 0) {
+            expected.set(colour, i);
+          }
+        }
+        const pixels = frames.subarray(frame * size, (frame + 1) * size);
+        expect(pixels.equals(expected), `${query}, frame ${frame}`).toBe(true);
+      }
+    }
+  });
+
   it('converts uploads it can not keep as they are', async () => {
     const tiff = await convertTo(await makePng(), 'tiff');
     const { id } = await client.uploadOk(tiff, 'scan.tiff');

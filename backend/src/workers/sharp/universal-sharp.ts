@@ -27,6 +27,8 @@ export interface AnimationTiming {
 export interface SharpInput {
   image: Sharp;
   timing: AnimationTiming | null;
+  // How many frames it has, 1 for still images
+  pages: number;
 }
 
 export async function UniversalSharpIn(
@@ -61,8 +63,8 @@ export async function UniversalSharpIn(
 }
 
 // Still images, and animations libvips knows how to play
-function untimed(image: Sharp): SharpInput {
-  return { image, timing: null };
+function untimed(image: Sharp, pages = 1): SharpInput {
+  return { image, timing: null, pages };
 }
 
 function rawSharpIn(
@@ -125,6 +127,7 @@ async function apngSharpIn(
       delay: animation.frames.map((frame) => frame.delay),
       loop: animation.loop,
     },
+    pages: frames.pages,
   };
 }
 
@@ -140,7 +143,7 @@ async function animatedSharpIn(
     options,
   ).metadata();
   if (!pages || pages === 1 || !Turns[orientation ?? 1]) {
-    return untimed(sharp(image, { ...options, autoOrient: true }));
+    return untimed(sharp(image, { ...options, autoOrient: true }), pages);
   }
 
   const raw = await sharp(image, options)
@@ -161,6 +164,69 @@ async function animatedSharpIn(
     image: framesSharpIn(frames, options),
     // How it plays does not come along with the raw frames
     timing: { delay: delay ?? [], loop: loop ?? 0 },
+    pages,
+  };
+}
+
+// Mirroring and turning, asked for when converting
+export interface AnimationEdits {
+  // Top to bottom, and left to right
+  flip: boolean;
+  flop: boolean;
+  // Clockwise, in degrees
+  angle: number;
+}
+
+// The same EXIF orientations as turning clockwise
+const AngleOrientations: Partial<Record<number, number>> = {
+  90: 6,
+  180: 3,
+  270: 8,
+};
+
+// Animations can only be mirrored and turned by libvips as one tall image of
+// all their frames too, so that is done here frame by frame, after the other
+// operations. In the same order as libvips does it for still images:
+// mirrored first, then turned.
+export async function EditAnimation(
+  image: Sharp,
+  timing: AnimationTiming | null,
+  edits: AnimationEdits,
+): Promise<SharpInput> {
+  // How it plays, from the input when libvips read it as an animation
+  const metadata = timing === null ? await image.metadata() : null;
+
+  const raw = await image
+    .raw({ depth: 'uchar' })
+    .toBuffer({ resolveWithObject: true });
+  // After resizing, the page height libvips reports is the one from before
+  const pages = raw.info.pages ?? 1;
+  let frames: Frames = {
+    pixels: raw.data,
+    width: raw.info.width,
+    height: raw.info.height / pages,
+    channels: raw.info.channels,
+    pages,
+  };
+  if (!Number.isInteger(frames.height)) {
+    throw new Error('Frames of different heights');
+  }
+
+  for (const orientation of [
+    edits.flip ? 4 : 1,
+    edits.flop ? 2 : 1,
+    AngleOrientations[edits.angle % 360] ?? 1,
+  ]) {
+    frames = TurnFrames(frames.pixels, frames, orientation);
+  }
+
+  return {
+    image: framesSharpIn(frames, { animated: true }),
+    timing: timing ?? {
+      delay: metadata?.delay ?? [],
+      loop: metadata?.loop ?? 0,
+    },
+    pages,
   };
 }
 

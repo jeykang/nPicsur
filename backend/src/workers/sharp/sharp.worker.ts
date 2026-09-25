@@ -10,7 +10,9 @@ import {
   SharpWorkerSendMessage,
 } from './sharp.message.js';
 import {
+  AnimationEdits,
   AnimationTiming,
+  EditAnimation,
   UniversalSharpIn,
   UniversalSharpOut,
 } from './universal-sharp.js';
@@ -35,6 +37,9 @@ export class SharpWorker {
   private startTime = 0;
   private sharpi: Sharp | null = null;
   private timing: AnimationTiming | null = null;
+  private pages = 1;
+  // Mirroring and turning of animations, done frame by frame at the end
+  private edits: AnimationEdits | null = null;
   // Messages are handled one after another, reading some formats takes a
   // while
   private queue: Promise<void> = Promise.resolve();
@@ -154,6 +159,7 @@ export class SharpWorker {
     );
     this.sharpi = input.image;
     this.timing = input.timing;
+    this.pages = input.pages;
   }
 
   private operation(message: SharpWorkerOperationMessage): void {
@@ -162,7 +168,22 @@ export class SharpWorker {
     }
 
     const operation = message.operation;
-    message.operation.parameters;
+    // libvips can only turn and mirror animations as one tall image of all
+    // their frames
+    if (
+      this.pages > 1 &&
+      (operation.name === 'rotate' ||
+        operation.name === 'flip' ||
+        operation.name === 'flop')
+    ) {
+      const edits = (this.edits ??= { flip: false, flop: false, angle: 0 });
+      if (operation.name === 'rotate') {
+        edits.angle = operation.parameters[0] ?? 0;
+      } else {
+        edits[operation.name] = operation.parameters[0] ?? true;
+      }
+      return;
+    }
 
     this.sharpi = (this.sharpi[operation.name] as any)(...operation.parameters);
   }
@@ -175,12 +196,22 @@ export class SharpWorker {
       return this.purge('Not initialized');
     }
 
-    const sharpi = this.sharpi;
-    const timing = this.timing;
+    let sharpi = this.sharpi;
+    let timing = this.timing;
+    const edits = this.edits;
     this.sharpi = null;
     this.timing = null;
+    this.pages = 1;
+    this.edits = null;
 
     try {
+      if (edits !== null) {
+        ({ image: sharpi, timing } = await EditAnimation(
+          sharpi,
+          timing,
+          edits,
+        ));
+      }
       const result = await UniversalSharpOut(sharpi, filetype, options, timing);
       const processingTime = Date.now() - this.startTime;
       const memory = reservedMemory();

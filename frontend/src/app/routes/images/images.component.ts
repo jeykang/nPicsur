@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { ImageFileType } from 'picsur-shared/dist/dto/mimes.dto';
@@ -23,6 +23,8 @@ import { ErrorService } from '../../util/error-manager/error.service';
 @Component({
   templateUrl: './images.component.html',
   styleUrls: ['./images.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class ImagesComponent implements OnInit {
   private readonly logger: Logger = new Logger(ImagesComponent.name);

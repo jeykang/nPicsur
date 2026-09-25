@@ -3,6 +3,7 @@ import { BehaviorSubject } from 'rxjs';
 
 @Directive({
   selector: 'ng-template[masonry-item]',
+  standalone: false,
 })
 export class MasonryItemDirective {
   private viewRef: ViewRef | null = null;

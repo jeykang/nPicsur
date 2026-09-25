@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { DecodedPref } from 'picsur-shared/dist/dto/preferences.dto';
 import { Observable } from 'rxjs';
 import {
@@ -9,6 +9,8 @@ import { UsrPrefService } from '../../../services/api/usr-pref.service';
 
 @Component({
   templateUrl: './settings-general.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsGeneralComponent {
   private readonly translator = UsrPreferenceFriendlyNames;

@@ -17,6 +17,7 @@ const SELECT_ITEM_HEIGHT_EM = 3;
 
 @Directive({
   selector: '[msInfiniteScroll]',
+  standalone: false,
 })
 export class MatSelectInfiniteScrollDirective
   implements OnInit, OnDestroy, AfterViewInit

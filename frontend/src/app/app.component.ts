@@ -1,5 +1,10 @@
 import { Portal } from '@angular/cdk/portal';
-import { Component, OnInit, ViewChild } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ViewChild,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { MatSidenav } from '@angular/material/sidenav';
 import {
   ActivatedRoute,
@@ -19,6 +24,8 @@ import { BootstrapService } from './util/bootstrap.service';
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],
   animations: [RouteTransitionAnimations],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class AppComponent implements OnInit {
   private readonly logger = console;

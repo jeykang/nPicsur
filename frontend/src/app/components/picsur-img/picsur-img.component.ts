@@ -28,6 +28,7 @@ enum PicsurImgState {
   templateUrl: './picsur-img.component.html',
   styleUrls: ['./picsur-img.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class PicsurImgComponent implements OnChanges {
   private readonly logger = new Logger(PicsurImgComponent.name);

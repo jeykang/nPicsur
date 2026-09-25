@@ -22,12 +22,11 @@
             [ngModelOptions]="{ standalone: true }"
             [(ngModel)]="expiresAfter"
           >
-            <mat-option
-              *ngFor="let option of ExpireOptions"
-              [value]="option[1]"
-            >
-              {{ option[0] }}
-            </mat-option>
+            @for (option of ExpireOptions; track option) {
+              <mat-option [value]="option[1]">
+                {{ option[0] }}
+              </mat-option>
+            }
           </mat-select>
         </mat-form-field>
       </div>

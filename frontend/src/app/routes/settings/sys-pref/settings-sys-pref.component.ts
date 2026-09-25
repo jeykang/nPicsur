@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { DecodedPref } from 'picsur-shared/dist/dto/preferences.dto';
 import {
   SysPreference,
@@ -14,6 +14,8 @@ import { SysPrefService } from '../../../services/api/sys-pref.service';
 @Component({
   templateUrl: './settings-sys-pref.component.html',
   styleUrls: ['./settings-sys-pref.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsSysprefComponent {
   public getName(key: string) {

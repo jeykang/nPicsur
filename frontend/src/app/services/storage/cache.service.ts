@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@angular/core';
-import { SESSION_STORAGE } from '@ng-web-apis/common';
+import { WA_SESSION_STORAGE } from '@ng-web-apis/common';
 import {
   AsyncFailable,
   Failable,
@@ -21,7 +21,7 @@ export class CacheService {
   private readonly cacheExpiresMS = 1000 * 60 * 60;
   private cacheVersion = '0.0.0';
 
-  constructor(@Inject(SESSION_STORAGE) private readonly storage: Storage) {}
+  constructor(@Inject(WA_SESSION_STORAGE) private readonly storage: Storage) {}
 
   public setVersion(version: string): void {
     if (version !== this.cacheVersion) this.clear();

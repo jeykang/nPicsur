@@ -29,6 +29,7 @@ import { UtilService } from '../../util/util.service';
   templateUrl: './view.component.html',
   styleUrls: ['./view.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class ViewComponent implements OnInit, OnDestroy {
   private readonly logger = new Logger(ViewComponent.name);

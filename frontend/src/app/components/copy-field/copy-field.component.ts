@@ -1,4 +1,10 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import {
   MatFormFieldAppearance,
   SubscriptSizing,
@@ -12,6 +18,8 @@ import { ErrorService } from '../../util/error-manager/error.service';
   selector: 'copy-field',
   templateUrl: './copy-field.component.html',
   styleUrls: ['./copy-field.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class CopyFieldComponent {
   private readonly logger = new Logger(CopyFieldComponent.name);

@@ -22,6 +22,7 @@ import { ErrorService } from '../../util/error-manager/error.service';
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class HeaderComponent implements OnInit {
   private readonly logger = new Logger(HeaderComponent.name);

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@angular/core';
-import { WINDOW } from '@ng-web-apis/common';
+import { WA_WINDOW } from '@ng-web-apis/common';
 import axios, {
   AxiosRequestConfig,
   AxiosResponse,
@@ -75,7 +75,7 @@ export class ApiService {
 
   constructor(
     private readonly keyService: KeyStorageService,
-    @Inject(WINDOW) private readonly windowRef: Window,
+    @Inject(WA_WINDOW) private readonly windowRef: Window,
   ) {}
 
   public get<T extends z.AnyZodObject>(

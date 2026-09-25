@@ -1,5 +1,11 @@
 import { COMMA, ENTER } from '@angular/cdk/keycodes';
-import { Component, Input, OnChanges, OnInit } from '@angular/core';
+import {
+  Component,
+  Input,
+  OnChanges,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatChipInputEvent } from '@angular/material/chips';
@@ -12,6 +18,8 @@ import { Required } from '../../models/decorators/required.decorator';
   selector: 'values-picker',
   templateUrl: './values-picker.component.html',
   styleUrls: ['./values-picker.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class ValuesPickerComponent implements OnInit, OnChanges {
   // Static data

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { MatSelectChange } from '@angular/material/select';
 import { FileType2Ext, ImageFileType } from 'picsur-shared/dist/dto/mimes.dto';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
@@ -17,6 +17,8 @@ import { BuildShareX } from './sharex-builder';
 @Component({
   templateUrl: './settings-sharex.component.html',
   styleUrls: ['./settings-sharex.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsShareXComponent implements OnInit {
   private readonly logger = new Logger(SettingsShareXComponent.name);

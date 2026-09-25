@@ -1,17 +1,20 @@
 <mat-form-field class="value-picker" appearance="outline">
   <mat-label>{{ nameCapMul }}</mat-label>
   <mat-chip-grid #chipList>
-    <mat-chip-row
-      *ngFor="let item of this.myControl.value"
-      [removable]="!isDisabled(item)"
-      [disabled]="isDisabled(item)"
-      (removed)="removeItem(item)"
-    >
-      {{ valueMapper(item) }}
-      <button *ngIf="!isDisabled(item)" matChipRemove>
-        <mat-icon fontSet="material-icons-outlined">cancel</mat-icon>
-      </button>
-    </mat-chip-row>
+    @for (item of this.myControl.value; track item) {
+      <mat-chip-row
+        [removable]="!isDisabled(item)"
+        [disabled]="isDisabled(item)"
+        (removed)="removeItem(item)"
+      >
+        {{ valueMapper(item) }}
+        @if (!isDisabled(item)) {
+          <button matChipRemove>
+            <mat-icon fontSet="material-icons-outlined">cancel</mat-icon>
+          </button>
+        }
+      </mat-chip-row>
+    }
     <input
       placeholder="Add {{ name }}..."
       [formControl]="inputControl"
@@ -28,8 +31,10 @@
     #auto="matAutocomplete"
     (optionSelected)="addItemSelect($event)"
   >
-    <mat-option *ngFor="let item of found | async" [value]="item">
-      {{ valueMapper(item) }}
-    </mat-option>
+    @for (item of found | async; track item) {
+      <mat-option [value]="item">
+        {{ valueMapper(item) }}
+      </mat-option>
+    }
   </mat-autocomplete>
 </mat-form-field>

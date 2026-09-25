@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { ImageService } from '../../services/api/image.service';
@@ -10,6 +10,8 @@ import { Logger } from '../../services/logger/logger.service';
 @Component({
   templateUrl: './delete.component.html',
   styleUrls: ['./delete.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class DeleteComponent implements OnInit {
   private readonly logger = new Logger(DeleteComponent.name);

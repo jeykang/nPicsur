@@ -1,51 +1,43 @@
-<button
-  mat-icon-button
-  (click)="changePage(1)"
-  *ngIf="showFirstLast"
-  [disabled]="page <= 1"
->
-  <mat-icon>first_page</mat-icon>
-</button>
+@if (showFirstLast) {
+  <button mat-icon-button (click)="changePage(1)" [disabled]="page <= 1">
+    <mat-icon>first_page</mat-icon>
+  </button>
+}
 <button mat-icon-button (click)="changePage(page - 1)" [disabled]="page <= 1">
   <mat-icon>chevron_left</mat-icon>
 </button>
 
-<ng-container *ngIf="firstPagesRange !== null">
-  <button
-    mat-icon-button
-    (click)="changePage(i)"
-    *ngFor="let i of firstPagesRange | range"
-  >
-    <span>{{ i }}</span>
-  </button>
-
+@if (firstPagesRange !== null) {
+  @for (i of firstPagesRange | range; track i) {
+    <button mat-icon-button (click)="changePage(i)">
+      <span>{{ i }}</span>
+    </button>
+  }
   <div class="paginator-filler">
     <span>...</span>
   </div>
-</ng-container>
+}
 
-<button
-  mat-icon-button
-  (click)="changePage(i)"
-  [class.mat-flat-button]="i === page"
-  *ngFor="let i of pagesRange | range"
->
-  <span>{{ i }}</span>
-</button>
-
-<ng-container *ngIf="lastPagesRange !== null">
-  <div class="paginator-filler">
-    <span>...</span>
-  </div>
-
+@for (i of pagesRange | range; track i) {
   <button
     mat-icon-button
     (click)="changePage(i)"
-    *ngFor="let i of lastPagesRange | range"
+    [class.mat-flat-button]="i === page"
   >
     <span>{{ i }}</span>
   </button>
-</ng-container>
+}
+
+@if (lastPagesRange !== null) {
+  <div class="paginator-filler">
+    <span>...</span>
+  </div>
+  @for (i of lastPagesRange | range; track i) {
+    <button mat-icon-button (click)="changePage(i)">
+      <span>{{ i }}</span>
+    </button>
+  }
+}
 
 <button
   mat-icon-button
@@ -54,11 +46,12 @@
 >
   <mat-icon>chevron_right</mat-icon>
 </button>
-<button
-  mat-icon-button
-  (click)="changePage(totalPages)"
-  *ngIf="showFirstLast"
-  [disabled]="page >= totalPages"
->
-  <mat-icon>last_page</mat-icon>
-</button>
+@if (showFirstLast) {
+  <button
+    mat-icon-button
+    (click)="changePage(totalPages)"
+    [disabled]="page >= totalPages"
+  >
+    <mat-icon>last_page</mat-icon>
+  </button>
+}

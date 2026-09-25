@@ -20,6 +20,7 @@ import { MasonryItemDirective } from './masonry-item.directive';
   templateUrl: './masonry.component.html',
   styleUrls: ['./masonry.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class MasonryComponent implements AfterViewInit, OnDestroy {
   constructor(private readonly changeDetector: ChangeDetectorRef) {}

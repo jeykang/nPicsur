@@ -24,9 +24,11 @@
             autocapitalize="none"
             required
           />
-          <mat-error *ngIf="model.username.errors">
-            {{ model.usernameError }}
-          </mat-error>
+          @if (model.username.errors) {
+            <mat-error>
+              {{ model.usernameError }}
+            </mat-error>
+          }
         </mat-form-field>
       </div>
 
@@ -40,9 +42,11 @@
             name="password"
             required
           />
-          <mat-error *ngIf="model.password.errors">
-            {{ model.passwordError }}
-          </mat-error>
+          @if (model.password.errors) {
+            <mat-error>
+              {{ model.passwordError }}
+            </mat-error>
+          }
         </mat-form-field>
       </div>
 
@@ -56,16 +60,17 @@
         >
           {{ loading ? 'LOADING...' : 'LOGIN' }}
         </button>
-        <button
-          *ngIf="showRegister"
-          mat-flat-button
-          color="accent"
-          class="mx-2"
-          (click)="onRegister()"
-          type="button"
-        >
-          REGISTER
-        </button>
+        @if (showRegister) {
+          <button
+            mat-flat-button
+            color="accent"
+            class="mx-2"
+            (click)="onRegister()"
+            type="button"
+          >
+            REGISTER
+          </button>
+        }
       </div>
     </form>
   </div>

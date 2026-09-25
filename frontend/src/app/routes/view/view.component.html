@@ -6,17 +6,19 @@
       </h1>
     </div>
 
-    <div class="col-12" *ngIf="image !== null">
-      <h3>
-        Uploaded {{ image.created | amTimeAgo }} by
-        {{ user?.username ?? 'a deleted user' }}
-        {{
-          image.expires_at === null
-            ? ''
-            : '| Expires ' + (image.expires_at | amTimeAgo)
-        }}
-      </h3>
-    </div>
+    @if (image !== null) {
+      <div class="col-12">
+        <h3>
+          Uploaded {{ image.created | amTimeAgo }} by
+          {{ user?.username ?? 'a deleted user' }}
+          {{
+            image.expires_at === null
+              ? ''
+              : '| Expires ' + (image.expires_at | amTimeAgo)
+          }}
+        </h3>
+      </div>
+    }
 
     <div class="col-12 py-3">
       <picsur-img class="uploadedimage" [src]="previewLink"></picsur-img>
@@ -30,9 +32,11 @@
       <mat-form-field appearance="outline" color="primary">
         <mat-label>Image Format</mat-label>
         <mat-select [(value)]="selectedFormat">
-          <mat-option *ngFor="let format of formatOptions" [value]="format.key">
-            {{ format.value }}
-          </mat-option>
+          @for (format of formatOptions; track format) {
+            <mat-option [value]="format.key">
+              {{ format.value }}
+            </mat-option>
+          }
         </mat-select>
       </mat-form-field>
     </div>

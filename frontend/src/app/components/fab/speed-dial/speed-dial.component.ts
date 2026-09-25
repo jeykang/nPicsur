@@ -1,4 +1,10 @@
-import { Component, HostListener, Input, Output } from '@angular/core';
+import {
+  Component,
+  HostListener,
+  Input,
+  Output,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { Subject } from 'rxjs';
 import { OpenManager } from './open-manager';
 import { SpeedDialAnimation } from './speed-dial.animation';
@@ -7,6 +13,8 @@ import { SpeedDialAnimation } from './speed-dial.animation';
   selector: 'speed-dial',
   templateUrl: './speed-dial.component.html',
   animations: [SpeedDialAnimation],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SpeedDialComponent {
   @Input('aria-label') ariaLabel = 'Floating Action Button';
@@ -33,8 +41,8 @@ export class SpeedDialComponent {
     }
   }
 
-  @HostListener('document:click', ['$event'])
-  @HostListener('document:keydown.escape', ['$event'])
+  @HostListener('document:click')
+  @HostListener('document:keydown.escape')
   anyClick() {
     if (!this.openManager.isOpen || this.openManager.isAnimating) return;
 

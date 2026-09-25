@@ -1,4 +1,11 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnInit,
+  Output,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { ImageMetaResponse } from 'picsur-shared/dist/dto/api/image.dto';
@@ -28,6 +35,8 @@ import {
   selector: 'view-speeddial',
   templateUrl: './view-speeddial.component.html',
   styleUrls: ['./view-speeddial.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class ViewSpeeddialComponent implements OnInit {
   private readonly logger = new Logger(ViewSpeeddialComponent.name);

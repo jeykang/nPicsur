@@ -1,4 +1,9 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ViewChild,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { EApiKey } from 'picsur-shared/dist/entities/apikey.entity';
@@ -16,6 +21,8 @@ import { Throttle } from '../../../util/throttle';
 @Component({
   templateUrl: './settings-apikeys.component.html',
   styleUrls: ['./settings-apikeys.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsApiKeysComponent implements OnInit {
   private readonly logger = new Logger(SettingsApiKeysComponent.name);

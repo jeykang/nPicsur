@@ -1,4 +1,9 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import {
+  Component,
+  Inject,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { PRoutes } from '../../../models/dto/picsur-routes.dto';
@@ -7,6 +12,8 @@ import { PermissionService } from '../../../services/api/permission.service';
 @Component({
   templateUrl: './settings-sidebar.component.html',
   styleUrls: ['./settings-sidebar.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsSidebarComponent implements OnInit {
   private accessibleRoutes: PRoutes = [];

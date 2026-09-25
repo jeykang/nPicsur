@@ -1,4 +1,9 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ViewChild,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
@@ -16,6 +21,8 @@ import { Throttle } from '../../../util/throttle';
 @Component({
   templateUrl: './settings-users.component.html',
   styleUrls: ['./settings-users.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsUsersComponent implements OnInit {
   private readonly logger = new Logger(SettingsUsersComponent.name);

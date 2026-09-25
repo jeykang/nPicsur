@@ -1,4 +1,10 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  OnInit,
+  ViewChild,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { Router } from '@angular/router';
@@ -16,6 +22,8 @@ import { ErrorService } from '../../../util/error-manager/error.service';
 @Component({
   templateUrl: './settings-roles.component.html',
   styleUrls: ['./settings-roles.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsRolesComponent implements OnInit, AfterViewInit {
   private readonly logger = new Logger(SettingsRolesComponent.name);

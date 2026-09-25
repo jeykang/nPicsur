@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@angular/core';
-import { LOCATION } from '@ng-web-apis/common';
+import { WA_LOCATION } from '@ng-web-apis/common';
 import { InfoResponse } from 'picsur-shared/dist/dto/api/info.dto';
 import {
   AsyncFailable,
@@ -31,7 +31,7 @@ export class InfoService {
 
   private infoSubject: BehaviorSubject<ServerInfo>;
   constructor(
-    @Inject(LOCATION) private readonly location: Location,
+    @Inject(WA_LOCATION) private readonly location: Location,
     private readonly api: ApiService,
     private readonly infoStorage: InfoStorageService,
   ) {

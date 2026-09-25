@@ -24,9 +24,11 @@
             autocapitalize="none"
             required
           />
-          <mat-error *ngIf="model.username.errors">
-            {{ model.usernameError }}
-          </mat-error>
+          @if (model.username.errors) {
+            <mat-error>
+              {{ model.usernameError }}
+            </mat-error>
+          }
         </mat-form-field>
       </div>
 
@@ -40,9 +42,11 @@
             name="password"
             required
           />
-          <mat-error *ngIf="model.password.errors">
-            {{ model.passwordError }}
-          </mat-error>
+          @if (model.password.errors) {
+            <mat-error>
+              {{ model.passwordError }}
+            </mat-error>
+          }
         </mat-form-field>
       </div>
 
@@ -56,23 +60,26 @@
             name="confirmpassword"
             required
           />
-          <mat-error *ngIf="model.passwordConfirm.errors">
-            {{ model.passwordConfirmError }}
-          </mat-error>
+          @if (model.passwordConfirm.errors) {
+            <mat-error>
+              {{ model.passwordConfirmError }}
+            </mat-error>
+          }
         </mat-form-field>
       </div>
 
       <div class="col-12 py-2">
-        <button
-          *ngIf="showLogin"
-          mat-flat-button
-          color="accent"
-          class="mx-2"
-          (click)="onLogin()"
-          type="button"
-        >
-          LOGIN
-        </button>
+        @if (showLogin) {
+          <button
+            mat-flat-button
+            color="accent"
+            class="mx-2"
+            (click)="onLogin()"
+            type="button"
+          >
+            LOGIN
+          </button>
+        }
         <button
           mat-flat-button
           color="primary"

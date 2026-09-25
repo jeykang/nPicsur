@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@angular/core';
-import { NAVIGATOR } from '@ng-web-apis/common';
+import { WA_NAVIGATOR } from '@ng-web-apis/common';
 import type { AckeeInstance, AckeeTrackingReturn } from 'ackee-tracker';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { TrackingState } from 'picsur-shared/dist/dto/tracking-state.enum';
@@ -18,7 +18,7 @@ export class UsageService {
   private tracker?: AckeeTrackingReturn;
 
   constructor(
-    @Inject(NAVIGATOR) private readonly navigator: Navigator,
+    @Inject(WA_NAVIGATOR) private readonly navigator: Navigator,
     private readonly hostInfo: InfoService,
   ) {
     this.doNotTrack =

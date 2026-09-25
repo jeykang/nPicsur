@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { Fail, FT, HasFailed } from 'picsur-shared/dist/types/failable';
 import { ProcessingViewMeta } from '../../models/dto/processing-view-meta.dto';
@@ -9,6 +9,8 @@ import { ErrorService } from '../../util/error-manager/error.service';
 
 @Component({
   templateUrl: './processing.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class ProcessingComponent implements OnInit {
   private readonly logger = new Logger(ProcessingComponent.name);

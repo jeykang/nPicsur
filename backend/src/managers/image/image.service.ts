@@ -14,6 +14,7 @@ import { UsrPreference } from 'picsur-shared/dist/dto/usr-preferences.enum';
 import {
   AsyncFailable,
   Fail,
+  Failable,
   FT,
   HasFailed,
 } from 'picsur-shared/dist/types/failable';
@@ -28,10 +29,18 @@ import { SysPreferenceDbService } from '../../collections/preference-db/sys-pref
 import { UsrPreferenceDbService } from '../../collections/preference-db/usr-preference-db.service.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
 import { MutexFallBack } from '../../util/mutex-fallback.js';
+import { ConversionLimiterService } from './conversion-limiter.service.js';
+import { MasterDimensions } from './dimensions.js';
 import { ImageConverterService } from './image-converter.service.js';
 import { ImageProcessorService } from './image-processor.service.js';
 import { IsQOI } from '../../workers/codecs/qoi.js';
 import { IsAnimatedWebP } from './webp.js';
+
+// Images can be resized to at most this many pixels, or their own size when
+// that is larger
+const MaxUpscalePixels = 4096 * 4096;
+// Converted versions kept per image
+const MaxDerivativesPerImage = 50;
 
 @Injectable()
 export class ImageManagerService {
@@ -42,6 +51,7 @@ export class ImageManagerService {
     private readonly imageFilesService: ImageFileDBService,
     private readonly processService: ImageProcessorService,
     private readonly convertService: ImageConverterService,
+    private readonly conversionLimiter: ConversionLimiterService,
     private readonly userPref: UsrPreferenceDbService,
     private readonly sysPref: SysPreferenceDbService,
   ) {}
@@ -141,10 +151,12 @@ export class ImageManagerService {
     return imageEntity;
   }
 
+  // Client identifies who asked for it, for rate limiting
   public async getConverted(
     imageId: string,
     fileType: string,
     options: ImageRequestParams,
+    client: string,
   ): AsyncFailable<StoredImage> {
     const targetFileType = ParseFileType(fileType);
     if (HasFailed(targetFileType)) return targetFileType;
@@ -175,6 +187,24 @@ export class ImageManagerService {
         const sourceFileType = ParseFileType(masterImage.filetype);
         if (HasFailed(sourceFileType)) return sourceFileType;
 
+        // Nothing to convert, serve the master as it is instead of storing
+        // another copy of it
+        if (
+          sourceFileType.identifier === targetFileType.identifier &&
+          Object.keys(effectiveOptions).length === 0
+        ) {
+          return masterImage;
+        }
+
+        const sizeAllowed = this.checkOutputSize(
+          masterImage.data,
+          effectiveOptions,
+        );
+        if (HasFailed(sizeAllowed)) return sizeAllowed;
+
+        const clientAllowed = this.conversionLimiter.checkClient(client);
+        if (HasFailed(clientAllowed)) return clientAllowed;
+
         const startTime = Date.now();
         const convertResult = await this.convertService.convert(
           masterImage.data,
@@ -190,6 +220,17 @@ export class ImageManagerService {
           } in ${Date.now() - startTime}ms`,
         );
 
+        // Don't let a single image collect an unlimited amount of cached
+        // versions, when it has plenty they are made but not kept
+        const cached = await this.imageFilesService.countDerivatives(imageId);
+        if (HasFailed(cached)) return cached;
+        if (cached >= MaxDerivativesPerImage) {
+          return {
+            filetype: convertResult.filetype,
+            data: convertResult.image,
+          };
+        }
+
         return await this.imageFilesService.addDerivative(
           imageId,
           converted_key,
@@ -198,6 +239,40 @@ export class ImageManagerService {
         );
       },
     );
+  }
+
+  // Resizing is meant for getting a differently sized version of an image,
+  // not for making the server render gigantic ones
+  private checkOutputSize(
+    master: Buffer,
+    options: ImageRequestParams,
+  ): Failable<true> {
+    if (!options.width && !options.height) return true;
+
+    const source = MasterDimensions(master);
+    if (source === null) return true;
+
+    let { width, height } = source;
+    if (options.width && options.height) {
+      width = options.width;
+      height = options.height;
+    } else if (options.width) {
+      width = options.width;
+      height = Math.max(1, Math.round((source.height * width) / source.width));
+    } else if (options.height) {
+      height = options.height;
+      width = Math.max(1, Math.round((source.width * height) / source.height));
+    }
+    if (options.shrinkonly) {
+      width = Math.min(width, source.width);
+      height = Math.min(height, source.height);
+    }
+
+    const allowed = Math.max(source.width * source.height, MaxUpscalePixels);
+    if (width * height > allowed) {
+      return Fail(FT.UsrValidation, 'The requested size is too large');
+    }
+    return true;
   }
 
   // File getters ==============================================================

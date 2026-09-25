@@ -187,6 +187,24 @@ describe('image storage', () => {
     }
   });
 
+  it('does not store copies of the master', async () => {
+    const { id } = await client.uploadOk(await makePng());
+    const res = await Client.guest().get(`/i/${id}.qoi`);
+    expect(res.status).toBe(200);
+    expect(res.body.subarray(0, 4).toString()).toBe('qoif');
+    expect(await derivativeRows(id)).toEqual([]);
+  });
+
+  it('keeps at most 50 cached conversions per image', async () => {
+    const { id } = await client.uploadOk(await makePng(20, 20));
+    for (let width = 1; width <= 55; width++) {
+      const res = await Client.guest().get(`/i/${id}.png?width=${width}`);
+      expect(res.status).toBe(200);
+      expect((await sharp(res.body).metadata()).width).toBe(width);
+    }
+    expect(await derivativeRows(id)).toHaveLength(50);
+  });
+
   it('deletes the stored data along with the image', async () => {
     const { id } = await client.uploadOk(await makePng());
     await Client.guest().get(`/i/${id}.jpg`);

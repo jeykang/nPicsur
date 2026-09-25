@@ -15,6 +15,7 @@ import {
 import { SharpOptions } from 'sharp';
 import { SysPreferenceDbService } from '../../collections/preference-db/sys-preference-db.service.js';
 import { SharpWrapper } from '../../workers/sharp.wrapper.js';
+import { ConversionLimiterService } from './conversion-limiter.service.js';
 import { ImageResult } from './imageresult.js';
 
 interface InternalConvertOptions {
@@ -26,7 +27,10 @@ export type ConvertOptions = ImageRequestParams & InternalConvertOptions;
 
 @Injectable()
 export class ImageConverterService {
-  constructor(private readonly sysPref: SysPreferenceDbService) {}
+  constructor(
+    private readonly sysPref: SysPreferenceDbService,
+    private readonly limiter: ConversionLimiterService,
+  ) {}
 
   public async convert(
     image: Buffer,
@@ -55,7 +59,29 @@ export class ImageConverterService {
     }
   }
 
+  // Only a limited amount of conversions run at the same time, each one runs
+  // in its own process and can take a lot of memory
   private async convertImage(
+    image: Buffer,
+    sourceFiletype: FileType,
+    targetFiletype: FileType,
+    options: ConvertOptions,
+  ): AsyncFailable<ImageResult> {
+    const release = await this.limiter.acquire();
+    if (HasFailed(release)) return release;
+    try {
+      return await this.runConversion(
+        image,
+        sourceFiletype,
+        targetFiletype,
+        options,
+      );
+    } finally {
+      release();
+    }
+  }
+
+  private async runConversion(
     image: Buffer,
     sourceFiletype: FileType,
     targetFiletype: FileType,

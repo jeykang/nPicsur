@@ -38,6 +38,7 @@ const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 export const ADMIN_PASSWORD = 'e2e-admin-password';
 export const MAX_FILE_SIZE = 5 * 1000 * 1000;
+export const CONVERSION_RATE_LIMIT = 30;
 
 declare module 'vitest' {
   export interface ProvidedContext {
@@ -155,6 +156,7 @@ export default async function setup(project: TestProject) {
     PICSUR_PRODUCTION: 'true',
     PICSUR_VERBOSE: 'true',
     PICSUR_MAX_FILE_SIZE: String(MAX_FILE_SIZE),
+    PICSUR_CONVERSION_RATE_LIMIT: String(CONVERSION_RATE_LIMIT),
     ...extraEnv,
   };
 

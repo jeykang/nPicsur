@@ -200,6 +200,16 @@ export class ImageFileDBService {
     return loaded;
   }
 
+  public async countDerivatives(imageId: string): AsyncFailable<number> {
+    try {
+      return await this.imageDerivativeRepo.count({
+        where: { image_id: imageId },
+      });
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
+  }
+
   public async cleanupDerivatives(
     olderThanSeconds: number,
   ): AsyncFailable<number> {

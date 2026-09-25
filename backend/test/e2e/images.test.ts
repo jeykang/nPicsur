@@ -253,6 +253,53 @@ describe('image editing parameters', () => {
     }
   });
 
+  it('allows upscaling, but not to gigantic sizes', async () => {
+    const big = await fetchMeta('width=4000');
+    expect([big.width, big.height]).toEqual([4000, 3000]);
+
+    for (const query of [
+      'width=30000',
+      'height=20000',
+      'width=5000&height=5000',
+    ]) {
+      const res = await Client.guest().get(`/i/${imageId}.png?${query}`);
+      expect(res.status, query).toBe(400);
+      expect(res.json.data.message).toContain('too large');
+    }
+
+    // Unless it would not be upscaled anyway
+    const shrunk = await fetchMeta('width=30000&shrinkonly=true');
+    expect(shrunk.width).toBe(64);
+  });
+
+  it('limits how many new conversions a client can ask for', async () => {
+    const client = Client.pinned();
+    const statuses: number[] = [];
+    for (let width = 100; width < 140; width++) {
+      statuses.push(
+        (await client.get(`/i/${imageId}.jpg?width=${width}`)).status,
+      );
+    }
+    expect(statuses.filter((s) => s === 200).length).toBe(30);
+    expect(statuses.filter((s) => s === 429).length).toBe(10);
+
+    // Conversions that already exist are not limited
+    expect((await client.get(`/i/${imageId}.jpg?width=100`)).status).toBe(200);
+    // Other clients are not affected
+    expect(
+      (await Client.guest().get(`/i/${imageId}.jpg?width=139`)).status,
+    ).toBe(200);
+  });
+
+  it('handles many conversions at once', async () => {
+    const results = await Promise.all(
+      Array.from({ length: 24 }, (_, i) =>
+        Client.guest().get(`/i/${imageId}.webp?width=${200 + i}`),
+      ),
+    );
+    expect(results.map((r) => r.status)).toEqual(Array(24).fill(200));
+  });
+
   it('ignores editing parameters when editing is disabled', async () => {
     const admin = await Client.admin();
     expectSuccess(

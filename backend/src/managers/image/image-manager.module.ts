@@ -8,16 +8,19 @@ import { ImageDBService } from '../../collections/image-db/image-db.service.js';
 import { ImageFileDBService } from '../../collections/image-db/image-file-db.service.js';
 import { PreferenceDbModule } from '../../collections/preference-db/preference-db.module.js';
 import { SysPreferenceDbService } from '../../collections/preference-db/sys-preference-db.service.js';
+import { EarlyConfigModule } from '../../config/early/early-config.module.js';
+import { ConversionLimiterService } from './conversion-limiter.service.js';
 import { ImageConverterService } from './image-converter.service.js';
 import { ImageProcessorService } from './image-processor.service.js';
 import { ImageManagerService } from './image.service.js';
 
 @Module({
-  imports: [ImageDBModule, PreferenceDbModule],
+  imports: [ImageDBModule, PreferenceDbModule, EarlyConfigModule],
   providers: [
     ImageManagerService,
     ImageProcessorService,
     ImageConverterService,
+    ConversionLimiterService,
   ],
   exports: [ImageManagerService, ImageConverterService],
 })

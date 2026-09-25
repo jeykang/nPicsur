@@ -1,6 +1,6 @@
-import { Controller, Get, Head, Logger, Query, Res } from '@nestjs/common';
+import { Controller, Get, Head, Logger, Query, Req, Res } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
-import type { FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   ImageMetaResponse,
   ImageRequestParams,
@@ -62,6 +62,7 @@ export class ImageController {
     @Res({ passthrough: true }) res: FastifyReply,
     @ImageFullIdParam() fullid: ImageFullId,
     @Query() params: ImageRequestParams,
+    @Req() req: FastifyRequest,
   ): Promise<Buffer> {
     try {
       if (fullid.variant === ImageEntryVariant.ORIGINAL) {
@@ -79,6 +80,7 @@ export class ImageController {
           fullid.id,
           fullid.filetype,
           params,
+          req.ip,
         ),
       );
 

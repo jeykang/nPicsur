@@ -87,9 +87,11 @@ COPY frontend/package.json frontend/
 COPY backend/package.json backend/
 RUN pnpm install --frozen-lockfile --prod
 
+# The prebuilt sharp and libvips that come with the install are not used
 RUN cd backend/node_modules/sharp \
  && NODE_PATH="$(npm root -g)" SHARP_FORCE_GLOBAL_LIBVIPS=1 node install/build.js \
- && rm -rf src/build/Release/obj.target src/build/Release/.deps
+ && rm -rf src/build/Release/obj.target src/build/Release/.deps \
+ && rm -rf /picsur/node_modules/.pnpm/@img+sharp-*
 
 # ------------------------------------------------------------------------------
 FROM ${NODE_IMAGE}

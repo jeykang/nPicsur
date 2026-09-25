@@ -1,8 +1,8 @@
 import fastifyStatic from '@fastify/static';
 import { Logger } from '@nestjs/common';
 import type { FastifyInstance } from 'fastify';
-import { createReadStream, existsSync } from 'fs';
-import { join } from 'path';
+import { createReadStream, existsSync, statSync } from 'fs';
+import { join, resolve, sep } from 'path';
 import { ApiErrorResponse } from 'picsur-shared/dist/dto/api/api.dto';
 import { Fail, FT } from 'picsur-shared/dist/types/failable';
 
@@ -22,10 +22,11 @@ export async function registerFrontend(fastify: FastifyInstance, root: string) {
 
   await fastify.register(fastifyStatic, {
     root,
-    // Only serve files that exist at startup, anything else goes to the
-    // fallback below
+    // Files that exist at startup get a route of their own, anything else
+    // goes to the fallback below
     wildcard: false,
   });
+  const rootDir = resolve(root) + sep;
 
   fastify.get('/*', (request, reply) => {
     const path = request.url.split('?')[0];
@@ -42,6 +43,19 @@ export async function registerFrontend(fastify: FastifyInstance, root: string) {
         },
       };
       return reply.status(failure.getCode()).send(response);
+    }
+
+    // Files added after startup, like those of a frontend that was rebuilt
+    // while developing
+    const relative = path.replace(/^\/+/, '');
+    const file = resolve(root, relative);
+    if (
+      relative !== '' &&
+      file.startsWith(rootDir) &&
+      existsSync(file) &&
+      statSync(file).isFile()
+    ) {
+      return reply.sendFile(relative);
     }
 
     if (!existsSync(indexFile)) {

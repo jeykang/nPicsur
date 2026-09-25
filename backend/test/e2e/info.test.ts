@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, inject, it } from 'vitest';
 import { Client, expectSuccess } from './helpers/client.js';
 
 describe('info', () => {
@@ -51,6 +53,24 @@ describe('info', () => {
     expect(post.status).toBe(404);
     expect(post.json.success).toBe(false);
   });
+
+  // The Docker image has its frontend inside the container
+  it.runIf(inject('dockerImage') === null)(
+    'serves frontend files added after startup',
+    async () => {
+      const root = inject('serverEnv')['PICSUR_STATIC_FRONTEND_ROOT'];
+      writeFileSync(join(root, 'chunk-new.js'), 'console.log(1);');
+
+      const res = await guest.get('/chunk-new.js');
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toContain('javascript');
+      expect(res.body.toString()).toBe('console.log(1);');
+
+      // Nothing outside of the frontend
+      const outside = await guest.get('/..%2f..%2fpackage.json');
+      expect(outside.headers.get('content-type')).toContain('text/html');
+    },
+  );
 
   it('serves the frontend for its own routes', async () => {
     for (const path of ['/upload', '/view/some-id', '/settings/users']) {

@@ -3,12 +3,12 @@ import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { EUser, EUserSchema } from 'picsur-shared/dist/entities/user.entity';
 import {
-    AsyncFailable,
-    FT,
-    Fail,
-    Failable,
-    HasFailed,
-    ThrowIfFailed,
+  AsyncFailable,
+  FT,
+  Fail,
+  Failable,
+  HasFailed,
+  ThrowIfFailed,
 } from 'picsur-shared/dist/types/failable';
 import { makeUnique } from 'picsur-shared/dist/util/unique';
 import { UserDbService } from '../../../collections/user-db/user-db.service.js';
@@ -81,12 +81,15 @@ export class MainAuthGuard extends AuthGuard(['apikey', 'jwt', 'guest']) {
     const handlerName = context.getHandler().name;
     // Fall back to class permissions if none on function
     // But function has higher priority than class
+    // (e.g. deleting an image with its delete key needs only that permission,
+    // not the upload permission of the rest of the controller)
     const permissionsHandler: Permissions | undefined =
       this.reflector.get<Permissions>('permissions', context.getHandler());
     const permissionsClass: Permissions | undefined =
       this.reflector.get<Permissions>('permissions', context.getClass());
 
-    if (permissionsHandler === undefined && permissionsClass === undefined) {
+    const routePermissions = permissionsHandler ?? permissionsClass;
+    if (routePermissions === undefined) {
       return Fail(
         FT.Internal,
         undefined,
@@ -94,10 +97,7 @@ export class MainAuthGuard extends AuthGuard(['apikey', 'jwt', 'guest']) {
       );
     }
 
-    const permissions = makeUnique([
-      ...(permissionsHandler ?? []),
-      ...(permissionsClass ?? []),
-    ]);
+    const permissions = makeUnique(routePermissions);
 
     if (!isPermissionsArray(permissions))
       return Fail(

@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { decodeToken } from '@leteu/jwt-decoder';
 import {
+  UserChangePasswordRequest,
+  UserChangePasswordResponse,
   UserCheckNameRequest,
   UserCheckNameResponse,
   UserLoginRequest,
@@ -49,14 +51,24 @@ export class UserService {
     this.init().catch(this.logger.error);
   }
 
-  private async init() {
+  private async init(retryDelay = 1000) {
     const apikey = await this.key.get();
     if (!apikey) return;
 
     const fetchedUser = await this.fetchUser();
     if (HasFailed(fetchedUser)) {
       this.logger.error(fetchedUser.getReason());
-      await this.logout();
+      if (fetchedUser.getType() === FT.Permission) {
+        // The login is no longer valid
+        await this.logout();
+      } else {
+        // The server could not be reached, keep the login and try again
+        window.setTimeout(
+          () =>
+            this.init(Math.min(retryDelay * 2, 30000)).catch(this.logger.error),
+          retryDelay,
+        );
+      }
       return;
     }
 
@@ -112,6 +124,26 @@ export class UserService {
         password,
       },
     ).result;
+  }
+
+  public async changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): AsyncFailable<true> {
+    const response = await this.api.post(
+      UserChangePasswordRequest,
+      UserChangePasswordResponse,
+      '/api/user/me/password',
+      {
+        current_password: currentPassword,
+        new_password: newPassword,
+      },
+    ).result;
+    if (HasFailed(response)) return response;
+
+    // The old token no longer works
+    this.key.set(response.jwt_token);
+    return true;
   }
 
   public async logout(): AsyncFailable<EUser> {

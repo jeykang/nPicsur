@@ -1,11 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
-    ParseBool,
-    ParseInt,
-    ParseString,
+  ParseBool,
+  ParseInt,
+  ParseString,
 } from 'picsur-shared/dist/util/parse-simple';
-import { EnvPrefix } from '../config.static.js';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { EnvPrefix, PackageRoot } from '../config.static.js';
 
 @Injectable()
 export class HostConfigService {
@@ -14,15 +16,13 @@ export class HostConfigService {
   constructor(private readonly configService: ConfigService) {
     this.logger.log('Production: ' + this.isProduction());
     this.logger.log('Verbose: ' + this.isVerbose());
-    this.logger.log('Location: http://' + this.getHost() + ":" + this.getPort());
+    this.logger.log(
+      'Location: http://' + this.getHost() + ':' + this.getPort(),
+    );
 
     if (this.isDemo()) {
       this.logger.log('Running in demo mode');
       this.logger.log('Demo Interval: ' + this.getDemoInterval() / 1000 + 's');
-    }
-
-    if (!this.isTelemetry()) {
-      this.logger.log('Telemetry disabled');
     }
   }
 
@@ -53,11 +53,17 @@ export class HostConfigService {
     return ParseBool(this.configService.get(`${EnvPrefix}VERBOSE`), false);
   }
 
-  public isTelemetry() {
-    return ParseBool(this.configService.get(`${EnvPrefix}TELEMETRY`), true);
-  }
-
-  public getVersion() {
-    return ParseString(this.configService.get(`npm_package_version`), '0.0.0');
+  // Read from package.json, so it does not depend on being started through
+  // npm or pnpm
+  public getVersion(): string {
+    try {
+      const pkg = JSON.parse(
+        readFileSync(join(PackageRoot, 'package.json'), 'utf8'),
+      );
+      if (typeof pkg.version === 'string') return pkg.version;
+    } catch {
+      // Fall through
+    }
+    return '0.0.0';
   }
 }

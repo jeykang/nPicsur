@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { ImageFileType } from 'picsur-shared/dist/dto/mimes.dto';
@@ -13,6 +13,10 @@ import {
   switchMap,
   timer,
 } from 'rxjs';
+import {
+  AddToAlbumDialogComponent,
+  AddToAlbumDialogData,
+} from '../../components/album-dialog/add-to-album-dialog.component';
 import { ImageService } from '../../services/api/image.service';
 import { UserService } from '../../services/api/user.service';
 import { Logger } from '../../services/logger/logger.service';
@@ -23,6 +27,8 @@ import { ErrorService } from '../../util/error-manager/error.service';
 @Component({
   templateUrl: './images.component.html',
   styleUrls: ['./images.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class ImagesComponent implements OnInit {
   private readonly logger: Logger = new Logger(ImagesComponent.name);
@@ -131,6 +137,12 @@ export class ImagesComponent implements OnInit {
 
   viewImage(image: EImage) {
     this.router.navigate(['/view', image.id]);
+  }
+
+  async addToAlbum(image: EImage) {
+    await this.dialogService.showCustomDialog(AddToAlbumDialogComponent, {
+      imageId: image.id,
+    } satisfies AddToAlbumDialogData);
   }
 
   async deleteImage(image: EImage) {

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
@@ -17,6 +17,8 @@ enum EditMode {
   selector: 'app-settings-roles-edit',
   templateUrl: './settings-roles-edit.component.html',
   styleUrls: ['./settings-roles-edit.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsRolesEditComponent implements OnInit {
   private readonly logger = new Logger(SettingsRolesEditComponent.name);

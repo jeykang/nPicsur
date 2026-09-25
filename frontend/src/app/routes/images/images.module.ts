@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MomentModule } from 'ngx-moment';
+import { AlbumDialogModule } from '../../components/album-dialog/album-dialog.module';
 import { MasonryModule } from '../../components/masonry/masonry.module';
 import { PaginatorModule } from '../../components/paginator/paginator.module';
 import { PicsurImgModule } from '../../components/picsur-img/picsur-img.module';
@@ -19,6 +20,7 @@ import { ImagesRoutingModule } from './images.routing.module';
     CommonModule,
     ErrorManagerModule,
     DialogManagerModule,
+    AlbumDialogModule,
 
     ImagesRoutingModule,
     MatCardModule,

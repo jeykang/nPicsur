@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { Observable } from 'rxjs';
 
@@ -10,6 +10,8 @@ export interface DownloadDialogData {
 @Component({
   selector: 'download-dialog',
   templateUrl: './download-dialog.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class DownloadDialogComponent {
   public progress: Observable<number>;

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { EImageSchema } from '../../entities/image.entity.js';
-import { EUserSchema } from '../../entities/user.entity.js';
+import { EPublicUserSchema } from '../../entities/user.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { ParseBoolZ, ParseIntZ } from '../../util/parse-simple.js';
 import { ImageEntryVariant } from '../image-entry-variant.enum.js';
@@ -29,7 +29,8 @@ export class ImageRequestParams extends createZodDto(
 
 export const ImageMetaResponseSchema = z.object({
   image: EImageSchema,
-  user: EUserSchema,
+  // Null when the user who uploaded it was deleted
+  user: EPublicUserSchema.nullable(),
   fileTypes: z.object({
     [ImageEntryVariant.MASTER]: z.string(),
     [ImageEntryVariant.ORIGINAL]: z.union([z.string(), z.undefined()]),

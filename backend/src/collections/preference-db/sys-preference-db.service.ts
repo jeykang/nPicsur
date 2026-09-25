@@ -1,26 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
-    DecodedSysPref,
-    PrefValueType,
-    PrefValueTypeStrings,
+  DecodedSysPref,
+  PrefValueType,
+  PrefValueTypeStrings,
 } from 'picsur-shared/dist/dto/preferences.dto';
 import {
-    SysPreference,
-    SysPreferenceList,
-    SysPreferenceValidators,
-    SysPreferenceValueTypes,
+  SysPreference,
+  SysPreferenceList,
+  SysPreferenceValidators,
+  SysPreferenceValueTypes,
 } from 'picsur-shared/dist/dto/sys-preferences.enum';
 import {
-    AsyncFailable,
-    Fail,
-    FT,
-    HasFailed,
+  AsyncFailable,
+  Fail,
+  FT,
+  HasFailed,
 } from 'picsur-shared/dist/types/failable';
 import { Repository } from 'typeorm';
 import {
-    ESysPreferenceBackend,
-    ESysPreferenceSchema,
+  ESysPreferenceBackend,
+  ESysPreferenceSchema,
 } from '../../database/entities/system/sys-preference.entity.js';
 import { MutexFallBack } from '../../util/mutex-fallback.js';
 import { PreferenceCommonService } from './preference-common.service.js';
@@ -130,11 +130,19 @@ export class SysPreferenceDbService {
     const internalSysPrefs = await Promise.all(
       SysPreferenceList.map((key) => this.getPreference(key)),
     );
-    if (internalSysPrefs.some((pref) => HasFailed(pref))) {
-      return Fail(FT.Internal, 'Could not get all preferences');
-    }
 
-    return internalSysPrefs as DecodedSysPref[];
+    // One broken preference should not make all the others unreachable
+    const prefs: DecodedSysPref[] = [];
+    internalSysPrefs.forEach((pref, i) => {
+      if (HasFailed(pref)) {
+        pref.print(this.logger, {
+          prefix: `Preference ${SysPreferenceList[i]}:`,
+        });
+      } else {
+        prefs.push(pref);
+      }
+    });
+    return prefs;
   }
 
   // Private

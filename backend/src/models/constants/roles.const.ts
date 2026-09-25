@@ -1,5 +1,9 @@
 import tuple from 'picsur-shared/dist/types/tuple';
-import { Permission, Permissions, PermissionsList } from './permissions.const.js';
+import {
+  Permission,
+  Permissions,
+  PermissionsList,
+} from './permissions.const.js';
 
 // Config
 
@@ -41,10 +45,12 @@ const SystemRoleDefaultsTyped: {
     Permission.UserLogin,
     Permission.ImageView,
     Permission.ImageDeleteKey,
+    Permission.GalleryView,
   ],
   user: [
     Permission.ImageView,
     Permission.ImageDeleteKey,
+    Permission.GalleryView,
     Permission.ImageManage,
     Permission.ImageUpload,
     Permission.UserKeepLogin,

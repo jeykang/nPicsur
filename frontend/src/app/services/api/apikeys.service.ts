@@ -49,7 +49,8 @@ export class ApiKeysService {
     ).result;
   }
 
-  public async createApiKey(): AsyncFailable<EApiKey> {
+  // The only time the key itself is available
+  public async createApiKey(): AsyncFailable<ApiKeyCreateResponse> {
     return await this.api.postEmpty(ApiKeyCreateResponse, '/api/apikeys/create')
       .result;
   }

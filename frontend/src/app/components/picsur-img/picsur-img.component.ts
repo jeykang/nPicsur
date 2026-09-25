@@ -5,7 +5,7 @@ import {
   ElementRef,
   Input,
   OnChanges,
-  ViewChild
+  ViewChild,
 } from '@angular/core';
 import { FileType, ImageFileType } from 'picsur-shared/dist/dto/mimes.dto';
 import { AsyncFailable, HasFailed } from 'picsur-shared/dist/types/failable';
@@ -28,6 +28,7 @@ enum PicsurImgState {
   templateUrl: './picsur-img.component.html',
   styleUrls: ['./picsur-img.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class PicsurImgComponent implements OnChanges {
   private readonly logger = new Logger(PicsurImgComponent.name);
@@ -104,7 +105,7 @@ export class PicsurImgComponent implements OnChanges {
       return response;
     }
 
-    const mimeHeader = response['content-type'] ?? '';
+    const mimeHeader = String(response['content-type'] ?? '');
     const mime = mimeHeader.split(';')[0];
 
     return ParseMime2FileType(mime);

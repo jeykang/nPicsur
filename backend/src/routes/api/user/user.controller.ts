@@ -1,25 +1,32 @@
-import { Body, Controller, Get, Logger, Post } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Req } from '@nestjs/common';
+import type { FastifyRequest } from 'fastify';
 import {
-    UserCheckNameRequest,
-    UserCheckNameResponse,
-    UserLoginResponse,
-    UserMePermissionsResponse,
-    UserMeResponse,
-    UserRegisterRequest,
-    UserRegisterResponse,
+  UserChangePasswordRequest,
+  UserChangePasswordResponse,
+  UserCheckNameRequest,
+  UserCheckNameResponse,
+  UserLoginResponse,
+  UserMePermissionsResponse,
+  UserMeResponse,
+  UserRegisterRequest,
+  UserRegisterResponse,
 } from 'picsur-shared/dist/dto/api/user.dto';
 import type { EUser } from 'picsur-shared/dist/entities/user.entity';
-import { ThrowIfFailed } from 'picsur-shared/dist/types/failable';
+import { Fail, FT, ThrowIfFailed } from 'picsur-shared/dist/types/failable';
 import { UserDbService } from '../../../collections/user-db/user-db.service.js';
 import { EasyThrottle } from '../../../decorators/easy-throttle.decorator.js';
 import {
-    NoPermissions,
-    RequiredPermissions,
-    UseLocalAuth,
+  NoPermissions,
+  RequiredPermissions,
+  UseLocalAuth,
 } from '../../../decorators/permissions.decorator.js';
-import { ReqUser, ReqUserID } from '../../../decorators/request-user.decorator.js';
+import {
+  ReqUser,
+  ReqUserID,
+} from '../../../decorators/request-user.decorator.js';
 import { Returns } from '../../../decorators/returns.decorator.js';
 import { AuthManagerService } from '../../../managers/auth/auth.service.js';
+import { ApiKeyPrefix } from '../../../managers/auth/guards/apikey.strategy.js';
 import { Permission } from '../../../models/constants/permissions.const.js';
 import { EUserBackend2EUser } from '../../../models/transformers/user.transformer.js';
 
@@ -71,22 +78,57 @@ export class UserController {
   @Get('me')
   @Returns(UserMeResponse)
   @RequiredPermissions(Permission.UserKeepLogin)
-  @EasyThrottle(10)
-  async me(@ReqUserID() userid: string): Promise<UserMeResponse> {
+  async me(
+    @ReqUserID() userid: string,
+    @Req() req: FastifyRequest,
+  ): Promise<UserMeResponse> {
     const backenduser = ThrowIfFailed(await this.usersService.findOne(userid));
 
     const user = EUserBackend2EUser(backenduser);
 
-    const token = ThrowIfFailed(await this.authService.createToken(user));
+    // An api key can not be exchanged for a session token, that token would
+    // keep working after the api key is deleted
+    const viaApiKey = req.headers.authorization?.startsWith(ApiKeyPrefix);
+    const token = viaApiKey
+      ? ''
+      : ThrowIfFailed(await this.authService.createToken(user));
 
     return { user, token };
+  }
+
+  @Post('me/password')
+  @Returns(UserChangePasswordResponse)
+  @RequiredPermissions(Permission.UserKeepLogin)
+  @EasyThrottle(10, 300)
+  async changePassword(
+    @ReqUserID() userid: string,
+    @Body() body: UserChangePasswordRequest,
+    @Req() req: FastifyRequest,
+  ): Promise<UserChangePasswordResponse> {
+    // This hands out a session token, which api keys can not be exchanged for
+    if (req.headers.authorization?.startsWith(ApiKeyPrefix)) {
+      throw Fail(FT.Permission, 'Log in to change your password');
+    }
+
+    const user = ThrowIfFailed(
+      await this.usersService.changePassword(
+        userid,
+        body.current_password,
+        body.new_password,
+      ),
+    );
+
+    // Changing the password logged out every session, this one included
+    const jwt_token = ThrowIfFailed(
+      await this.authService.createToken(EUserBackend2EUser(user)),
+    );
+    return { jwt_token };
   }
 
   // You can always check your permissions
   @Get('me/permissions')
   @Returns(UserMePermissionsResponse)
   @NoPermissions()
-  @EasyThrottle(20)
   async refresh(
     @ReqUserID() userid: string,
   ): Promise<UserMePermissionsResponse> {

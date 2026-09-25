@@ -2,7 +2,10 @@ import { z } from 'zod';
 import { EUserSchema } from '../../entities/user.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { IsStringList } from '../../validators/string-list.validator.js';
-import { IsPlainTextPwd, IsUsername } from '../../validators/user.validators.js';
+import {
+  IsPlainTextPwd,
+  IsUsername,
+} from '../../validators/user.validators.js';
 
 // Api
 const UserPassSchema = z.object({
@@ -28,6 +31,22 @@ export class UserRegisterRequest extends createZodDto(
 export const UserRegisterResponseSchema = EUserSchema;
 export class UserRegisterResponse extends createZodDto(
   UserRegisterResponseSchema,
+) {}
+
+// UserChangePassword
+export const UserChangePasswordRequestSchema = z.object({
+  current_password: IsPlainTextPwd(),
+  new_password: IsPlainTextPwd(),
+});
+export class UserChangePasswordRequest extends createZodDto(
+  UserChangePasswordRequestSchema,
+) {}
+
+// Changing the password logs out every session, this is a new token for the
+// session that changed it
+export const UserChangePasswordResponseSchema = UserLoginResponseSchema;
+export class UserChangePasswordResponse extends createZodDto(
+  UserChangePasswordResponseSchema,
 ) {}
 
 // UserCheckName

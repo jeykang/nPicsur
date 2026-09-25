@@ -3,14 +3,20 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { AsyncFailable, Fail, FT } from 'picsur-shared/dist/types/failable';
 import { FindResult } from 'picsur-shared/dist/types/find-result';
 import { generateRandomString } from 'picsur-shared/dist/util/random';
-import { In, LessThan, Repository } from 'typeorm';
+import { EntityManager, In, LessThan, Repository } from 'typeorm';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
+import { EUserBackend } from '../../database/entities/users/user.entity.js';
+import { ImageFileDBService } from './image-file-db.service.js';
 
+// Deleting an image deletes its rows first, and only then the data in object
+// storage (if any). A failure halfway leaves unused objects behind, instead
+// of images that are still listed but broken.
 @Injectable()
 export class ImageDBService {
   constructor(
     @InjectRepository(EImageBackend)
     private readonly imageRepo: Repository<EImageBackend>,
+    private readonly imageFiles: ImageFileDBService,
   ) {}
 
   public async create(
@@ -22,6 +28,7 @@ export class ImageDBService {
     imageEntity.user_id = userid;
     imageEntity.created = new Date();
     imageEntity.file_name = filename;
+    imageEntity.listed = false;
     if (withDeleteKey) imageEntity.delete_key = generateRandomString(32);
 
     try {
@@ -83,6 +90,60 @@ export class ImageDBService {
     }
   }
 
+  // The images shown in the public gallery, newest first, with who uploaded
+  // them
+  public async findGallery(
+    count: number,
+    page: number,
+  ): AsyncFailable<
+    FindResult<
+      EImageBackend & { user: { id: string; username: string } | null }
+    >
+  > {
+    if (count < 1 || page < 0) return Fail(FT.UsrValidation, 'Invalid page');
+    if (count > 100) return Fail(FT.UsrValidation, 'Too many results');
+
+    try {
+      const [found, amount] = await this.imageRepo
+        .createQueryBuilder('image')
+        .where('image.listed = true')
+        .andWhere('(image.expires_at IS NULL OR image.expires_at > :now)', {
+          now: new Date(),
+        })
+        .orderBy('image.created', 'DESC')
+        .skip(count * page)
+        .take(count)
+        .getManyAndCount();
+
+      const userIds = [...new Set(found.map((image) => image.user_id))];
+      const users =
+        userIds.length === 0
+          ? []
+          : await this.imageRepo.manager.getRepository(EUserBackend).find({
+              where: { id: In(userIds) },
+              select: ['id', 'username'],
+            });
+      const byId = new Map(
+        users.map((user) => [
+          user.id,
+          { id: user.id, username: user.username },
+        ]),
+      );
+
+      return {
+        results: found.map((image) => ({
+          ...image,
+          user: byId.get(image.user_id) ?? null,
+        })),
+        total: amount,
+        page,
+        pages: Math.ceil(amount / count),
+      };
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
+  }
+
   public async count(): AsyncFailable<number> {
     try {
       return await this.imageRepo.count();
@@ -94,7 +155,9 @@ export class ImageDBService {
   public async update(
     id: string,
     userid: string | undefined,
-    options: Partial<Pick<EImageBackend, 'file_name' | 'expires_at'>>,
+    options: Partial<
+      Pick<EImageBackend, 'file_name' | 'expires_at' | 'listed'>
+    >,
   ): AsyncFailable<EImageBackend> {
     try {
       const found = await this.imageRepo.findOne({
@@ -107,6 +170,8 @@ export class ImageDBService {
 
       if (options.expires_at !== undefined)
         found.expires_at = options.expires_at;
+
+      if (options.listed !== undefined) found.listed = options.listed;
 
       await this.imageRepo.save(found);
 
@@ -123,25 +188,30 @@ export class ImageDBService {
     if (ids.length === 0) return [];
     if (ids.length > 500) return Fail(FT.UsrValidation, 'Too many results');
 
+    let deletable_images: EImageBackend[];
     try {
-      const deletable_images = await this.imageRepo.find({
+      deletable_images = await this.imageRepo.find({
         where: {
           id: In(ids),
           user_id: userid,
         },
       });
-
-      const available_ids = deletable_images.map((i) => i.id);
-
-      if (available_ids.length === 0)
-        return Fail(FT.NotFound, 'Images not found');
-
-      await this.imageRepo.delete({ id: In(available_ids) });
-
-      return deletable_images;
     } catch (e) {
       return Fail(FT.Database, e);
     }
+
+    const available_ids = deletable_images.map((i) => i.id);
+    if (available_ids.length === 0)
+      return Fail(FT.NotFound, 'Images not found');
+
+    try {
+      await this.imageRepo.delete({ id: In(available_ids) });
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
+
+    await this.imageFiles.deleteStoredData(available_ids);
+    return deletable_images;
   }
 
   public async deleteWithKey(
@@ -157,6 +227,7 @@ export class ImageDBService {
 
       await this.imageRepo.delete({ id: found.id });
 
+      await this.imageFiles.deleteStoredData([found.id]);
       return found;
     } catch (e) {
       return Fail(FT.Database, e);
@@ -175,18 +246,86 @@ export class ImageDBService {
     } catch (e) {
       return Fail(FT.Database, e);
     }
+
+    await this.imageFiles.deleteStoredData('all');
     return true;
   }
 
-  public async cleanupExpired(): AsyncFailable<number> {
-    try {
-      const res = await this.imageRepo.delete({
-        expires_at: LessThan(new Date()),
-      });
+  // Deletes the rows of every image of a user, as part of the transaction
+  // the entity manager belongs to, and returns their ids. Their data in
+  // object storage still has to be deleted with deleteStoredData once the
+  // transaction is committed. Errors are thrown, to roll the transaction
+  // back.
+  public async deleteRowsOfUser(
+    userid: string,
+    manager: EntityManager,
+  ): Promise<string[]> {
+    const result = await manager
+      .createQueryBuilder()
+      .delete()
+      .from(EImageBackend)
+      .where({ user_id: userid })
+      .returning(['id'])
+      .execute();
+    return (result.raw as { id: string }[]).map((image) => image.id);
+  }
 
-      return res.affected ?? 0;
+  // Counts the images of users that no longer exist, per user. Picsur 0.5
+  // kept the images of deleted users.
+  public async countOrphaned(): AsyncFailable<Map<string, number>> {
+    try {
+      const rows: { user_id: string; count: string }[] = await this.imageRepo
+        .createQueryBuilder('image')
+        .select('image.user_id', 'user_id')
+        .addSelect('COUNT(*)', 'count')
+        .where(this.orphanedCondition('image'))
+        .groupBy('image.user_id')
+        .getRawMany();
+      return new Map(rows.map((row) => [row.user_id, Number(row.count)]));
     } catch (e) {
       return Fail(FT.Database, e);
     }
+  }
+
+  // Deletes the images of users that no longer exist
+  public async deleteOrphaned(): AsyncFailable<number> {
+    let deleted: { id: string }[];
+    try {
+      const result = await this.imageRepo
+        .createQueryBuilder()
+        .delete()
+        .where(this.orphanedCondition(this.imageRepo.metadata.tableName))
+        .returning(['id'])
+        .execute();
+      deleted = result.raw;
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
+
+    await this.imageFiles.deleteStoredData(deleted.map((image) => image.id));
+    return deleted.length;
+  }
+
+  private orphanedCondition(imageAlias: string): string {
+    const users = this.imageRepo.manager.connection.getMetadata(EUserBackend);
+    return `NOT EXISTS (SELECT 1 FROM "${users.tableName}" "owner" WHERE "owner"."id" = "${imageAlias}"."user_id")`;
+  }
+
+  public async cleanupExpired(): AsyncFailable<number> {
+    let deleted: { id: string }[];
+    try {
+      const result = await this.imageRepo
+        .createQueryBuilder()
+        .delete()
+        .where({ expires_at: LessThan(new Date()) })
+        .returning(['id'])
+        .execute();
+      deleted = result.raw;
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
+
+    await this.imageFiles.deleteStoredData(deleted.map((image) => image.id));
+    return deleted.length;
   }
 }

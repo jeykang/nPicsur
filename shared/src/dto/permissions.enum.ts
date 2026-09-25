@@ -7,6 +7,7 @@ export enum Permission {
   ImageUpload = 'image-upload', // Ability to upload images
   ImageDeleteKey = 'image-delete-key', // Ability to delete images by a secret key
   ImageManage = 'image-manage', // List and delete own images
+  GalleryView = 'gallery-view', // See the images their owners chose to show in the gallery
 
   UserLogin = 'user-login', // Ability to log in
   UserKeepLogin = 'user-keep-login', // Ability to view own user details and refresh token

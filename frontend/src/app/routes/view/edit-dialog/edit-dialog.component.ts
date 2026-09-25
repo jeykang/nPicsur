@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { EImage } from 'picsur-shared/dist/entities/image.entity';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
@@ -14,6 +14,8 @@ export interface EditDialogData {
   selector: 'edit-dialog',
   templateUrl: './edit-dialog.component.html',
   styleUrls: ['./edit-dialog.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class EditDialogComponent {
   private readonly logger = new Logger(EditDialogComponent.name);
@@ -32,6 +34,7 @@ export class EditDialogComponent {
   ];
 
   public expiresAfter?: number = undefined;
+  public listed = false;
   public image: EImage;
 
   constructor(
@@ -45,6 +48,7 @@ export class EditDialogComponent {
     }
 
     this.image = data.image;
+    this.listed = data.image.listed;
   }
 
   close() {
@@ -55,6 +59,7 @@ export class EditDialogComponent {
     const result = await this.imageService.UpdateImage(this.image.id, {
       file_name: this.image.file_name,
       expires_at: this.getExpiresDate(),
+      listed: this.listed,
     });
 
     if (HasFailed(result)) {

@@ -1,4 +1,9 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ViewChild,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
@@ -16,6 +21,8 @@ import { Throttle } from '../../../util/throttle';
 @Component({
   templateUrl: './settings-users.component.html',
   styleUrls: ['./settings-users.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsUsersComponent implements OnInit {
   private readonly logger = new Logger(SettingsUsersComponent.name);
@@ -63,7 +70,8 @@ export class SettingsUsersComponent implements OnInit {
   public async deleteUser(user: EUser) {
     const pressedButton = await this.dialogService.showDialog({
       title: `Are you sure you want to delete ${user.username}?`,
-      description: 'This action cannot be undone.',
+      description:
+        'All of their images are deleted as well. This action cannot be undone.',
       buttons: [
         {
           name: 'cancel',

@@ -1,11 +1,7 @@
-import { Component, OnInit } from '@angular/core';
-import { MatSelectChange } from '@angular/material/select';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { FileType2Ext, ImageFileType } from 'picsur-shared/dist/dto/mimes.dto';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
-import { EApiKey } from 'picsur-shared/dist/entities/apikey.entity';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
-import { BehaviorSubject } from 'rxjs';
-import { scan } from 'rxjs/operators';
 import { ApiKeysService } from '../../../services/api/apikeys.service';
 import { InfoService } from '../../../services/api/info.service';
 import { PermissionService } from '../../../services/api/permission.service';
@@ -17,6 +13,8 @@ import { BuildShareX } from './sharex-builder';
 @Component({
   templateUrl: './settings-sharex.component.html',
   styleUrls: ['./settings-sharex.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsShareXComponent implements OnInit {
   private readonly logger = new Logger(SettingsShareXComponent.name);
@@ -27,17 +25,7 @@ export class SettingsShareXComponent implements OnInit {
     key: string;
   }[] = [];
 
-  public apikeys = new BehaviorSubject<EApiKey[]>([]);
-  public apikeys$ = this.apikeys.asObservable().pipe(
-    scan((acc, curr) => {
-      return [...acc, ...curr];
-    }, [] as EApiKey[]),
-  );
-
-  public loaded = 0;
-  public available = -1;
-
-  public key: string | null = null;
+  public exporting = false;
 
   constructor(
     private readonly apikeysService: ApiKeysService,
@@ -49,16 +37,20 @@ export class SettingsShareXComponent implements OnInit {
 
   ngOnInit(): void {
     this.formatOptions = this.utilService.getBaseFormatOptions();
-    this.getNextBatch();
-  }
-
-  onSelectionChange(event: MatSelectChange) {
-    this.key = event.value;
   }
 
   async onExport() {
-    if (this.key === null) return;
+    this.exporting = true;
+    try {
+      await this.export();
+    } finally {
+      this.exporting = false;
+    }
+  }
 
+  // Api keys can only be read when they are created, so every config gets a
+  // new one
+  private async export() {
     const permissions = await this.permissionService.getLoadedSnapshot();
     const canUseDelete = permissions.includes(Permission.ImageDeleteKey);
 
@@ -67,9 +59,18 @@ export class SettingsShareXComponent implements OnInit {
       ext.print(this.logger);
     }
 
+    const apikey = await this.apikeysService.createApiKey();
+    if (HasFailed(apikey)) {
+      return this.errorService.showFailure(apikey, this.logger);
+    }
+    const renamed = await this.apikeysService.updateApiKey(apikey.id, 'ShareX');
+    if (HasFailed(renamed)) {
+      renamed.print(this.logger);
+    }
+
     const sharexConfig = BuildShareX(
       this.infoService.getHostname(),
-      this.key,
+      apikey.key,
       '.' + ext,
       canUseDelete,
     );
@@ -81,18 +82,5 @@ export class SettingsShareXComponent implements OnInit {
     );
 
     this.errorService.success('Exported ShareX config');
-  }
-
-  async getNextBatch() {
-    const newApiKeys = await this.apikeysService.getApiKeys(
-      50,
-      Math.floor(this.loaded / 50),
-    );
-    if (HasFailed(newApiKeys))
-      return this.errorService.showFailure(newApiKeys, this.logger);
-    this.loaded += newApiKeys.results.length;
-    this.available = newApiKeys.total;
-
-    this.apikeys.next(newApiKeys.results);
   }
 }

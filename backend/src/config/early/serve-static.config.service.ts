@@ -1,17 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-    ServeStaticModuleOptions,
-    ServeStaticModuleOptionsFactory,
-} from '@nestjs/serve-static';
 import { join } from 'path';
 import { ParseString } from 'picsur-shared/dist/util/parse-simple';
 import { EnvPrefix, PackageRoot } from '../config.static.js';
 
 @Injectable()
-export class ServeStaticConfigService
-  implements ServeStaticModuleOptionsFactory
-{
+export class ServeStaticConfigService {
   private readonly logger = new Logger(ServeStaticConfigService.name);
 
   private defaultLocation = join(PackageRoot, '../frontend/dist');
@@ -27,13 +21,5 @@ export class ServeStaticConfigService
         this.defaultLocation,
       ),
     );
-  }
-
-  public createLoggerOptions(): ServeStaticModuleOptions[] {
-    return [
-      {
-        rootPath: this.getStaticDirectory(),
-      },
-    ];
   }
 }

@@ -1,3 +1,5 @@
+import { EAlbumImageBackend } from './albums/album-image.entity.js';
+import { EAlbumBackend } from './albums/album.entity.js';
 import { EApiKeyBackend } from './apikey.entity.js';
 import { EImageDerivativeBackend } from './images/image-derivative.entity.js';
 import { EImageFileBackend } from './images/image-file.entity.js';
@@ -18,4 +20,6 @@ export const EntityList = [
   EUsrPreferenceBackend,
   EApiKeyBackend,
   ESystemStateBackend,
+  EAlbumBackend,
+  EAlbumImageBackend,
 ];

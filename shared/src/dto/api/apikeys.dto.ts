@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { EApiKeySchema } from '../../entities/apikey.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';
+import { IsApiKey } from '../../validators/api-key.validator.js';
 import { IsEntityID } from '../../validators/entity-id.validator.js';
 import { IsPosInt } from '../../validators/positive-int.validator.js';
 
@@ -35,7 +36,10 @@ export class ApiKeyListResponse extends createZodDto(
 ) {}
 
 // ApiKeyCreate
-export const ApiKeyCreateResponseSchema = EApiKeySchema;
+// The only time the key itself is shown
+export const ApiKeyCreateResponseSchema = EApiKeySchema.extend({
+  key: IsApiKey(),
+});
 export class ApiKeyCreateResponse extends createZodDto(
   ApiKeyCreateResponseSchema,
 ) {}

@@ -4,9 +4,11 @@ body {
   height: 100%;
 
   color-scheme: dark;
-  .theme-alternate {
-    color-scheme: light;
-  }
+}
+
+html.theme-light,
+html.theme-light body {
+  color-scheme: light;
 }
 
 app-root {

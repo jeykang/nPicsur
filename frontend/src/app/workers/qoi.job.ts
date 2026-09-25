@@ -21,7 +21,8 @@ export default async function qoiDecodeJob(
     const image = QOIdecodeJS(buffer, null, null, 4);
 
     const imageData = new ImageData(
-      new Uint8ClampedArray(image.data.buffer),
+      // The decoder allocates a plain ArrayBuffer, never a shared one
+      new Uint8ClampedArray(image.data.buffer as ArrayBuffer),
       image.width,
       image.height,
     );

@@ -4,33 +4,43 @@ import { fileTypeFromBuffer, FileTypeResult } from 'file-type';
 import { ImageRequestParams } from 'picsur-shared/dist/dto/api/image.dto';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import {
-    AnimFileType,
-    FileType,
-    ImageFileType,
-    Mime2FileType,
+  AnimFileType,
+  FileType,
+  ImageFileType,
+  Mime2FileType,
 } from 'picsur-shared/dist/dto/mimes.dto';
 import { SysPreference } from 'picsur-shared/dist/dto/sys-preferences.enum';
 import { UsrPreference } from 'picsur-shared/dist/dto/usr-preferences.enum';
 import {
-    AsyncFailable,
-    Fail,
-    FT,
-    HasFailed,
+  AsyncFailable,
+  Fail,
+  Failable,
+  FT,
+  HasFailed,
 } from 'picsur-shared/dist/types/failable';
 import { FindResult } from 'picsur-shared/dist/types/find-result';
 import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
-import { IsQOI } from 'qoi-img';
 import { ImageDBService } from '../../collections/image-db/image-db.service.js';
-import { ImageFileDBService } from '../../collections/image-db/image-file-db.service.js';
+import {
+  ImageFileDBService,
+  StoredImage,
+} from '../../collections/image-db/image-file-db.service.js';
 import { SysPreferenceDbService } from '../../collections/preference-db/sys-preference-db.service.js';
 import { UsrPreferenceDbService } from '../../collections/preference-db/usr-preference-db.service.js';
-import { EImageDerivativeBackend } from '../../database/entities/images/image-derivative.entity.js';
-import { EImageFileBackend } from '../../database/entities/images/image-file.entity.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
 import { MutexFallBack } from '../../util/mutex-fallback.js';
+import { ConversionLimiterService } from './conversion-limiter.service.js';
+import { MasterDimensions } from './dimensions.js';
 import { ImageConverterService } from './image-converter.service.js';
 import { ImageProcessorService } from './image-processor.service.js';
-import { WebPInfo } from './webpinfo/webpinfo.js';
+import { IsQOI } from '../../workers/codecs/qoi.js';
+import { IsAnimatedWebP } from './webp.js';
+
+// Images can be resized to at most this many pixels, or their own size when
+// that is larger
+const MaxUpscalePixels = 4096 * 4096;
+// Converted versions kept per image
+const MaxDerivativesPerImage = 50;
 
 @Injectable()
 export class ImageManagerService {
@@ -41,6 +51,7 @@ export class ImageManagerService {
     private readonly imageFilesService: ImageFileDBService,
     private readonly processService: ImageProcessorService,
     private readonly convertService: ImageConverterService,
+    private readonly conversionLimiter: ConversionLimiterService,
     private readonly userPref: UsrPreferenceDbService,
     private readonly sysPref: SysPreferenceDbService,
   ) {}
@@ -60,7 +71,9 @@ export class ImageManagerService {
   public async update(
     id: string,
     userid: string | undefined,
-    options: Partial<Pick<EImageBackend, 'file_name' | 'expires_at'>>,
+    options: Partial<
+      Pick<EImageBackend, 'file_name' | 'expires_at' | 'listed'>
+    >,
   ): AsyncFailable<EImageBackend> {
     if (options.expires_at !== undefined && options.expires_at !== null) {
       if (options.expires_at < new Date()) {
@@ -140,23 +153,32 @@ export class ImageManagerService {
     return imageEntity;
   }
 
+  // Client identifies who asked for it, for rate limiting
   public async getConverted(
     imageId: string,
     fileType: string,
     options: ImageRequestParams,
-  ): AsyncFailable<EImageDerivativeBackend> {
+    client: string,
+  ): AsyncFailable<StoredImage> {
     const targetFileType = ParseFileType(fileType);
     if (HasFailed(targetFileType)) return targetFileType;
-
-    const converted_key = this.getConvertHash({ mime: fileType, ...options });
 
     const allow_editing = await this.sysPref.getBooleanPreference(
       SysPreference.AllowEditing,
     );
     if (HasFailed(allow_editing)) return allow_editing;
 
+    // The cache key has to match what is actually rendered, otherwise an
+    // unedited image would be cached for the edited parameters while editing
+    // is disabled.
+    const effectiveOptions: ImageRequestParams = allow_editing ? options : {};
+    const converted_key = this.getConvertHash({
+      mime: fileType,
+      ...effectiveOptions,
+    });
+
     return MutexFallBack(
-      converted_key,
+      `${imageId}-${converted_key}`,
       () => {
         return this.imageFilesService.getDerivative(imageId, converted_key);
       },
@@ -167,12 +189,30 @@ export class ImageManagerService {
         const sourceFileType = ParseFileType(masterImage.filetype);
         if (HasFailed(sourceFileType)) return sourceFileType;
 
+        // Nothing to convert, serve the master as it is instead of storing
+        // another copy of it
+        if (
+          sourceFileType.identifier === targetFileType.identifier &&
+          Object.keys(effectiveOptions).length === 0
+        ) {
+          return masterImage;
+        }
+
+        const sizeAllowed = this.checkOutputSize(
+          masterImage.data,
+          effectiveOptions,
+        );
+        if (HasFailed(sizeAllowed)) return sizeAllowed;
+
+        const clientAllowed = this.conversionLimiter.checkClient(client);
+        if (HasFailed(clientAllowed)) return clientAllowed;
+
         const startTime = Date.now();
         const convertResult = await this.convertService.convert(
           masterImage.data,
           sourceFileType,
           targetFileType,
-          allow_editing ? options : {},
+          effectiveOptions,
         );
         if (HasFailed(convertResult)) return convertResult;
 
@@ -181,6 +221,17 @@ export class ImageManagerService {
             targetFileType.identifier
           } in ${Date.now() - startTime}ms`,
         );
+
+        // Don't let a single image collect an unlimited amount of cached
+        // versions, when it has plenty they are made but not kept
+        const cached = await this.imageFilesService.countDerivatives(imageId);
+        if (HasFailed(cached)) return cached;
+        if (cached >= MaxDerivativesPerImage) {
+          return {
+            filetype: convertResult.filetype,
+            data: convertResult.image,
+          };
+        }
 
         return await this.imageFilesService.addDerivative(
           imageId,
@@ -192,9 +243,43 @@ export class ImageManagerService {
     );
   }
 
+  // Resizing is meant for getting a differently sized version of an image,
+  // not for making the server render gigantic ones
+  private checkOutputSize(
+    master: Buffer,
+    options: ImageRequestParams,
+  ): Failable<true> {
+    if (!options.width && !options.height) return true;
+
+    const source = MasterDimensions(master);
+    if (source === null) return true;
+
+    let { width, height } = source;
+    if (options.width && options.height) {
+      width = options.width;
+      height = options.height;
+    } else if (options.width) {
+      width = options.width;
+      height = Math.max(1, Math.round((source.height * width) / source.width));
+    } else if (options.height) {
+      height = options.height;
+      width = Math.max(1, Math.round((source.width * height) / source.height));
+    }
+    if (options.shrinkonly) {
+      width = Math.min(width, source.width);
+      height = Math.min(height, source.height);
+    }
+
+    const allowed = Math.max(source.width * source.height, MaxUpscalePixels);
+    if (width * height > allowed) {
+      return Fail(FT.UsrValidation, 'The requested size is too large');
+    }
+    return true;
+  }
+
   // File getters ==============================================================
 
-  public async getMaster(imageId: string): AsyncFailable<EImageFileBackend> {
+  public async getMaster(imageId: string): AsyncFailable<StoredImage> {
     return this.imageFilesService.getFile(imageId, ImageEntryVariant.MASTER);
   }
 
@@ -208,7 +293,7 @@ export class ImageManagerService {
     return ParseFileType(mime['master']);
   }
 
-  public async getOriginal(imageId: string): AsyncFailable<EImageFileBackend> {
+  public async getOriginal(imageId: string): AsyncFailable<StoredImage> {
     return this.imageFilesService.getFile(imageId, ImageEntryVariant.ORIGINAL);
   }
 
@@ -256,13 +341,18 @@ export class ImageManagerService {
 
     let filetype: string | undefined;
     if (mime === 'image/webp') {
-      const header = await WebPInfo.from(image);
-      if (header.summary.isAnimated) filetype = AnimFileType.WEBP;
+      if (IsAnimatedWebP(image)) filetype = AnimFileType.WEBP;
       else filetype = ImageFileType.WEBP;
     }
     if (filetype === undefined) {
       const parsed = Mime2FileType(mime);
-      if (HasFailed(parsed)) return parsed;
+      if (HasFailed(parsed)) {
+        return Fail(
+          FT.UsrValidation,
+          'Unsupported file type',
+          parsed.getReason(),
+        );
+      }
       filetype = parsed;
     }
 

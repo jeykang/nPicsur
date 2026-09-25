@@ -1,4 +1,10 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormControl, Validators } from '@angular/forms';
 import { Logger } from '../../../../services/logger/logger.service';
 
@@ -6,6 +12,8 @@ import { Logger } from '../../../../services/logger/logger.service';
   selector: 'app-settings-apikey-editor',
   templateUrl: './apikey-editor.component.html',
   styleUrls: ['./apikey-editor.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsApiKeyEditorComponent {
   private readonly logger = new Logger(SettingsApiKeyEditorComponent.name);

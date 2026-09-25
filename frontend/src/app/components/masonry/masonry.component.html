@@ -1,6 +1,5 @@
-<div
-  class="column"
-  *ngFor="let item of [].constructor(_column_count); let i = index"
->
-  <ng-container #column></ng-container>
-</div>
+@for (item of [].constructor(_column_count); track item; let i = $index) {
+  <div class="column">
+    <ng-container #column></ng-container>
+  </div>
+}

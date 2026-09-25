@@ -50,6 +50,14 @@ export class SharpWrapper {
       serialization: 'advanced',
       timeout: this.instance_timeout,
       env: {
+        // The worker handles untrusted data, so it does not get the
+        // environment (and with it the secrets) of the server, apart from
+        // settings meant for libvips and sharp
+        ...Object.fromEntries(
+          Object.entries(process.env).filter(
+            ([key]) => key.startsWith('VIPS_') || key.startsWith('SHARP_'),
+          ),
+        ),
         MEMORY_LIMIT_MB: this.memory_limit.toString(),
         NODE_OPTIONS: '--no-warnings',
       },

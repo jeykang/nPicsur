@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { SysPreference } from 'picsur-shared/dist/dto/sys-preferences.enum';
 import {
-    AsyncFailable,
-    Fail,
-    FT,
-    HasFailed,
+  AsyncFailable,
+  Fail,
+  FT,
+  HasFailed,
 } from 'picsur-shared/dist/types/failable';
-import { URLRegex, UUIDRegex } from 'picsur-shared/dist/util/common-regex';
+import { UUIDRegex } from 'picsur-shared/dist/util/common-regex';
+import { IsHttpUrl } from 'picsur-shared/dist/validators/url.validator';
 import { SysPreferenceDbService } from '../../collections/preference-db/sys-preference-db.service.js';
-import { ReportInterval, ReportUrl } from '../config.static.js';
 
 @Injectable()
 export class UsageConfigService {
@@ -22,7 +22,7 @@ export class UsageConfigService {
 
     if (trackingUrl === '') return null;
 
-    if (!URLRegex.test(trackingUrl)) {
+    if (!IsHttpUrl().safeParse(trackingUrl).success) {
       return Fail(FT.UsrValidation, undefined, 'Invalid tracking URL');
     }
 
@@ -42,17 +42,5 @@ export class UsageConfigService {
     }
 
     return trackingID;
-  }
-
-  async getMetricsEnabled(): AsyncFailable<boolean> {
-    return this.sysPref.getBooleanPreference(SysPreference.EnableTelemetry);
-  }
-
-  async getMetricsInterval(): Promise<number> {
-    return ReportInterval;
-  }
-
-  async getMetricsUrl(): Promise<string> {
-    return ReportUrl;
   }
 }

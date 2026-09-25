@@ -10,9 +10,9 @@ import { PRouteData } from '../../models/dto/picsur-routes.dto';
 @Injectable({
   providedIn: 'any',
 })
-export class SidebarResolverService
-  implements Resolve<Portal<unknown> | undefined>
-{
+export class SidebarResolverService implements Resolve<
+  Portal<unknown> | undefined
+> {
   constructor(private readonly injector: Injector) {}
 
   resolve(route: ActivatedRouteSnapshot) {

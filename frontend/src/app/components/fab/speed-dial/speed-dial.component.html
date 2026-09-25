@@ -5,15 +5,16 @@
     (mouseleave)="leave($event)"
     [class.speed-dial-is-open]="openManager.isOpen"
   >
-    <div
-      class="speed-dial-options"
-      [@speedDialAnimation]
-      (@speedDialAnimation.start)="openManager.animationStart()"
-      (@speedDialAnimation.done)="openManager.animationDone()"
-      *ngIf="openManager.isOpen"
-    >
-      <ng-content select="button[mat-mini-fab]"></ng-content>
-    </div>
+    @if (openManager.isOpen) {
+      <div
+        class="speed-dial-options"
+        [@speedDialAnimation]
+        (@speedDialAnimation.start)="openManager.animationStart()"
+        (@speedDialAnimation.done)="openManager.animationDone()"
+      >
+        <ng-content select="button[mat-mini-fab]"></ng-content>
+      </div>
+    }
 
     <button
       mat-fab
@@ -32,14 +33,15 @@
       >
         {{ icon }}
       </mat-icon>
-      <mat-icon
-        *ngIf="iconHover !== undefined"
-        class="icon-hover"
-        fontSet="material-icons-outlined"
-        [aria-label]="ariaLabel"
-      >
-        {{ iconHover }}
-      </mat-icon>
+      @if (iconHover !== undefined) {
+        <mat-icon
+          class="icon-hover"
+          fontSet="material-icons-outlined"
+          [aria-label]="ariaLabel"
+        >
+          {{ iconHover }}
+        </mat-icon>
+      }
     </button>
   </div>
 </div>

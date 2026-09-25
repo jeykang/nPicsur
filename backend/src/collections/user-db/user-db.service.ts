@@ -10,6 +10,7 @@ import {
   HasSuccess,
 } from 'picsur-shared/dist/types/failable';
 import { FindResult } from 'picsur-shared/dist/types/find-result';
+import { generateRandomString } from 'picsur-shared/dist/util/random';
 import { makeUnique } from 'picsur-shared/dist/util/unique';
 import { Repository } from 'typeorm';
 import { EUserBackend } from '../../database/entities/users/user.entity.js';
@@ -24,6 +25,8 @@ import {
   UndeletableUsersList,
 } from '../../models/constants/special-users.const.js';
 import { GetCols } from '../../util/collection.js';
+import { ImageDBService } from '../image-db/image-db.service.js';
+import { ImageFileDBService } from '../image-db/image-file-db.service.js';
 import { SysPreferenceDbService } from '../preference-db/sys-preference-db.service.js';
 import { RoleDbService } from '../role-db/role-db.service.js';
 
@@ -36,6 +39,8 @@ export class UserDbService {
     private readonly usersRepository: Repository<EUserBackend>,
     private readonly rolesService: RoleDbService,
     private readonly prefService: SysPreferenceDbService,
+    private readonly imageDB: ImageDBService,
+    private readonly imageFiles: ImageFileDBService,
   ) {}
 
   // Creation and deletion
@@ -60,9 +65,7 @@ export class UserDbService {
       const rolesToAdd = roles ?? [];
       user.roles = makeUnique(rolesToAdd);
     } else {
-      // Strip soulbound roles and add default roles
-      const rolesToAdd = this.filterAddedRoles(roles ?? []);
-      user.roles = makeUnique([...DefaultRolesList, ...rolesToAdd]);
+      user.roles = this.resultingRoles(null, roles ?? []);
     }
 
     try {
@@ -72,6 +75,8 @@ export class UserDbService {
     }
   }
 
+  // Deletes the user together with their images. Their api keys and
+  // preferences are deleted by the database.
   public async delete(uuid: string): AsyncFailable<EUserBackend> {
     const userToDelete = await this.findOne(uuid);
     if (HasFailed(userToDelete)) return userToDelete;
@@ -80,11 +85,29 @@ export class UserDbService {
       return Fail(FT.Permission, 'Cannot delete system user');
     }
 
+    let deletedUser: EUserBackend;
+    let deletedImages: string[];
     try {
-      return await this.usersRepository.remove(userToDelete);
+      [deletedUser, deletedImages] =
+        await this.usersRepository.manager.transaction(async (manager) => {
+          const images = await this.imageDB.deleteRowsOfUser(uuid, manager);
+          const user = await manager.remove(userToDelete);
+          return [user, images] as const;
+        });
     } catch (e) {
       return Fail(FT.Database, e);
     }
+
+    // With object storage this takes a request or two per image, which does
+    // not have to hold up the response. What fails is logged, and removed by
+    // the storage gc command.
+    this.imageFiles.deleteStoredData(deletedImages).catch((e) => {
+      this.logger.error(
+        `Deleting the images of ${userToDelete.username}: ${e}`,
+      );
+    });
+
+    return deletedUser;
   }
 
   // Updating
@@ -102,18 +125,24 @@ export class UserDbService {
       return userToModify;
     }
 
-    const rolesToKeep = userToModify.roles.filter((role) =>
-      SoulBoundRolesList.includes(role),
-    );
-    const rolesToAdd = this.filterAddedRoles(roles);
-    const newRoles = makeUnique([...rolesToKeep, ...rolesToAdd]);
-    userToModify.roles = newRoles;
+    userToModify.roles = this.resultingRoles(userToModify.roles, roles);
 
     try {
       return await this.usersRepository.save(userToModify);
     } catch (e) {
       return Fail(FT.Database, e);
     }
+  }
+
+  // The roles a user ends up with when given these roles. Soulbound roles can
+  // not be given or taken away, and new users (without current roles) get the
+  // default roles.
+  public resultingRoles(current: string[] | null, roles: string[]): string[] {
+    const kept =
+      current === null
+        ? DefaultRolesList
+        : current.filter((role) => SoulBoundRolesList.includes(role));
+    return makeUnique([...kept, ...this.filterAddedRoles(roles)]);
   }
 
   public async removeRoleEveryone(role: string): AsyncFailable<true> {
@@ -149,6 +178,7 @@ export class UserDbService {
 
     const strength = await this.getBCryptStrength();
     userToModify.hashed_password = await bcrypt.hash(password, strength);
+    userToModify.tokens_valid_after = new Date();
 
     try {
       userToModify = await this.usersRepository.save(userToModify);
@@ -159,6 +189,26 @@ export class UserDbService {
     return userToModify;
   }
 
+  // For users changing their own password, which takes the current one
+  public async changePassword(
+    uuid: string,
+    currentPassword: string,
+    newPassword: string,
+  ): AsyncFailable<EUserBackend> {
+    const user = await this.findOne(uuid);
+    if (HasFailed(user)) return user;
+
+    const verified = await this.authenticate(user.username, currentPassword);
+    if (HasFailed(verified)) {
+      if (verified.getType() === FT.Authentication) {
+        return Fail(FT.Authentication, 'The current password is wrong');
+      }
+      return verified;
+    }
+
+    return await this.updatePassword(uuid, newPassword);
+  }
+
   // Authentication
 
   async authenticate(
@@ -167,13 +217,16 @@ export class UserDbService {
   ): AsyncFailable<EUserBackend> {
     const user = await this.findByUsername(username, true);
     if (HasFailed(user)) {
-      if (user.getType() === FT.NotFound)
+      if (user.getType() === FT.NotFound) {
+        // Spend the same time as checking a real password would, so the
+        // response time does not reveal which usernames exist
+        await bcrypt.compare(password, await this.getDummyHash());
         return Fail(
           FT.Authentication,
           'Wrong username or password',
           user.getDebugMessage(),
         );
-      else return user;
+      } else return user;
     }
 
     if (LockedLoginUsersList.includes(user.username)) {
@@ -276,6 +329,18 @@ export class UserDbService {
   }
 
   // Internal
+
+  private dummyHash: Promise<string> | undefined;
+  private dummyHashStrength: number | undefined;
+
+  private async getDummyHash(): Promise<string> {
+    const strength = await this.getBCryptStrength();
+    if (this.dummyHash === undefined || this.dummyHashStrength !== strength) {
+      this.dummyHashStrength = strength;
+      this.dummyHash = bcrypt.hash(generateRandomString(32), strength);
+    }
+    return this.dummyHash;
+  }
 
   private filterAddedRoles(roles: string[]): string[] {
     const filteredRoles = roles.filter(

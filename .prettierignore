@@ -2,3 +2,6 @@ node_modules
 dist
 .angular
 .yarn
+pnpm-lock.yaml
+# Formatted by hand, the shell plugin rewrites heredocs
+Dockerfile

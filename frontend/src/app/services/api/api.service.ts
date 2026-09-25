@@ -1,11 +1,14 @@
 import { Inject, Injectable } from '@angular/core';
-import { WINDOW } from '@ng-web-apis/common';
+import { WA_WINDOW } from '@ng-web-apis/common';
 import axios, {
   AxiosRequestConfig,
   AxiosResponse,
   AxiosResponseHeaders,
 } from 'axios';
-import { ApiResponseSchema } from 'picsur-shared/dist/dto/api/api.dto';
+import {
+  ApiErrorResponseSchema,
+  ApiResponseSchema,
+} from 'picsur-shared/dist/dto/api/api.dto';
 import { FileType2Ext } from 'picsur-shared/dist/dto/mimes.dto';
 import {
   AsyncFailable,
@@ -49,6 +52,21 @@ function MapRunningRequest<R, T>(
   };
 }
 
+const FailureTypes = new Set<string>(Object.values(FT));
+
+// Turns an error the api answered with into a failure with its message
+function ApiFailure(type: string, message: string): Failure {
+  return Fail(FailureTypes.has(type) ? (type as FT) : FT.Unknown, message);
+}
+
+// For error responses that do not come from the api itself, like those of a
+// proxy in front of it
+function DescribeStatus(status: number): string {
+  if (status === 413) return 'The file is too large';
+  if (status >= 502 && status <= 504) return 'The server can not be reached';
+  return `The server answered with status ${status}`;
+}
+
 function CreateFailedRunningRequest<R>(failure: Failure) {
   const subject = new Subject<number>();
   subject.complete();
@@ -75,7 +93,7 @@ export class ApiService {
 
   constructor(
     private readonly keyService: KeyStorageService,
-    @Inject(WINDOW) private readonly windowRef: Window,
+    @Inject(WA_WINDOW) private readonly windowRef: Window,
   ) {}
 
   public get<T extends z.AnyZodObject>(
@@ -153,7 +171,10 @@ export class ApiService {
       }
 
       if (validateResult.data.success === false)
-        return Fail(FT.Unknown, r.data.message);
+        return ApiFailure(
+          validateResult.data.data.type,
+          validateResult.data.data.message,
+        );
 
       return validateResult.data.data;
     });
@@ -244,6 +265,8 @@ export class ApiService {
             uploadProgress.next((e.loaded / (e.total ?? 1000000)) * 100);
           },
           signal: abortController.signal,
+          // Error responses are handled below
+          validateStatus: () => true,
           ...options,
         });
 
@@ -251,7 +274,18 @@ export class ApiService {
         downloadProgress.complete();
 
         if (result.status < 200 || result.status >= 300) {
-          return Fail(FT.Network, 'Recieved a non-ok response');
+          const apiError = ApiErrorResponseSchema.safeParse(result.data);
+          if (apiError.success) {
+            return ApiFailure(
+              apiError.data.data.type,
+              apiError.data.data.message,
+            );
+          }
+          return Fail(
+            FT.Network,
+            DescribeStatus(result.status),
+            `${url}: ${result.status} ${result.statusText}`,
+          );
         }
         return result;
       } catch (e) {

@@ -2,10 +2,8 @@ import { EUser } from 'picsur-shared/dist/entities/user.entity';
 import { EUserBackend } from '../../database/entities/users/user.entity.js';
 
 export function EUserBackend2EUser(eUser: EUserBackend): EUser {
-  if (eUser.hashed_password === undefined) return eUser as EUser;
-
-  return {
-    ...eUser,
-    hashedPassword: undefined,
-  };
+  // Make sure the password hash never ends up in a response
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { hashed_password, tokens_valid_after, ...user } = eUser;
+  return user as EUser;
 }

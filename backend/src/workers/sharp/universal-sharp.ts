@@ -1,16 +1,16 @@
-import { BMPdecode, BMPencode } from 'bmp-img';
 import {
   AnimFileType,
   FileType,
-  ImageFileType
+  ImageFileType,
 } from 'picsur-shared/dist/dto/mimes.dto';
-import { QOIdecode, QOIencode } from 'qoi-img';
-import sharp, { Sharp, SharpOptions } from 'sharp';
+import sharp, { OutputInfo, Sharp, SharpOptions } from 'sharp';
+import { BMPdecode, BMPencode } from '../codecs/bmp.js';
+import { QOIdecode, QOIencode } from '../codecs/qoi.js';
 import { SharpWorkerFinishOptions } from './sharp.message.js';
 
 export interface SharpResult {
   data: Buffer;
-  info: sharp.OutputInfo;
+  info: OutputInfo;
 }
 
 export function UniversalSharpIn(
@@ -139,15 +139,28 @@ export async function UniversalSharpOut(
   return result;
 }
 
-async function bmpSharpOut(sharpImage: Sharp): Promise<SharpResult> {
-  const raw = await sharpImage.raw().toBuffer({ resolveWithObject: true });
+// Raw pixels in RGB or RGBA, which is all BMP and QOI support. Greyscale
+// images (with or without alpha) are expanded to colour.
+async function rawRGB(sharpImage: Sharp) {
+  const raw = await sharpImage
+    .toColourspace('srgb')
+    .raw()
+    .toBuffer({ resolveWithObject: true });
 
-  if (raw.info.channels === 1) no1Channel(raw);
+  if (raw.info.channels !== 3 && raw.info.channels !== 4) {
+    throw new Error(`Unexpected channel count ${raw.info.channels}`);
+  }
+
+  return raw as { data: Buffer; info: OutputInfo & { channels: 3 | 4 } };
+}
+
+async function bmpSharpOut(sharpImage: Sharp): Promise<SharpResult> {
+  const raw = await rawRGB(sharpImage);
 
   const encoded = BMPencode(raw.data, {
     width: raw.info.width,
     height: raw.info.height,
-    channels: raw.info.channels as 3 | 4,
+    channels: raw.info.channels,
   });
 
   return {
@@ -157,34 +170,16 @@ async function bmpSharpOut(sharpImage: Sharp): Promise<SharpResult> {
 }
 
 async function qoiSharpOut(sharpImage: Sharp): Promise<SharpResult> {
-  const raw = await sharpImage.raw().toBuffer({ resolveWithObject: true });
-
-  if (raw.info.channels === 1) no1Channel(raw);
+  const raw = await rawRGB(sharpImage);
 
   const encoded = QOIencode(raw.data, {
     width: raw.info.width,
     height: raw.info.height,
-    channels: raw.info.channels as 3 | 4,
+    channels: raw.info.channels,
   });
 
   return {
     data: encoded,
     info: raw.info,
   };
-}
-
-function no1Channel(input: SharpResult): SharpResult {
-  const old = input.data;
-  input.data = Buffer.alloc(input.info.width * input.info.height * 3);
-
-  for (let i = 0; i < old.length; i++) {
-    input.data[i * 3] = old[i];
-    input.data[i * 3 + 1] = old[i];
-    input.data[i * 3 + 2] = old[i];
-  }
-
-  input.info.channels = 3;
-  input.info.size = input.data.length;
-
-  return input;
 }

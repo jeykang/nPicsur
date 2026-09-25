@@ -14,7 +14,7 @@ import {
   SupportedFileTypeCategory,
 } from 'picsur-shared/dist/dto/mimes.dto';
 import { EImage } from 'picsur-shared/dist/entities/image.entity';
-import { EUser } from 'picsur-shared/dist/entities/user.entity';
+import { EPublicUser } from 'picsur-shared/dist/entities/user.entity';
 
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { UUIDRegex } from 'picsur-shared/dist/util/common-regex';
@@ -29,6 +29,7 @@ import { UtilService } from '../../util/util.service';
   templateUrl: './view.component.html',
   styleUrls: ['./view.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class ViewComponent implements OnInit, OnDestroy {
   private readonly logger = new Logger(ViewComponent.name);
@@ -64,7 +65,7 @@ export class ViewComponent implements OnInit, OnDestroy {
     return this.metadata?.image ?? null;
   }
 
-  public get user(): EUser | null {
+  public get user(): EPublicUser | null {
     return this.metadata?.user ?? null;
   }
 

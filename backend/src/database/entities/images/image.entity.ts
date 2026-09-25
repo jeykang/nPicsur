@@ -1,5 +1,11 @@
 import { EImage } from 'picsur-shared/dist/entities/image.entity';
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { EImageDerivativeBackend } from './image-derivative.entity.js';
 import { EImageFileBackend } from './image-file.entity.js';
 
@@ -8,6 +14,7 @@ export class EImageBackend implements EImage {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column({
     nullable: false,
     type: 'uuid',
@@ -37,6 +44,11 @@ export class EImageBackend implements EImage {
     select: false,
   })
   delete_key?: string;
+
+  // Shown in the public gallery
+  @Index()
+  @Column({ nullable: false, default: false })
+  listed: boolean;
 
   @OneToMany(() => EImageDerivativeBackend, (derivative) => derivative.image_id)
   derivatives: EImageDerivativeBackend[];

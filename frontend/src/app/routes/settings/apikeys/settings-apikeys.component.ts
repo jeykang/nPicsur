@@ -1,27 +1,38 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ViewChild,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { EApiKey } from 'picsur-shared/dist/entities/apikey.entity';
-import { FT, Fail, HasFailed } from 'picsur-shared/dist/types/failable';
+import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { ApiKeysService } from '../../../services/api/apikeys.service';
 import { UserService } from '../../../services/api/user.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { BootstrapService } from '../../../util/bootstrap.service';
-import { ClipboardService } from '../../../util/clipboard.service';
 import { DialogService } from '../../../util/dialog-manager/dialog.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
 import { Throttle } from '../../../util/throttle';
+import {
+  ApiKeyCreatedDialogComponent,
+  ApiKeyCreatedDialogData,
+} from './apikey-created-dialog/apikey-created-dialog.component';
 
 @Component({
   templateUrl: './settings-apikeys.component.html',
   styleUrls: ['./settings-apikeys.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class SettingsApiKeysComponent implements OnInit {
   private readonly logger = new Logger(SettingsApiKeysComponent.name);
 
   public readonly displayedColumns: string[] = [
     'name',
+    'key',
     'created',
     'last_used',
     'actions',
@@ -38,7 +49,6 @@ export class SettingsApiKeysComponent implements OnInit {
   constructor(
     private readonly apikeysService: ApiKeysService,
     private readonly userService: UserService,
-    private readonly clipboard: ClipboardService,
     private readonly errorService: ErrorService,
     private readonly dialogService: DialogService,
     // Public because used in template
@@ -64,27 +74,11 @@ export class SettingsApiKeysComponent implements OnInit {
       this.paginator.firstPage();
     }
 
-    const clipboardResult = await this.clipboard.copy(result.key);
-    if (!clipboardResult) {
-      return this.errorService.showFailure(
-        Fail(FT.Internal, 'Failed to copy api key to clipboard'),
-        this.logger,
-      );
-    }
-
-    this.errorService.success('Api key created and copied to clipboard');
-  }
-
-  public async copyKey(apikey: string) {
-    const result = await this.clipboard.copy(apikey);
-    if (!result) {
-      return this.errorService.showFailure(
-        Fail(FT.Internal, 'Failed to copy api key to clipboard'),
-        this.logger,
-      );
-    }
-
-    this.errorService.success('Api key copied to clipboard');
+    await this.dialogService.showCustomDialog(
+      ApiKeyCreatedDialogComponent,
+      { key: result.key } satisfies ApiKeyCreatedDialogData,
+      { dismissable: false },
+    );
   }
 
   public async deleteApiKey(apikeyId: string) {

@@ -70,5 +70,4 @@ export type SharpWorkerSendMessage =
   | SharpWorkerFinishMessage;
 
 export type SharpWorkerRecieveMessage =
-  | SharpWorkerResultMessage
-  | SharpWorkerReadyMessage;
+  SharpWorkerResultMessage | SharpWorkerReadyMessage;

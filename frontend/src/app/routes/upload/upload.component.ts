@@ -1,4 +1,9 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import {
+  Component,
+  HostListener,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { Router } from '@angular/router';
 import { FileInputValue } from '@ngx-dropzone/cdk';
@@ -14,6 +19,8 @@ import { ErrorService } from '../../util/error-manager/error.service';
 @Component({
   templateUrl: './upload.component.html',
   styleUrls: ['./upload.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class UploadComponent implements OnInit {
   private readonly logger = new Logger(UploadComponent.name);
@@ -51,7 +58,7 @@ export class UploadComponent implements OnInit {
         this.canUpload = permissions.includes(Permission.ImageUpload);
       });
   }
-  
+
   @HostListener('document:paste', ['$event'])
   onPaste(event: ClipboardEvent) {
     const items = event.clipboardData?.items;

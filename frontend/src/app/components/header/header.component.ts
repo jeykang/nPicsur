@@ -16,12 +16,14 @@ import { UserService } from '../../services/api/user.service';
 import { PermissionService } from '../../services/api/permission.service';
 import { Logger } from '../../services/logger/logger.service';
 import { ErrorService } from '../../util/error-manager/error.service';
+import { ThemeChoice, ThemeService } from '../../util/theme.service';
 
 @Component({
   selector: 'app-header',
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class HeaderComponent implements OnInit {
   private readonly logger = new Logger(HeaderComponent.name);
@@ -32,7 +34,30 @@ export class HeaderComponent implements OnInit {
     private readonly permissionService: PermissionService,
     private readonly changeDetector: ChangeDetectorRef,
     private readonly errorService: ErrorService,
+    private readonly themeService: ThemeService,
   ) {}
+
+  public readonly themeOptions: {
+    value: ThemeChoice;
+    name: string;
+    icon: string;
+  }[] = [
+    { value: 'dark', name: 'Dark', icon: 'dark_mode' },
+    { value: 'light', name: 'Light', icon: 'light_mode' },
+    { value: 'system', name: 'Like the system', icon: 'brightness_auto' },
+  ];
+  public theme: ThemeChoice = 'dark';
+
+  public get themeIcon() {
+    return (
+      this.themeOptions.find((option) => option.value === this.theme)?.icon ??
+      'dark_mode'
+    );
+  }
+
+  public setTheme(theme: ThemeChoice) {
+    this.themeService.set(theme);
+  }
 
   @Input('enableHamburger') public set enableHamburger(value: boolean) {
     this._enableHamburger = value;
@@ -49,6 +74,8 @@ export class HeaderComponent implements OnInit {
   public canAccessSettings = false;
   public canUpload = false;
   public canRegister = false;
+  public canViewGallery = false;
+  public canManageImages = false;
 
   public get user() {
     return this.currentUser;
@@ -61,6 +88,16 @@ export class HeaderComponent implements OnInit {
   ngOnInit(): void {
     this.subscribeUser();
     this.subscribePermissions();
+    this.subscribeTheme();
+  }
+
+  @AutoUnsubscribe()
+  subscribeTheme() {
+    return this.themeService.live.subscribe((theme) => {
+      this.theme = theme;
+
+      this.changeDetector.markForCheck();
+    });
   }
 
   @AutoUnsubscribe()
@@ -79,6 +116,8 @@ export class HeaderComponent implements OnInit {
       this.canAccessSettings = permissions.includes(Permission.Settings);
       this.canUpload = permissions.includes(Permission.ImageUpload);
       this.canRegister = permissions.includes(Permission.UserRegister);
+      this.canViewGallery = permissions.includes(Permission.GalleryView);
+      this.canManageImages = permissions.includes(Permission.ImageManage);
 
       this.changeDetector.markForCheck();
     });
@@ -110,5 +149,13 @@ export class HeaderComponent implements OnInit {
 
   doImages() {
     this.router.navigate(['/images']);
+  }
+
+  doGallery() {
+    this.router.navigate(['/gallery']);
+  }
+
+  doAlbums() {
+    this.router.navigate(['/albums']);
   }
 }

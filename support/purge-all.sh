@@ -6,4 +6,3 @@ pnpm --filter picsur-backend purge
 
 pnpm devdb:remove
 pnpm purge
-

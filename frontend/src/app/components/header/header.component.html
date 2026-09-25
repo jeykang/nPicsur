@@ -1,19 +1,17 @@
 <mat-toolbar>
-  <mat-progress-bar
-    *ngIf="loading"
-    class="loading-bar"
-    mode="indeterminate"
-    color="accent"
-  ></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar
+      class="loading-bar"
+      mode="indeterminate"
+      color="accent"
+    ></mat-progress-bar>
+  }
 
-  <button
-    *ngIf="_enableHamburger"
-    class="me-3"
-    mat-icon-button
-    (click)="onHamburgerClick.emit()"
-  >
-    <mat-icon>menu</mat-icon>
-  </button>
+  @if (_enableHamburger) {
+    <button class="me-3" mat-icon-button (click)="onHamburgerClick.emit()">
+      <mat-icon>menu</mat-icon>
+    </button>
+  }
 
   <a [routerLink]="['/']" class="logo text-link">
     <div class="svg-logo">
@@ -22,7 +20,12 @@
     <div class="svg-logo-text">
       <img
         src="/assets/branding/text/picsur_light.svg"
-        class="ms-3 d-none d-sm-block"
+        class="ms-3 d-none d-sm-block for-dark-theme"
+        alt="Picsur Text Logo"
+      />
+      <img
+        src="/assets/branding/text/picsur_dark.svg"
+        class="ms-3 d-none d-sm-block for-light-theme"
         alt="Picsur Text Logo"
       />
     </div>
@@ -30,36 +33,74 @@
 
   <span class="spacer"></span>
 
+  @if (canViewGallery) {
+    <button
+      matTooltip="Gallery"
+      mat-icon-button
+      class="me-3"
+      aria-label="Gallery"
+      (click)="doGallery()"
+    >
+      <mat-icon fontSet="material-icons-outlined">photo_library</mat-icon>
+    </button>
+  }
+
+  @if (canUpload) {
+    <button
+      matTooltip="Upload an image"
+      mat-icon-button
+      class="me-3"
+      (click)="doUpload()"
+    >
+      <mat-icon fontSet="material-icons-outlined">upload</mat-icon>
+    </button>
+  }
+
   <button
-    matTooltip="Upload an image"
-    *ngIf="canUpload"
+    matTooltip="Theme"
     mat-icon-button
     class="me-3"
-    (click)="doUpload()"
+    aria-label="Choose a theme"
+    [matMenuTriggerFor]="themeMenu"
   >
-    <mat-icon fontSet="material-icons-outlined">upload</mat-icon>
+    <mat-icon fontSet="material-icons-outlined">{{ themeIcon }}</mat-icon>
   </button>
 
-  <button
-    [matTooltip]="canRegister ? 'Login or Register' : 'Login to your account'"
-    *ngIf="!isLoggedIn && canLogIn"
-    mat-stroked-button
-    (click)="doLogin()"
-  >
-    LOGIN
-  </button>
+  <mat-menu #themeMenu="matMenu" xPosition="before">
+    @for (option of themeOptions; track option.value) {
+      <button
+        mat-menu-item
+        [class.selected-theme]="option.value === theme"
+        (click)="setTheme(option.value)"
+      >
+        <mat-icon fontSet="material-icons-outlined">{{ option.icon }}</mat-icon>
+        <span>{{ option.name }}</span>
+      </button>
+    }
+  </mat-menu>
+
+  @if (!isLoggedIn && canLogIn) {
+    <button
+      [matTooltip]="canRegister ? 'Login or Register' : 'Login to your account'"
+      mat-stroked-button
+      (click)="doLogin()"
+    >
+      LOGIN
+    </button>
+  }
 
   <!-- <span *ngIf="isLoggedIn" class="me-3 d-none d-sm-block">
-    {{ user?.username }}
-  </span> -->
-  <button
-    matTooltip="Your account"
-    *ngIf="isLoggedIn"
-    mat-icon-button
-    [matMenuTriggerFor]="menu"
-  >
-    <mat-icon fontSet="material-icons-outlined">account_circle</mat-icon>
-  </button>
+  {{ user?.username }}
+</span> -->
+  @if (isLoggedIn) {
+    <button
+      matTooltip="Your account"
+      mat-icon-button
+      [matMenuTriggerFor]="menu"
+    >
+      <mat-icon fontSet="material-icons-outlined">account_circle</mat-icon>
+    </button>
+  }
 
   <mat-menu #menu="matMenu" xPosition="before">
     <ng-template matMenuContent>
@@ -68,14 +109,24 @@
           <h2 class="mat-typography">{{ user?.username }}</h2>
         </div>
       </span>
-      <button *ngIf="canUpload" mat-menu-item (click)="doImages()">
-        <mat-icon fontSet="material-icons-outlined">image</mat-icon>
-        <span>My Images</span>
-      </button>
-      <button *ngIf="canAccessSettings" mat-menu-item (click)="doSettings()">
-        <mat-icon fontSet="material-icons-outlined">settings</mat-icon>
-        <span>Settings</span>
-      </button>
+      @if (canUpload) {
+        <button mat-menu-item (click)="doImages()">
+          <mat-icon fontSet="material-icons-outlined">image</mat-icon>
+          <span>My Images</span>
+        </button>
+      }
+      @if (canManageImages) {
+        <button mat-menu-item (click)="doAlbums()">
+          <mat-icon fontSet="material-icons-outlined">photo_album</mat-icon>
+          <span>My Albums</span>
+        </button>
+      }
+      @if (canAccessSettings) {
+        <button mat-menu-item (click)="doSettings()">
+          <mat-icon fontSet="material-icons-outlined">settings</mat-icon>
+          <span>Settings</span>
+        </button>
+      }
       <button mat-menu-item (click)="doLogout()">
         <mat-icon fontSet="material-icons-outlined">logout</mat-icon>
         <span>Logout</span>

@@ -4,6 +4,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 
 @Directive({
   selector: 'speed-dial button[mat-mini-fab]',
+  standalone: false,
 })
 export class SpeedDialOptionDirective {
   constructor(

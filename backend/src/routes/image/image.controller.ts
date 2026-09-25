@@ -1,16 +1,17 @@
-import { Controller, Get, Head, Logger, Query, Res } from '@nestjs/common';
+import { Controller, Get, Head, Logger, Query, Req, Res } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
-import type { FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
-    ImageMetaResponse,
-    ImageRequestParams,
+  ImageMetaResponse,
+  ImageRequestParams,
 } from 'picsur-shared/dist/dto/api/image.dto';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import { FileType2Mime } from 'picsur-shared/dist/dto/mimes.dto';
 import {
-    FT,
-    IsFailure,
-    ThrowIfFailed,
+  FT,
+  HasSuccess,
+  IsFailure,
+  ThrowIfFailed,
 } from 'picsur-shared/dist/types/failable';
 import { UserDbService } from '../../collections/user-db/user-db.service.js';
 import { ImageFullIdParam } from '../../decorators/image-id/image-full-id.decorator.js';
@@ -20,10 +21,12 @@ import { Returns } from '../../decorators/returns.decorator.js';
 import { ImageManagerService } from '../../managers/image/image.service.js';
 import type { ImageFullId } from '../../models/constants/image-full-id.const.js';
 import { Permission } from '../../models/constants/permissions.const.js';
-import { EUserBackend2EUser } from '../../models/transformers/user.transformer.js';
 import { BrandMessageType, GetBrandMessage } from '../../util/branding.js';
 
-// This is the only controller with CORS enabled
+// Images never change, so they can be cached for a month
+const ImageCacheControl = 'public, max-age=2592000';
+
+// This is the only controller with CORS enabled (see image-headers.ts)
 @Controller('i')
 @RequiredPermissions(Permission.ImageView)
 @SkipThrottle()
@@ -59,6 +62,7 @@ export class ImageController {
     @Res({ passthrough: true }) res: FastifyReply,
     @ImageFullIdParam() fullid: ImageFullId,
     @Query() params: ImageRequestParams,
+    @Req() req: FastifyRequest,
   ): Promise<Buffer> {
     try {
       if (fullid.variant === ImageEntryVariant.ORIGINAL) {
@@ -67,6 +71,7 @@ export class ImageController {
         );
 
         res.type(ThrowIfFailed(FileType2Mime(image.filetype)));
+        res.header('Cache-Control', ImageCacheControl);
         return image.data;
       }
 
@@ -75,17 +80,23 @@ export class ImageController {
           fullid.id,
           fullid.filetype,
           params,
+          req.ip,
         ),
       );
 
       res.type(ThrowIfFailed(FileType2Mime(image.filetype)));
+      res.header('Cache-Control', ImageCacheControl);
       return image.data;
     } catch (e) {
       if (!IsFailure(e) || e.getType() !== FT.NotFound) throw e;
 
+      // Still an image, so embeds show something, but one that must not be
+      // cached as if it was the real thing
       const message = ThrowIfFailed(
         await GetBrandMessage(BrandMessageType.NotFound),
       );
+      res.status(404);
+      res.header('Cache-Control', 'no-store');
       res.type(message.type);
       return message.data;
     }
@@ -102,8 +113,14 @@ export class ImageController {
     ]);
 
     const fileTypes = ThrowIfFailed(fileMimesRes);
-    const imageUser = ThrowIfFailed(imageUserRes);
+    // Picsur 0.5 kept the images of users it deleted
+    let user: ImageMetaResponse['user'] = null;
+    if (HasSuccess(imageUserRes)) {
+      user = { id: imageUserRes.id, username: imageUserRes.username };
+    } else if (imageUserRes.getType() !== FT.NotFound) {
+      throw imageUserRes;
+    }
 
-    return { image, user: EUserBackend2EUser(imageUser), fileTypes };
+    return { image, user, fileTypes };
   }
 }

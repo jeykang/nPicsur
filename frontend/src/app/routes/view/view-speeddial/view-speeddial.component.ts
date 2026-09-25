@@ -1,11 +1,18 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnInit,
+  Output,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { ImageMetaResponse } from 'picsur-shared/dist/dto/api/image.dto';
 import { ImageFileType } from 'picsur-shared/dist/dto/mimes.dto';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { EImage } from 'picsur-shared/dist/entities/image.entity';
-import { EUser } from 'picsur-shared/dist/entities/user.entity';
+import { EPublicUser } from 'picsur-shared/dist/entities/user.entity';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { ImageService } from '../../../services/api/image.service';
 import { PermissionService } from '../../../services/api/permission.service';
@@ -15,6 +22,10 @@ import { DialogService } from '../../../util/dialog-manager/dialog.service';
 import { DownloadService } from '../../../util/download-manager/download.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
 import { UtilService } from '../../../util/util.service';
+import {
+  AddToAlbumDialogComponent,
+  AddToAlbumDialogData,
+} from '../../../components/album-dialog/add-to-album-dialog.component';
 import {
   CustomizeDialogComponent,
   CustomizeDialogData,
@@ -28,11 +39,15 @@ import {
   selector: 'view-speeddial',
   templateUrl: './view-speeddial.component.html',
   styleUrls: ['./view-speeddial.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class ViewSpeeddialComponent implements OnInit {
   private readonly logger = new Logger(ViewSpeeddialComponent.name);
 
   public canManage = false;
+  // Albums only hold images of their owner
+  public canAddToAlbum = false;
 
   @Input() public metadata: ImageMetaResponse | null = null;
   @Output() public metadataChange = new EventEmitter<ImageMetaResponse>();
@@ -43,7 +58,7 @@ export class ViewSpeeddialComponent implements OnInit {
     return this.metadata?.image ?? null;
   }
 
-  public get user(): EUser | null {
+  public get user(): EPublicUser | null {
     return this.metadata?.user ?? null;
   }
 
@@ -71,6 +86,11 @@ export class ViewSpeeddialComponent implements OnInit {
   }
 
   private updatePermissions(permissions: string[]) {
+    this.canAddToAlbum =
+      this.user !== null &&
+      permissions.includes(Permission.ImageManage) &&
+      this.user.id === this.userService.snapshot?.id;
+
     if (permissions.includes(Permission.ImageAdmin)) {
       this.canManage = true;
       return;
@@ -152,6 +172,14 @@ export class ViewSpeeddialComponent implements OnInit {
       CustomizeDialogComponent,
       options,
     );
+  }
+
+  async addToAlbum() {
+    if (this.image === null) return;
+
+    await this.dialogService.showCustomDialog(AddToAlbumDialogComponent, {
+      imageId: this.image.id,
+    } satisfies AddToAlbumDialogData);
   }
 
   async editImage() {

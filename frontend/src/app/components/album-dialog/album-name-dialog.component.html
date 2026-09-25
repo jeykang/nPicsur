@@ -1,0 +1,19 @@
+<form class="dialog-text" (ngSubmit)="confirm()">
+  <h2>{{ data.title }}</h2>
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Name</mat-label>
+    <input
+      matInput
+      name="album-name"
+      maxlength="100"
+      cdkFocusInitial
+      [formControl]="name"
+    />
+  </mat-form-field>
+  <div class="dialog-buttons">
+    <button type="button" mat-button (click)="cancel()">CANCEL</button>
+    <button type="submit" mat-button color="primary">
+      {{ data.confirm.toUpperCase() }}
+    </button>
+  </div>
+</form>

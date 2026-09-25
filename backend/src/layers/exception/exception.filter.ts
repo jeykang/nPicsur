@@ -3,6 +3,7 @@ import {
   Catch,
   ExceptionFilter,
   ForbiddenException,
+  HttpException,
   Logger,
   MethodNotAllowedException,
   NotFoundException,
@@ -65,10 +66,26 @@ export class MainExceptionFilter implements ExceptionFilter {
       return Fail(FT.RouteNotFound, exception);
     } else if (exception instanceof MethodNotAllowedException) {
       return Fail(FT.RouteNotFound, exception);
+    } else if (this.isClientError(exception)) {
+      // Things like malformed json or a file that is too big, these are the
+      // client's fault and their message is safe to pass on
+      return Fail(FT.BadRequest, exception.message, exception);
     } else if (exception instanceof Error) {
       return Fail(FT.Internal, exception);
     } else {
       return Fail(FT.Unknown, exception);
     }
+  }
+
+  private isClientError(exception: any): exception is Error {
+    if (!(exception instanceof Error)) return false;
+
+    // Errors thrown by nest itself, or by fastify and its plugins
+    const status =
+      exception instanceof HttpException
+        ? exception.getStatus()
+        : (exception as any).statusCode;
+
+    return typeof status === 'number' && status >= 400 && status < 500;
   }
 }

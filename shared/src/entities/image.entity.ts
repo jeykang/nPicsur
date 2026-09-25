@@ -7,5 +7,8 @@ export const EImageSchema = z.object({
   created: z.preprocess((data: any) => new Date(data), z.date()),
   file_name: z.string(),
   expires_at: z.preprocess((data: any) => new Date(data), z.date()).nullable(),
+  // Shown in the public gallery, otherwise only whoever has the link can see
+  // it
+  listed: z.boolean(),
 });
 export type EImage = z.infer<typeof EImageSchema>;

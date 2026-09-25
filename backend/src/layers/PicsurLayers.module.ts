@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { seconds, ThrottlerModule } from '@nestjs/throttler';
 import { MainExceptionFilter } from './exception/exception.filter.js';
 import { SuccessInterceptor } from './success/success.interceptor.js';
 import { PicsurThrottlerGuard } from './throttler/PicsurThrottler.guard.js';
@@ -9,9 +9,12 @@ import { ZodValidationPipe } from './validate/zod-validator.pipe.js';
   imports: [
     ThrottlerModule.forRoot({
       throttlers: [
+        // Per visitor address. Loading a page of the frontend alone makes a
+        // handful of requests, and several people can share one address.
+        // Routes that need a tighter limit, like logging in, set their own.
         {
-          limit: 60,
-          ttl: 60,
+          limit: 300,
+          ttl: seconds(60),
         },
       ],
     }),

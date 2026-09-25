@@ -12,25 +12,19 @@
     >
     <mat-cell class="d-none d-md-flex" *matCellDef="let user">
       <mat-chip-listbox aria-label="User Roles">
-        <mat-chip
-          [disableRipple]="true"
-          [disabled]="true"
-          *ngIf="isSystem(user)"
-        >
-          System
-        </mat-chip>
-        <mat-chip
-          [disableRipple]="true"
-          *ngFor="let role of user.roles.slice(0, rolesTruncate)"
-        >
-          {{ role }}
-        </mat-chip>
-        <mat-chip
-          [disableRipple]="true"
-          *ngIf="user.roles.length > rolesTruncate"
-        >
-          +{{ user.roles.length - rolesTruncate }}
-        </mat-chip>
+        @if (isSystem(user)) {
+          <mat-chip [disableRipple]="true" [disabled]="true"> System </mat-chip>
+        }
+        @for (role of user.roles.slice(0, rolesTruncate); track role) {
+          <mat-chip [disableRipple]="true">
+            {{ role }}
+          </mat-chip>
+        }
+        @if (user.roles.length > rolesTruncate) {
+          <mat-chip [disableRipple]="true">
+            +{{ user.roles.length - rolesTruncate }}
+          </mat-chip>
+        }
       </mat-chip-listbox>
     </mat-cell>
   </ng-container>
@@ -43,19 +37,17 @@
           edit
         </mat-icon>
       </button>
-      <button
-        *ngIf="!isSystem(user)"
-        mat-icon-button
-        (click)="deleteUser(user)"
-      >
-        <mat-icon
-          fontSet="material-icons-outlined"
-          class="icon-red"
-          aria-label="Delete"
-        >
-          delete
-        </mat-icon>
-      </button>
+      @if (!isSystem(user)) {
+        <button mat-icon-button (click)="deleteUser(user)">
+          <mat-icon
+            fontSet="material-icons-outlined"
+            class="icon-red"
+            aria-label="Delete"
+          >
+            delete
+          </mat-icon>
+        </button>
+      }
     </mat-cell>
   </ng-container>
 

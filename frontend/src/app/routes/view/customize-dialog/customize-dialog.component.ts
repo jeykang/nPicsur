@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { ImageService } from '../../../services/api/image.service';
 
@@ -15,6 +15,8 @@ export interface CustomizeDialogData {
   selector: 'customize-dialog',
   templateUrl: './customize-dialog.component.html',
   styleUrls: ['./customize-dialog.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class CustomizeDialogComponent {
   public sizeTooltip = 'Leave empty to keep original aspect ratio';

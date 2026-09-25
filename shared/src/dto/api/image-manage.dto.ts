@@ -35,9 +35,11 @@ export const ImageUpdateRequestSchema = EImageSchema.pick({
   id: true,
   expires_at: true,
   file_name: true,
+  listed: true,
 }).partial({
   expires_at: true,
   file_name: true,
+  listed: true,
 });
 export class ImageUpdateRequest extends createZodDto(
   ImageUpdateRequestSchema,

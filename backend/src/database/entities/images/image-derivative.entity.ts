@@ -1,16 +1,18 @@
 import {
-    Column,
-    Entity,
-    Index,
-    JoinColumn,
-    ManyToOne,
-    PrimaryGeneratedColumn,
-    Unique,
+  Check,
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  Unique,
 } from 'typeorm';
 import { EImageBackend } from './image.entity.js';
 
 @Entity()
 @Unique(['image_id', 'key'])
+@Check(`"data" IS NOT NULL OR "storage_key" IS NOT NULL`)
 export class EImageDerivativeBackend {
   @PrimaryGeneratedColumn('uuid')
   private _id?: string;
@@ -43,7 +45,13 @@ export class EImageDerivativeBackend {
   })
   last_read: Date;
 
-  // Binary data
-  @Column({ type: 'bytea', nullable: false })
-  data: Buffer;
+  // The converted image, when it is stored in the database. Never loaded
+  // unless explicitly asked for, it can be large.
+  @Column({ type: 'bytea', nullable: true, select: false })
+  data?: Buffer | null;
+
+  // Where the converted image is stored instead, when it lives in object
+  // storage
+  @Column({ type: 'varchar', nullable: true })
+  storage_key: string | null;
 }

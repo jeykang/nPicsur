@@ -11,20 +11,19 @@
   <button mat-mini-fab matTooltip="Customize Image" (click)="customize()">
     <mat-icon fontSet="material-icons-outlined"> tune </mat-icon>
   </button>
-  <button
-    *ngIf="canManage"
-    mat-mini-fab
-    matTooltip="Edit image"
-    (click)="editImage()"
-  >
-    <mat-icon fontSet="material-icons-outlined"> edit </mat-icon>
-  </button>
-  <button
-    *ngIf="canManage"
-    mat-mini-fab
-    matTooltip="Delete image"
-    (click)="deleteImage()"
-  >
-    <mat-icon fontSet="material-icons-outlined"> delete </mat-icon>
-  </button>
+  @if (canAddToAlbum) {
+    <button mat-mini-fab matTooltip="Add to an album" (click)="addToAlbum()">
+      <mat-icon fontSet="material-icons-outlined"> photo_album </mat-icon>
+    </button>
+  }
+  @if (canManage) {
+    <button mat-mini-fab matTooltip="Edit image" (click)="editImage()">
+      <mat-icon fontSet="material-icons-outlined"> edit </mat-icon>
+    </button>
+  }
+  @if (canManage) {
+    <button mat-mini-fab matTooltip="Delete image" (click)="deleteImage()">
+      <mat-icon fontSet="material-icons-outlined"> delete </mat-icon>
+    </button>
+  }
 </speed-dial>

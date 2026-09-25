@@ -1,4 +1,9 @@
-import { Component, Input, OnInit } from '@angular/core';
+import {
+  Component,
+  Input,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { AbstractControl, FormControl, ValidationErrors } from '@angular/forms';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import {
@@ -17,6 +22,8 @@ import { Throttle } from '../../util/throttle';
   selector: 'pref-option',
   templateUrl: './pref-option.component.html',
   styleUrls: ['./pref-option.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class PrefOptionComponent implements OnInit {
   private readonly logger = new Logger(PrefOptionComponent.name);

@@ -1,6 +1,7 @@
 /* To learn more about this file see: https://angular.io/config/tsconfig. */
+/* Does not extend ../tsconfig.base.json, the migrations of `ng update` can
+   not follow files outside of the frontend. */
 {
-  "extends": "../tsconfig.base.json",
   "compileOnSave": false,
 
   "compilerOptions": {
@@ -8,12 +9,31 @@
     "module": "ES2022",
     "moduleResolution": "Bundler",
 
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "allowJs": true,
+    "strict": true,
     "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true,
+    "strictPropertyInitialization": false,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "useUnknownInCatchVariables": true,
+
+    "skipLibCheck": true,
+    "removeComments": true,
+    "isolatedModules": true,
+    "incremental": false,
 
     "sourceMap": true,
     "declaration": false,
-    "importHelpers": true,
-    "resolveJsonModule": true
+    "importHelpers": true
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,

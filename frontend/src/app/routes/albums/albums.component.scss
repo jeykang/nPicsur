@@ -1,0 +1,20 @@
+picsur-img {
+  margin-top: 1em;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.no-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 8rem;
+  margin-top: 1em;
+  opacity: 0.4;
+
+  mat-icon {
+    font-size: 48px;
+  }
+}

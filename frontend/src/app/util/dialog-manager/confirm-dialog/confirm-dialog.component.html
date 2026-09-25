@@ -3,12 +3,9 @@
   <p>{{ data.description }}</p>
 </div>
 <div class="dialog-buttons">
-  <button
-    *ngFor="let button of data.buttons"
-    mat-button
-    [color]="button.color"
-    (click)="onButton(button.name)"
-  >
-    {{ button.text.toUpperCase() }}
-  </button>
+  @for (button of data.buttons; track button) {
+    <button mat-button [color]="button.color" (click)="onButton(button.name)">
+      {{ button.text.toUpperCase() }}
+    </button>
+  }
 </div>

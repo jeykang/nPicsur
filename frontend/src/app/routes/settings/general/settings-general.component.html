@@ -1,7 +1,7 @@
 <h1>Settings</h1>
 
 <div class="row">
-  <ng-container *ngFor="let pref of preferences | async">
+  @for (pref of preferences | async; track pref) {
     <pref-option
       class="col-md-6 col-12"
       [pref]="pref"
@@ -9,5 +9,5 @@
       [name]="getName(pref.key)"
       [helpText]="getHelpText(pref.key)"
     ></pref-option>
-  </ng-container>
+  }
 </div>

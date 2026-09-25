@@ -1,7 +1,6 @@
-version: '3'
 services:
   picsur:
-    image: ghcr.io/caramelfur/picsur-alpha:latest
+    image: ghcr.io/jeykang/npicsur:latest
     container_name: picsur
     ports:
       - '8080:8080'
@@ -15,7 +14,9 @@ services:
       # PICSUR_DB_PASSWORD: picsur
       # PICSUR_DB_DATABASE: picsur
 
-      # PICSUR_ADMIN_PASSWORD: picsur
+      ## When not set, a random password is generated and printed in the log
+      ## the first time Picsur starts
+      # PICSUR_ADMIN_PASSWORD: CHANGE_ME
 
       ## Optional, random secret will be generated if not set
       # PICSUR_JWT_SECRET: CHANGE_ME
@@ -26,9 +27,37 @@ services:
       ## No need to touch this, unless you use a custom frontend
       # PICSUR_STATIC_FRONTEND_ROOT: "/picsur/frontend/dist"
 
+      ## Proxies allowed to pass on the visitor's address, used for rate
+      ## limiting. By default any private address, like a reverse proxy in
+      ## the same docker network. Can be "true", "false", or a comma separated
+      ## list of addresses and ranges.
+      # PICSUR_TRUST_PROXY: "172.16.0.0/12"
+
+      ## Converting images is expensive, these limit how many conversions run
+      ## at once (default: the number of CPUs), and how many new ones a single
+      ## visitor may start per minute (default: 120, 0 for no limit)
+      # PICSUR_MAX_CONCURRENT_CONVERSIONS: 4
+      # PICSUR_CONVERSION_RATE_LIMIT: 120
+
+      ## Store images in S3 compatible object storage instead of the database.
+      ## Existing images can be moved over with:
+      ##   docker exec picsur node backend/dist/cli.js storage migrate
+      # PICSUR_STORAGE_DRIVER: s3
+      # PICSUR_S3_BUCKET: picsur
+      # PICSUR_S3_REGION: us-east-1
+      ## Only for services other than AWS itself, like Garage, MinIO or RustFS
+      # PICSUR_S3_ENDPOINT: https://s3.example.com
+      # PICSUR_S3_FORCE_PATH_STYLE: "true"
+      # PICSUR_S3_ACCESS_KEY_ID: CHANGE_ME
+      # PICSUR_S3_SECRET_ACCESS_KEY: CHANGE_ME
+      ## Keep Picsur's objects under this path in the bucket
+      # PICSUR_S3_PREFIX: picsur/
+
       ## Warning: Verbose mode might log sensitive data
       # PICSUR_VERBOSE: "true"
     restart: unless-stopped
+    depends_on:
+      - picsur_postgres
   picsur_postgres:
     image: postgres:17-alpine
     container_name: picsur_postgres

@@ -1,0 +1,41 @@
+<div class="dialog-text">
+  <h2>Albums</h2>
+
+  @if (albums === null) {
+    <mat-progress-spinner
+      mode="indeterminate"
+      diameter="32"
+    ></mat-progress-spinner>
+  } @else if (albums.length === 0) {
+    <p>You have no albums yet.</p>
+  } @else {
+    <div class="album-list">
+      @for (album of albums; track album.id) {
+        <mat-checkbox
+          [checked]="album.contains_image"
+          [disabled]="busy"
+          (change)="toggle(album, $event.checked)"
+        >
+          {{ album.name }}
+          <span class="count">({{ album.image_count }})</span>
+        </mat-checkbox>
+      }
+    </div>
+  }
+
+  <form class="new-album" (ngSubmit)="create()">
+    <mat-form-field appearance="outline" class="grow">
+      <mat-label>New album</mat-label>
+      <input
+        matInput
+        name="new-album"
+        maxlength="100"
+        [formControl]="newName"
+      />
+    </mat-form-field>
+    <button type="submit" mat-stroked-button [disabled]="busy">CREATE</button>
+  </form>
+</div>
+<div class="dialog-buttons">
+  <button mat-button color="primary" (click)="close()">DONE</button>
+</div>

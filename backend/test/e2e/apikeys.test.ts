@@ -1,4 +1,6 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
+import pg from 'pg';
+import { beforeAll, describe, expect, inject, it } from 'vitest';
 import {
   Client,
   createUser,
@@ -18,6 +20,7 @@ describe('api keys', () => {
     const { client, id: userId, username } = await createUser(admin);
     const key = expectSuccess(await client.post('/api/apikeys/create'));
     expect(key.key).toMatch(/^[a-zA-Z0-9]{32}$/);
+    expect(key.key_hint).toBe(key.key.slice(-4));
     expect(key.user).toBe(userId);
 
     const viaKey = Client.withApiKey(key.key);
@@ -43,6 +46,9 @@ describe('api keys', () => {
     );
     expect(list.total).toBe(1);
     expect(list.results[0].id).toBe(key.id);
+    // The key is only shown when it is created
+    expect(list.results[0]).not.toHaveProperty('key');
+    expect(list.results[0].key_hint).toBe(key.key.slice(-4));
 
     const renamed = expectSuccess(
       await client.post('/api/apikeys/update', {
@@ -135,7 +141,35 @@ describe('api keys', () => {
       }),
     );
     expect(adminList.total).toBe(1);
-    expect(adminList.results[0].key).toBe('');
+    expect(adminList.results[0]).not.toHaveProperty('key');
+  });
+
+  it('only stores a hash of the key', async () => {
+    const { client } = await createUser(admin);
+    const key = expectSuccess(await client.post('/api/apikeys/create'));
+
+    const env = inject('serverEnv');
+    const db = new pg.Client({
+      host: env['PICSUR_DB_HOST'],
+      port: Number(env['PICSUR_DB_PORT']),
+      user: env['PICSUR_DB_USERNAME'],
+      password: env['PICSUR_DB_PASSWORD'],
+      database: env['PICSUR_DB_DATABASE'],
+    });
+    await db.connect();
+    try {
+      const { rows } = await db.query(
+        'SELECT * FROM e_api_key_backend WHERE id = $1',
+        [key.id],
+      );
+      expect(rows).toHaveLength(1);
+      expect(JSON.stringify(rows[0])).not.toContain(key.key);
+      expect(rows[0].key_hash).toBe(
+        createHash('sha256').update(key.key).digest('hex'),
+      );
+    } finally {
+      await db.end();
+    }
   });
 
   it('deletes the keys of deleted users', async () => {

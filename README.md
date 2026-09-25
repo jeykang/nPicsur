@@ -17,7 +17,7 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
   - Changing a password now logs that user out everywhere.
   - Deletion links ask for confirmation, so link previews in chat apps no longer delete images.
   - Without `PICSUR_ADMIN_PASSWORD`, new instances got the admin password `picsur`. A random password is now generated instead.
-  - Api keys can no longer be turned into login tokens, and are only ever shown to their owner.
+  - Api keys are stored hashed and only shown once, when they are created. They can no longer be turned into login tokens.
 - **Telemetry removed**: every instance of the original reported its hostname, user and image counts to the original author's server every hour.
 - **Current versions**: Node.js 24, NestJS 11 and Fastify 5 for the server, Angular 22 for the frontend. No dependency has a known vulnerability.
 - **Docker image** for amd64 and arm64 with HEIC (iPhone photos), JPEG XL and JPEG 2000 support. It is tested in CI before it is published.
@@ -150,7 +150,7 @@ Things that behave differently:
 
 - Deletion links open a page that asks for confirmation. Links saved by ShareX keep working.
 - The token from `/api/user/me` is empty when authenticated with an api key. Api keys are used directly instead.
-- Api key administrators see other users' keys without the key itself.
+- Api keys are only shown once, when they are created. Existing keys keep working, also in ShareX configs. The ShareX config builder creates a new key for every config.
 - The image metadata (`/i/meta/:id`) only shows the uploader's id and username.
 - The statistics proxy (`/api/usage/report`) only accepts JSON.
 

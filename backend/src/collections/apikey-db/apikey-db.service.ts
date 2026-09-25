@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   AsyncFailable,
@@ -12,6 +13,12 @@ import { Repository } from 'typeorm';
 import { EApiKeyBackend } from '../../database/entities/apikey.entity.js';
 import { EUserBackend } from '../../database/entities/users/user.entity.js';
 
+// Api keys are long and random, so a fast hash is enough to keep them from
+// being guessed back
+export function HashApiKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex');
+}
+
 @Injectable()
 export class ApiKeyDbService {
   private readonly logger = new Logger(ApiKeyDbService.name);
@@ -21,7 +28,12 @@ export class ApiKeyDbService {
     private readonly apikeyRepo: Repository<EApiKeyBackend>,
   ) {}
 
-  async createApiKey(userid: string): AsyncFailable<EApiKeyBackend<string>> {
+  // Returns the key itself only this once, only its hash is stored
+  async createApiKey(
+    userid: string,
+  ): AsyncFailable<EApiKeyBackend<string> & { key: string }> {
+    const key = generateRandomString(32);
+
     const apikey = new EApiKeyBackend<string>();
     apikey.user = userid;
     apikey.created = new Date();
@@ -30,16 +42,13 @@ export class ApiKeyDbService {
       new Date().toISOString().slice(0, 10) +
       '_' +
       Math.round(Math.random() * 100);
-    apikey.key = generateRandomString(32); // Might collide, probably not
-
-    /*
-    And yes it might be more secure here to sha256 the key, to ensure that they are not leaked upon db breach
-    But this would mean that the user has to keep track of it themselves, and it makes many other things less smooth
-    So just foking protect ya database, and we'll be fine
-    */
+    apikey.key_hash = HashApiKey(key);
+    apikey.key_hint = key.slice(-4);
 
     try {
-      return this.apikeyRepo.save(apikey);
+      const saved = await this.apikeyRepo.save(apikey);
+      delete saved.key_hash;
+      return { ...saved, key };
     } catch (e) {
       return Fail(FT.Database, e);
     }
@@ -138,7 +147,7 @@ export class ApiKeyDbService {
   async resolve(key: string): AsyncFailable<EApiKeyBackend<EUserBackend>> {
     try {
       const apikey = await this.apikeyRepo.findOne({
-        where: { key },
+        where: { key_hash: HashApiKey(key) },
         relations: ['user'],
       });
       if (!apikey) return Fail(FT.NotFound, 'API key not found');

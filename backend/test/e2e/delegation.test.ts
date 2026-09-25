@@ -222,7 +222,7 @@ describe('delegated administration', () => {
         await keyAdmin.client.post('/api/apikeys/info', { id: adminKey.id }),
       );
       expect(info.user).toBe(adminId);
-      expect(info.key).toBe('');
+      expect(info).not.toHaveProperty('key');
 
       const list = expectSuccess(
         await keyAdmin.client.post('/api/apikeys/list', {
@@ -231,8 +231,12 @@ describe('delegated administration', () => {
         }),
       );
       const byId = new Map(list.results.map((k: any) => [k.id, k]));
-      expect(byId.get(adminKey.id)).toMatchObject({ key: '' });
-      expect(byId.get(ownKey.id)).toMatchObject({ key: ownKey.key });
+      // Keys are only shown when they are created, even to their owner
+      expect(byId.get(adminKey.id)).not.toHaveProperty('key');
+      expect(byId.get(ownKey.id)).not.toHaveProperty('key');
+      expect(byId.get(ownKey.id)).toMatchObject({
+        key_hint: ownKey.key.slice(-4),
+      });
 
       const renamed = expectSuccess(
         await keyAdmin.client.post('/api/apikeys/update', {
@@ -240,12 +244,12 @@ describe('delegated administration', () => {
           name: 'renamed',
         }),
       );
-      expect(renamed.key).toBe('');
+      expect(renamed).not.toHaveProperty('key');
 
       const deleted = expectSuccess(
         await keyAdmin.client.post('/api/apikeys/delete', { id: adminKey.id }),
       );
-      expect(deleted.key).toBe('');
+      expect(deleted).not.toHaveProperty('key');
     });
   });
 });

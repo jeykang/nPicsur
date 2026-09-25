@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { IsApiKey } from '../validators/api-key.validator.js';
 import { IsEntityID } from '../validators/entity-id.validator.js';
 
 export const EApiKeySchema = z.object({
   id: IsEntityID(),
-  // Empty for keys of other users, which are never shown
-  key: IsApiKey().or(z.literal('')),
+  // The last characters of the key, to tell keys apart. The key itself is
+  // only stored as a hash, and shown once when it is created.
+  key_hint: z.string(),
   user: IsEntityID(),
   name: z.string().max(255),
   created: z.preprocess((data: any) => new Date(data), z.date()),

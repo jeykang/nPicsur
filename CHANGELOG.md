@@ -12,6 +12,7 @@ The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0
 - New instances got the admin password `picsur` when `PICSUR_ADMIN_PASSWORD` was not set. A random one is generated instead, and a warning is logged when the admin still uses `picsur`.
 - Changing a password now logs that user out everywhere.
 - Deletion links deleted the image as soon as they were opened, including by the link previews of chat apps. They now ask for confirmation.
+- Api keys were stored as they are, so anyone who could read the database or a backup of it could use them. Only a hash of them is stored now, and they are only shown once, when they are created. Existing keys keep working.
 - `/api/user/me` handed out login tokens to api keys, which kept working after the key was deleted.
 - The JWT secret could be read and changed through the settings api. It is now only set with `PICSUR_JWT_SECRET`, or generated on first start. Tokens are only accepted when signed with HS256.
 - Url settings were checked with a regular expression that accepted almost anything and could be made to run for minutes.
@@ -39,6 +40,7 @@ The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0
 - Unknown `/api` routes answer with a JSON 404 instead of the frontend.
 - Image metadata is no longer cached for a month, and the placeholder for missing images is not cached at all.
 - The "Source Code" link in the footer points to this fork.
+- The ShareX config builder creates a new api key for every config, named ShareX.
 - The package metadata names the AGPL-3.0, the license in `LICENSE`, instead of the GPL-3.0.
 
 ### Fixed

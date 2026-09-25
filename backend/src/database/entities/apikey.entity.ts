@@ -1,11 +1,5 @@
 import { EApiKeySchema } from 'picsur-shared/dist/entities/apikey.entity';
-import {
-  Column,
-  Entity,
-  Index,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { z } from 'zod';
 import { EUserBackend } from './users/user.entity.js';
 
@@ -23,12 +17,17 @@ export class EApiKeyBackend<
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Index()
+  // Only a hash of the key is stored, so the keys can not be taken from the
+  // database
   @Column({
     nullable: false,
     unique: true,
+    select: false,
   })
-  key: string;
+  key_hash?: string;
+
+  @Column({ nullable: false })
+  key_hint: string;
 
   @ManyToOne(() => EUserBackend, (user) => user.apikeys, {
     nullable: false,

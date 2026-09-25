@@ -1,0 +1,26 @@
+<div class="dialog-text">
+  <h2>Your new api key</h2>
+  <p>Copy it now, it will not be shown again.</p>
+  <mat-form-field appearance="outline" class="key-field">
+    <mat-label>Api Key</mat-label>
+    <input
+      matInput
+      readonly
+      name="apikey"
+      [value]="data.key"
+      (focus)="$any($event.target).select()"
+    />
+    <button
+      mat-icon-button
+      matSuffix
+      type="button"
+      aria-label="Copy api key"
+      (click)="copy()"
+    >
+      <mat-icon fontSet="material-icons-outlined">content_copy</mat-icon>
+    </button>
+  </mat-form-field>
+</div>
+<div class="dialog-buttons">
+  <button mat-button color="primary" (click)="close()">DONE</button>
+</div>

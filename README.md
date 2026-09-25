@@ -82,7 +82,7 @@ If you like this project, don't forget to give it a star. It tells me that I'm n
 
 ### Is this project maintained?
 
-Nope, not anymore, I simply haven't got the time or energy. It really is suprising how little quickly time passes once ya start a normal job. 
+Nope, not anymore, I simply haven't got the time or energy. It really is suprising how little quickly time passes once ya start a normal job.
 
 Feel free to fork it and continue where I left off. And if anyone wants to take full ownership of the project, also fork it and show some love for it, then hmu after.
 

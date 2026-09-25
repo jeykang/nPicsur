@@ -8,7 +8,7 @@ import {
   FT,
   HasFailed,
 } from 'picsur-shared/dist/types/failable';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { EImageDerivativeBackend } from '../../database/entities/images/image-derivative.entity.js';
 import { EImageFileBackend } from '../../database/entities/images/image-file.entity.js';
 import { ObjectStorageService } from '../object-storage/object-storage.service.js';
@@ -142,6 +142,15 @@ export class ImageFileDBService {
     try {
       await this.imageDerivativeRepo.save(imageDerivative);
     } catch (e) {
+      // Without its row the object is never used
+      if (location.storage_key !== null) {
+        const deleted = await this.objectStorage.delete([location.storage_key]);
+        if (HasFailed(deleted)) deleted.print(this.logger);
+      }
+      // The image was deleted while it was being converted
+      if (e instanceof QueryFailedError && e.driverError?.code === '23503') {
+        return Fail(FT.NotFound, 'Image not found');
+      }
       return Fail(FT.Database, e);
     }
 

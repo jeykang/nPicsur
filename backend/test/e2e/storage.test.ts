@@ -214,6 +214,23 @@ describe('image storage', () => {
     if (s3Configured) expect(await objectKeys(id)).toEqual([]);
   });
 
+  it('handles images deleted while they are being converted', async () => {
+    const { id } = await client.uploadOk(await makeJpeg(1200, 900), 'gone.jpg');
+    // Converting takes long enough for the delete to happen in between
+    const converting = Client.guest().get(`/i/${id}.avif?width=1100`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expectSuccess(await client.post('/api/image/delete', { ids: [id] }));
+
+    // Either it finished first, or the image is gone, but nothing broke
+    expect([200, 404]).toContain((await converting).status);
+    const rows = await db.query(
+      'SELECT count(*)::int AS n FROM e_image_derivative_backend WHERE image_id = $1',
+      [id],
+    );
+    expect(rows.rows[0].n).toBe(0);
+    if (s3Configured) expect(await objectKeys(id)).toEqual([]);
+  });
+
   it.runIf(s3IsTarget)(
     'makes cached conversions again when their data went missing',
     async () => {

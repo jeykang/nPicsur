@@ -76,7 +76,6 @@ export class UserController {
   @Get('me')
   @Returns(UserMeResponse)
   @RequiredPermissions(Permission.UserKeepLogin)
-  @EasyThrottle(10)
   async me(
     @ReqUserID() userid: string,
     @Req() req: FastifyRequest,
@@ -99,7 +98,6 @@ export class UserController {
   @Get('me/permissions')
   @Returns(UserMePermissionsResponse)
   @NoPermissions()
-  @EasyThrottle(20)
   async refresh(
     @ReqUserID() userid: string,
   ): Promise<UserMePermissionsResponse> {

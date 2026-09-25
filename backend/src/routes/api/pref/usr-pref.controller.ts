@@ -22,7 +22,6 @@ export class UsrPrefController {
 
   @Get()
   @Returns(MultiplePreferencesResponse)
-  @EasyThrottle(20)
   async getAllUsrPrefs(
     @ReqUserID() userid: string,
   ): Promise<MultiplePreferencesResponse> {

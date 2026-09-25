@@ -35,6 +35,21 @@ describe('security', () => {
     expect(res.status).not.toBe(429);
   });
 
+  it('does not get in the way of normal use', async () => {
+    // Every page load of the frontend asks who is logged in and what they
+    // may do, a few people behind one address can do that often
+    const admin = await Client.admin();
+    admin.pinnedIp = Client.pinned().pinnedIp;
+    for (let i = 0; i < 30; i++) {
+      const [me, permissions] = await Promise.all([
+        admin.get('/api/user/me'),
+        admin.get('/api/user/me/permissions'),
+      ]);
+      expect(me.status).toBe(200);
+      expect(permissions.status).toBe(200);
+    }
+  });
+
   it('sets security headers', async () => {
     const res = await Client.guest().get('/');
     expect(res.headers.get('content-security-policy')).toContain(

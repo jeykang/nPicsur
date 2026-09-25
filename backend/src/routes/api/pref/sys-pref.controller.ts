@@ -33,7 +33,6 @@ export class SysPrefController {
 
   @Get()
   @Returns(MultiplePreferencesResponse)
-  @EasyThrottle(20)
   async getAllSysPrefs(): Promise<MultiplePreferencesResponse> {
     const prefs = ThrowIfFailed(
       await this.prefService.getAllPreferences(),

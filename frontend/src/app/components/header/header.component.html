@@ -115,6 +115,12 @@
           <span>My Images</span>
         </button>
       }
+      @if (canManageImages) {
+        <button mat-menu-item (click)="doAlbums()">
+          <mat-icon fontSet="material-icons-outlined">photo_album</mat-icon>
+          <span>My Albums</span>
+        </button>
+      }
       @if (canAccessSettings) {
         <button mat-menu-item (click)="doSettings()">
           <mat-icon fontSet="material-icons-outlined">settings</mat-icon>

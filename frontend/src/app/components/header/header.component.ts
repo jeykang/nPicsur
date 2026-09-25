@@ -75,6 +75,7 @@ export class HeaderComponent implements OnInit {
   public canUpload = false;
   public canRegister = false;
   public canViewGallery = false;
+  public canManageImages = false;
 
   public get user() {
     return this.currentUser;
@@ -116,6 +117,7 @@ export class HeaderComponent implements OnInit {
       this.canUpload = permissions.includes(Permission.ImageUpload);
       this.canRegister = permissions.includes(Permission.UserRegister);
       this.canViewGallery = permissions.includes(Permission.GalleryView);
+      this.canManageImages = permissions.includes(Permission.ImageManage);
 
       this.changeDetector.markForCheck();
     });
@@ -151,5 +153,9 @@ export class HeaderComponent implements OnInit {
 
   doGallery() {
     this.router.navigate(['/gallery']);
+  }
+
+  doAlbums() {
+    this.router.navigate(['/albums']);
   }
 }

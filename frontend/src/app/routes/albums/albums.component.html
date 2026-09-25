@@ -1,0 +1,54 @@
+<h1>Your Albums</h1>
+
+@if (albums === null) {
+  <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+}
+
+@if (albums !== null && albums.length === 0) {
+  <p>
+    You have no albums yet. Create one with the button below, or from the page
+    of an image.
+  </p>
+}
+
+@if (albums !== null && albums.length > 0) {
+  <masonry [columns]="columns">
+    @for (album of albums; track album.id) {
+      <ng-template masonry-item>
+        <div class="m-2">
+          <mat-card class="clickable" (click)="openAlbum(album)">
+            <mat-card-header>
+              <mat-card-title>{{ album.name | truncate }}</mat-card-title>
+              <mat-card-subtitle>
+                {{ album.image_count }}
+                {{ album.image_count === 1 ? 'image' : 'images' }}, created
+                {{ album.created | amTimeAgo }}
+              </mat-card-subtitle>
+            </mat-card-header>
+            @if (getCoverUrl(album); as cover) {
+              <picsur-img mat-card-image [src]="cover"></picsur-img>
+            } @else {
+              <div class="no-cover">
+                <mat-icon fontSet="material-icons-outlined"
+                  >photo_album</mat-icon
+                >
+              </div>
+            }
+          </mat-card>
+        </div>
+      </ng-template>
+    }
+  </masonry>
+  <paginator
+    [total-pages]="pages"
+    [page]="page"
+    (page)="gotoPage($event)"
+  ></paginator>
+}
+
+<fab
+  aria-label="Create an album"
+  (click)="createAlbum()"
+  icon="add"
+  tooltip="Create an album"
+></fab>

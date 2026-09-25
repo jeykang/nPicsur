@@ -34,6 +34,16 @@ const routes: PRoutes = [
       import('./routes/images/images.module').then((m) => m.default),
   },
   {
+    path: 'albums',
+    loadChildren: () =>
+      import('./routes/albums/albums.module').then((m) => m.default),
+  },
+  {
+    path: 'album',
+    loadChildren: () =>
+      import('./routes/album/album.module').then((m) => m.default),
+  },
+  {
     path: 'gallery',
     loadChildren: () =>
       import('./routes/gallery/gallery.module').then((m) => m.default),

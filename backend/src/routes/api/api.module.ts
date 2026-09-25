@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AlbumApiModule } from './album/album.module.js';
 import { ApiKeysModule } from './apikeys/apikeys.module.js';
 import { GalleryApiModule } from './gallery/gallery.module.js';
 import { InfoModule } from './info/info.module.js';
@@ -16,6 +17,7 @@ import { UserApiModule } from './user/user.module.js';
     ApiKeysModule,
     UsageApiModule,
     GalleryApiModule,
+    AlbumApiModule,
   ],
 })
 export class PicsurApiModule {}

@@ -18,6 +18,7 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
   - Deletion links ask for confirmation, so link previews in chat apps no longer delete images.
   - Without `PICSUR_ADMIN_PASSWORD`, new instances got the admin password `picsur`. A random password is now generated instead.
   - Api keys are stored hashed and only shown once, when they are created. They can no longer be turned into login tokens.
+- **New features**: albums, a public gallery, a light theme, and changing your own password.
 - **Telemetry removed**: every instance of the original reported its hostname, user and image counts to the original author's server every hour.
 - **Current versions**: Node.js 24, NestJS 11 and Fastify 5 for the server, Angular 22 for the frontend. No dependency has a known vulnerability.
 - **Docker image** for amd64 and arm64 with HEIC (iPhone photos), JPEG XL and JPEG 2000 support. It is tested in CI before it is published.
@@ -34,10 +35,9 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
 - Correct previews in chat apps
 - A ShareX configuration builder, and api keys
 - Images stored in the database or in S3 compatible object storage
-- A dark and a light theme
+- Albums, which anyone with their link can see
 - A public gallery of the images their owners chose to show there
-
-Not there yet: albums.
+- A dark and a light theme
 
 ## Running your own instance
 

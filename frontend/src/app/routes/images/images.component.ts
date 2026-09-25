@@ -13,6 +13,10 @@ import {
   switchMap,
   timer,
 } from 'rxjs';
+import {
+  AddToAlbumDialogComponent,
+  AddToAlbumDialogData,
+} from '../../components/album-dialog/add-to-album-dialog.component';
 import { ImageService } from '../../services/api/image.service';
 import { UserService } from '../../services/api/user.service';
 import { Logger } from '../../services/logger/logger.service';
@@ -133,6 +137,12 @@ export class ImagesComponent implements OnInit {
 
   viewImage(image: EImage) {
     this.router.navigate(['/view', image.id]);
+  }
+
+  async addToAlbum(image: EImage) {
+    await this.dialogService.showCustomDialog(AddToAlbumDialogComponent, {
+      imageId: image.id,
+    } satisfies AddToAlbumDialogData);
   }
 
   async deleteImage(image: EImage) {

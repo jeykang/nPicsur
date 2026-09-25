@@ -23,6 +23,10 @@ import { DownloadService } from '../../../util/download-manager/download.service
 import { ErrorService } from '../../../util/error-manager/error.service';
 import { UtilService } from '../../../util/util.service';
 import {
+  AddToAlbumDialogComponent,
+  AddToAlbumDialogData,
+} from '../../../components/album-dialog/add-to-album-dialog.component';
+import {
   CustomizeDialogComponent,
   CustomizeDialogData,
 } from '../customize-dialog/customize-dialog.component';
@@ -42,6 +46,8 @@ export class ViewSpeeddialComponent implements OnInit {
   private readonly logger = new Logger(ViewSpeeddialComponent.name);
 
   public canManage = false;
+  // Albums only hold images of their owner
+  public canAddToAlbum = false;
 
   @Input() public metadata: ImageMetaResponse | null = null;
   @Output() public metadataChange = new EventEmitter<ImageMetaResponse>();
@@ -80,6 +86,11 @@ export class ViewSpeeddialComponent implements OnInit {
   }
 
   private updatePermissions(permissions: string[]) {
+    this.canAddToAlbum =
+      this.user !== null &&
+      permissions.includes(Permission.ImageManage) &&
+      this.user.id === this.userService.snapshot?.id;
+
     if (permissions.includes(Permission.ImageAdmin)) {
       this.canManage = true;
       return;
@@ -161,6 +172,14 @@ export class ViewSpeeddialComponent implements OnInit {
       CustomizeDialogComponent,
       options,
     );
+  }
+
+  async addToAlbum() {
+    if (this.image === null) return;
+
+    await this.dialogService.showCustomDialog(AddToAlbumDialogComponent, {
+      imageId: this.image.id,
+    } satisfies AddToAlbumDialogData);
   }
 
   async editImage() {

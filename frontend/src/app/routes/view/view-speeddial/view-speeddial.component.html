@@ -11,6 +11,11 @@
   <button mat-mini-fab matTooltip="Customize Image" (click)="customize()">
     <mat-icon fontSet="material-icons-outlined"> tune </mat-icon>
   </button>
+  @if (canAddToAlbum) {
+    <button mat-mini-fab matTooltip="Add to an album" (click)="addToAlbum()">
+      <mat-icon fontSet="material-icons-outlined"> photo_album </mat-icon>
+    </button>
+  }
   @if (canManage) {
     <button mat-mini-fab matTooltip="Edit image" (click)="editImage()">
       <mat-icon fontSet="material-icons-outlined"> edit </mat-icon>

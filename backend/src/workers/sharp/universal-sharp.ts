@@ -382,7 +382,14 @@ export async function UniversalSharpOut(
         })
         .toBuffer({ resolveWithObject: true });
     case AnimFileType.GIF:
-      return image.gif(animation).toBuffer({ resolveWithObject: true });
+      // Choosing the colours of every frame takes most of the time. libvips'
+      // default effort of 7 took 4 seconds for 30 frames of a video, and 26
+      // for 30 frames of noise. With 4 that is 1.7 and 4 seconds, for files
+      // up to 13% larger. Any lower and libimagequant posterizes the colours
+      // first, which makes drawings worse and even slower.
+      return image
+        .gif({ effort: 4, ...animation })
+        .toBuffer({ resolveWithObject: true });
     case AnimFileType.APNG:
       return apngSharpOut(image, timing ?? null);
     default:

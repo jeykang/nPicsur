@@ -1,0 +1,298 @@
+<h1>Server</h1>
+<p>
+  Where images are stored, and other settings of the server itself. Changes take
+  effect when Picsur restarts, which can be done from here. Settings made with
+  environment variables can only be changed there.
+</p>
+
+<!-- A text field for a setting -->
+<ng-template #field let-key let-type="type" let-mode="inputmode">
+  <mat-form-field
+    appearance="outline"
+    subscriptSizing="dynamic"
+    floatLabel="always"
+  >
+    <mat-label>{{ name(key) }}</mat-label>
+    <input
+      matInput
+      [type]="type ?? 'text'"
+      [attr.inputmode]="mode ?? null"
+      [formControl]="control(key)"
+      [placeholder]="placeholder(key)"
+      [name]="key"
+      autocomplete="off"
+      autocapitalize="none"
+      spellcheck="false"
+    />
+    @if (locked(key)) {
+      <mat-icon matSuffix>lock</mat-icon>
+    }
+    <mat-hint>{{ hint(key) }}</mat-hint>
+    @if (control(key).invalid) {
+      <mat-error>{{ error(key) }}</mat-error>
+    }
+  </mat-form-field>
+</ng-template>
+
+@if (loadFailure) {
+  <p>{{ loadFailure.getReason() }}</p>
+  <button mat-raised-button color="primary" (click)="load()">TRY AGAIN</button>
+} @else if (settings && storage) {
+  @if (busy === 'restarting') {
+    <mat-card appearance="outlined" class="notice">
+      <mat-card-content class="notice-content">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span class="grow">Restarting Picsur...</span>
+      </mat-card-content>
+    </mat-card>
+  } @else if (settings.restart_needed) {
+    <mat-card appearance="outlined" class="notice">
+      <mat-card-content class="notice-content">
+        <mat-icon>restart_alt</mat-icon>
+        <span class="grow">
+          Some changes take effect when Picsur restarts.
+        </span>
+        <button
+          mat-raised-button
+          color="primary"
+          [disabled]="busy !== null || storage.migration.running"
+          (click)="promptRestart()"
+        >
+          RESTART NOW
+        </button>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (settings.restart_error) {
+    <mat-card appearance="outlined" class="notice">
+      <mat-card-content class="notice-content">
+        <mat-icon color="warn">error_outline</mat-icon>
+        <span class="grow">
+          Picsur could not start with the last changes, so it went back to the
+          settings it had before: {{ settings.restart_error }}
+        </span>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <form (ngSubmit)="save()">
+    <h2>Image storage</h2>
+    <p>
+      New images are stored in
+      @if (storage.driver === 's3') {
+        the bucket "{{ storage.bucket }}".
+      } @else {
+        the database.
+      }
+      There {{ storage.files.database === 1 ? 'is' : 'are' }}
+      {{ storage.files.database }} image
+      {{ storage.files.database === 1 ? 'file' : 'files' }} in the database, and
+      {{ storage.files.object_storage }} in object storage.
+    </p>
+
+    @if (storage.migration.running) {
+      <mat-card appearance="outlined" class="notice">
+        <mat-card-content>
+          <div class="notice-content">
+            <mat-icon>drive_file_move</mat-icon>
+            <span class="grow">
+              Moving images to {{ storageName(storage.migration.target) }}:
+              {{ storage.migration.moved }} of {{ storage.migration.total }}
+              @if (storage.migration.failed > 0) {
+                , {{ storage.migration.failed }} failed
+              }
+            </span>
+            <button mat-button type="button" (click)="stopMigration()">
+              STOP
+            </button>
+          </div>
+          <mat-progress-bar
+            mode="determinate"
+            [value]="migrationProgress"
+          ></mat-progress-bar>
+        </mat-card-content>
+      </mat-card>
+    } @else {
+      @if (storage.migration.error) {
+        <mat-card appearance="outlined" class="notice">
+          <mat-card-content class="notice-content">
+            <mat-icon color="warn">error_outline</mat-icon>
+            <span class="grow">{{ storage.migration.error }}</span>
+          </mat-card-content>
+        </mat-card>
+      }
+      @if (filesElsewhere > 0) {
+        <mat-card appearance="outlined" class="notice">
+          <mat-card-content class="notice-content">
+            <mat-icon>drive_file_move</mat-icon>
+            <span class="grow">
+              {{ filesElsewhere }} image
+              {{ filesElsewhere === 1 ? 'file is' : 'files are' }} still stored
+              in {{ storageName(storage.driver === 's3' ? 'database' : 's3') }}.
+              They can be moved to {{ storageName(storage.driver) }}, Picsur
+              keeps working in the meantime.
+            </span>
+            <button
+              mat-raised-button
+              color="primary"
+              type="button"
+              [disabled]="busy !== null"
+              (click)="startMigration()"
+            >
+              MOVE THEM
+            </button>
+          </mat-card-content>
+        </mat-card>
+      }
+    }
+
+    <div class="row">
+      <div class="col-lg-6 col-12">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>{{ name(S.StorageDriver) }}</mat-label>
+          <mat-select [formControl]="control(S.StorageDriver)">
+            <mat-option value="database">The database</mat-option>
+            <mat-option value="s3">S3 compatible object storage</mat-option>
+          </mat-select>
+          <mat-hint>{{ hint(S.StorageDriver) }}</mat-hint>
+        </mat-form-field>
+      </div>
+    </div>
+
+    @if (showBucket) {
+      @if (driver === 'database' && bucketIsSet) {
+        <p>
+          Images stored in this bucket before can still be viewed. Once they are
+          moved to the database, the bucket can be removed.
+        </p>
+        @if (!locked(S.S3Bucket)) {
+          <button
+            mat-stroked-button
+            type="button"
+            class="remove-bucket"
+            [disabled]="busy !== null || storage.files.object_storage > 0"
+            (click)="removeBucket()"
+          >
+            REMOVE THE BUCKET
+          </button>
+        }
+      }
+      <div class="row">
+        <div class="col-lg-6 col-12">
+          <ng-container
+            *ngTemplateOutlet="field; context: { $implicit: S.S3Endpoint }"
+          ></ng-container>
+        </div>
+        <div class="col-lg-6 col-12">
+          <ng-container
+            *ngTemplateOutlet="field; context: { $implicit: S.S3Region }"
+          ></ng-container>
+        </div>
+        <div class="col-lg-6 col-12">
+          <ng-container
+            *ngTemplateOutlet="field; context: { $implicit: S.S3Bucket }"
+          ></ng-container>
+        </div>
+        <div class="col-lg-6 col-12">
+          <ng-container
+            *ngTemplateOutlet="field; context: { $implicit: S.S3Prefix }"
+          ></ng-container>
+        </div>
+        <div class="col-lg-6 col-12">
+          <ng-container
+            *ngTemplateOutlet="field; context: { $implicit: S.S3AccessKeyId }"
+          ></ng-container>
+        </div>
+        <div class="col-lg-6 col-12 secret">
+          <ng-container
+            *ngTemplateOutlet="
+              field;
+              context: { $implicit: S.S3SecretAccessKey, type: 'password' }
+            "
+          ></ng-container>
+          @if (secretIsSet && !locked(S.S3SecretAccessKey)) {
+            <button mat-button type="button" (click)="toggleRemoveSecret()">
+              {{ removeSecret ? 'KEEP THE SAVED SECRET' : 'REMOVE THE SECRET' }}
+            </button>
+          }
+        </div>
+        <div class="col-12 toggle">
+          <mat-slide-toggle
+            [checked]="control(S.S3ForcePathStyle).value === 'true'"
+            [disabled]="locked(S.S3ForcePathStyle)"
+            (change)="
+              control(S.S3ForcePathStyle).setValue(
+                $event.checked ? 'true' : 'false'
+              )
+            "
+          >
+            {{ name(S.S3ForcePathStyle) }}
+          </mat-slide-toggle>
+          <p class="hint">{{ hint(S.S3ForcePathStyle) }}</p>
+        </div>
+      </div>
+      <button
+        mat-stroked-button
+        type="button"
+        [disabled]="busy !== null"
+        (click)="testStorage()"
+      >
+        {{ busy === 'testing' ? 'TESTING...' : 'TEST STORAGE' }}
+      </button>
+    }
+
+    <h2>Uploads and conversions</h2>
+    <div class="row">
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: { $implicit: S.MaxFileSize, inputmode: 'decimal' }
+          "
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: {
+              $implicit: S.MaxConcurrentConversions,
+              inputmode: 'numeric',
+            }
+          "
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: { $implicit: S.ConversionRateLimit, inputmode: 'numeric' }
+          "
+        ></ng-container>
+      </div>
+    </div>
+
+    <h2>Network</h2>
+    <div class="row">
+      <div class="col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.TrustProxy }"
+        ></ng-container>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-12 pb-4">
+        <button
+          mat-raised-button
+          type="submit"
+          color="primary"
+          [disabled]="busy !== null || !hasChanges"
+        >
+          {{ busy === 'saving' ? 'SAVING...' : 'SAVE' }}
+        </button>
+      </div>
+    </div>
+  </form>
+}

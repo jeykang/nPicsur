@@ -70,3 +70,10 @@
 .fullanimate * {
   transition: ease-in-out all 0.2s !important;
 }
+
+// Images with light text are for the dark theme, those with dark text for the
+// light theme
+.theme-light .for-dark-theme,
+html:not(.theme-light) .for-light-theme {
+  display: none !important;
+}

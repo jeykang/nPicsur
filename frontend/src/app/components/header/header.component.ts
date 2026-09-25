@@ -16,6 +16,7 @@ import { UserService } from '../../services/api/user.service';
 import { PermissionService } from '../../services/api/permission.service';
 import { Logger } from '../../services/logger/logger.service';
 import { ErrorService } from '../../util/error-manager/error.service';
+import { ThemeChoice, ThemeService } from '../../util/theme.service';
 
 @Component({
   selector: 'app-header',
@@ -33,7 +34,30 @@ export class HeaderComponent implements OnInit {
     private readonly permissionService: PermissionService,
     private readonly changeDetector: ChangeDetectorRef,
     private readonly errorService: ErrorService,
+    private readonly themeService: ThemeService,
   ) {}
+
+  public readonly themeOptions: {
+    value: ThemeChoice;
+    name: string;
+    icon: string;
+  }[] = [
+    { value: 'dark', name: 'Dark', icon: 'dark_mode' },
+    { value: 'light', name: 'Light', icon: 'light_mode' },
+    { value: 'system', name: 'Like the system', icon: 'brightness_auto' },
+  ];
+  public theme: ThemeChoice = 'dark';
+
+  public get themeIcon() {
+    return (
+      this.themeOptions.find((option) => option.value === this.theme)?.icon ??
+      'dark_mode'
+    );
+  }
+
+  public setTheme(theme: ThemeChoice) {
+    this.themeService.set(theme);
+  }
 
   @Input('enableHamburger') public set enableHamburger(value: boolean) {
     this._enableHamburger = value;
@@ -62,6 +86,16 @@ export class HeaderComponent implements OnInit {
   ngOnInit(): void {
     this.subscribeUser();
     this.subscribePermissions();
+    this.subscribeTheme();
+  }
+
+  @AutoUnsubscribe()
+  subscribeTheme() {
+    return this.themeService.live.subscribe((theme) => {
+      this.theme = theme;
+
+      this.changeDetector.markForCheck();
+    });
   }
 
   @AutoUnsubscribe()

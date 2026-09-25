@@ -163,15 +163,15 @@ $mat-theme: map.set(
   map.merge(map.get($mat-theme, _mat-system), $picsur-system-colors)
 );
 
-$mat-theme-light: (
+$mat-theme-light: mat.m2-define-light-theme(
   (
     color: (
       primary: $picsur-primary,
       accent: $picsur-accent,
       warn: $picsur-warn,
-      background: $mat-light-theme-background-palette,
-      foreground: $mat-light-theme-foreground-palette,
     ),
+    typography: mat.m2-define-typography-config(),
+    density: 0,
   )
 );
 
@@ -187,10 +187,19 @@ $mat-theme-light: (
   )
 );
 
-// .theme-alternate {
-//   @include mat.all-component-colors($mat-theme-light);
-//   @include custom-mat.custom-material($mat-theme-light);
-// }
+// The light theme, when <html> has the theme-light class
+.theme-light {
+  @include mat.all-component-colors($mat-theme-light);
+  @include custom-mat.custom-material($mat-theme-light);
+  @include mat.toolbar-overrides(
+    (
+      container-background-color: map.get(
+          $mat-light-theme-background-palette,
+          app-bar
+        ),
+    )
+  );
+}
 
 .mat-standard-chip {
   padding: 0.5em 0.85em;

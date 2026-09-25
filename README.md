@@ -34,8 +34,9 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
 - Correct previews in chat apps
 - A ShareX configuration builder, and api keys
 - Images stored in the database or in S3 compatible object storage
+- A dark and a light theme
 
-Not there yet: a light theme, a public gallery, albums.
+Not there yet: a public gallery, albums.
 
 ## Running your own instance
 

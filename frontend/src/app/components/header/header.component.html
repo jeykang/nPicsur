@@ -20,7 +20,12 @@
     <div class="svg-logo-text">
       <img
         src="/assets/branding/text/picsur_light.svg"
-        class="ms-3 d-none d-sm-block"
+        class="ms-3 d-none d-sm-block for-dark-theme"
+        alt="Picsur Text Logo"
+      />
+      <img
+        src="/assets/branding/text/picsur_dark.svg"
+        class="ms-3 d-none d-sm-block for-light-theme"
         alt="Picsur Text Logo"
       />
     </div>
@@ -38,6 +43,29 @@
       <mat-icon fontSet="material-icons-outlined">upload</mat-icon>
     </button>
   }
+
+  <button
+    matTooltip="Theme"
+    mat-icon-button
+    class="me-3"
+    aria-label="Choose a theme"
+    [matMenuTriggerFor]="themeMenu"
+  >
+    <mat-icon fontSet="material-icons-outlined">{{ themeIcon }}</mat-icon>
+  </button>
+
+  <mat-menu #themeMenu="matMenu" xPosition="before">
+    @for (option of themeOptions; track option.value) {
+      <button
+        mat-menu-item
+        [class.selected-theme]="option.value === theme"
+        (click)="setTheme(option.value)"
+      >
+        <mat-icon fontSet="material-icons-outlined">{{ option.icon }}</mat-icon>
+        <span>{{ option.name }}</span>
+      </button>
+    }
+  </mat-menu>
 
   @if (!isLoggedIn && canLogIn) {
     <button

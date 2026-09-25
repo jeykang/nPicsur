@@ -28,6 +28,7 @@ The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0
 - Images can be stored in S3 compatible object storage instead of the database, with `PICSUR_STORAGE_DRIVER=s3` and the `PICSUR_S3_*` settings. Existing images can be moved in either direction with `node dist/cli.js storage migrate`.
 - A Docker image for amd64 and arm64 at `ghcr.io/jeykang/npicsur`, with HEIC, JPEG XL and JPEG 2000 support. It runs as an unprivileged user.
 - Users can change their own password, under settings, account. This logs them out everywhere else.
+- A light theme. The button next to the account menu switches between dark (still the default), light and following the system, for each browser.
 - `PICSUR_TRUST_PROXY`, `PICSUR_MAX_CONCURRENT_CONVERSIONS` and `PICSUR_CONVERSION_RATE_LIMIT`.
 - An end-to-end test suite, run in CI with both storage drivers and against the Docker image.
 

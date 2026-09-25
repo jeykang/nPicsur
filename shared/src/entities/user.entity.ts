@@ -17,3 +17,7 @@ export const EUserSchema = z.object({
   hashedPassword: z.undefined(),
 });
 export type EUser = z.infer<typeof EUserSchema>;
+
+// What anyone may know about a user, like the uploader of an image
+export const EPublicUserSchema = EUserSchema.pick({ id: true, username: true });
+export type EPublicUser = z.infer<typeof EPublicUserSchema>;

@@ -86,7 +86,8 @@ describe('image upload and retrieval', () => {
     const meta = expectSuccess(await Client.guest().get(`/i/meta/${imageId}`));
     expect(meta.image.id).toBe(imageId);
     expect(meta.image).not.toHaveProperty('delete_key');
-    expect(meta.user).toMatchObject({ id: user.id, username: user.username });
+    // Only who uploaded it, not their roles
+    expect(meta.user).toEqual({ id: user.id, username: user.username });
     expect(meta.fileTypes).toEqual({ master: 'image:qoi' });
   });
 

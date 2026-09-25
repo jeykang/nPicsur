@@ -20,7 +20,6 @@ import { Returns } from '../../decorators/returns.decorator.js';
 import { ImageManagerService } from '../../managers/image/image.service.js';
 import type { ImageFullId } from '../../models/constants/image-full-id.const.js';
 import { Permission } from '../../models/constants/permissions.const.js';
-import { EUserBackend2EUser } from '../../models/transformers/user.transformer.js';
 import { BrandMessageType, GetBrandMessage } from '../../util/branding.js';
 
 // Images never change, so they can be cached for a month
@@ -115,6 +114,10 @@ export class ImageController {
     const fileTypes = ThrowIfFailed(fileMimesRes);
     const imageUser = ThrowIfFailed(imageUserRes);
 
-    return { image, user: EUserBackend2EUser(imageUser), fileTypes };
+    return {
+      image,
+      user: { id: imageUser.id, username: imageUser.username },
+      fileTypes,
+    };
   }
 }

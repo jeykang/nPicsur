@@ -10,10 +10,13 @@ import {
 import {
   convertTo,
   makeAnimatedGif,
+  makeAnimatedWebp,
   makeHevcHeic,
   makeJpeg,
   makePng,
   metadata,
+  withPngOrientation,
+  withWebpOrientation,
 } from './helpers/images.js';
 
 describe('image upload and retrieval', () => {
@@ -88,7 +91,8 @@ describe('image upload and retrieval', () => {
     expect(meta.image).not.toHaveProperty('delete_key');
     // Only who uploaded it, not their roles
     expect(meta.user).toEqual({ id: user.id, username: user.username });
-    expect(meta.fileTypes).toEqual({ master: 'image:qoi' });
+    // Kept as it was uploaded
+    expect(meta.fileTypes).toEqual({ master: 'image:png' });
   });
 
   it.each([
@@ -116,6 +120,24 @@ describe('image upload and retrieval', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe(mime);
     expect(res.body.subarray(0, magic.length).toString('latin1')).toBe(magic);
+  });
+
+  // Formats that Picsur reads and writes itself, which are read back the same
+  it.each([
+    ['tga', 'image/x-tga'],
+    ['ico', 'image/x-icon'],
+    ['apng', 'image/apng'],
+  ])('converts to %s, and reads it back', async (ext, mime) => {
+    const res = await Client.guest().get(`/i/${imageId}.${ext}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe(mime);
+
+    const copy = await user.client.uploadOk(res.body, `copy.${ext}`);
+    const back = await Client.guest().get(`/i/${copy.id}.png`);
+    const [served, source] = await Promise.all(
+      [back.body, png].map((image) => sharp(image).raw().toBuffer()),
+    );
+    expect(served.equals(source)).toBe(true);
   });
 
   // These need a libvips with every codec, which the Docker image has
@@ -386,11 +408,12 @@ describe('formats', () => {
     const { id } = await client.uploadOk(gif, 'animated.gif');
 
     const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
-    expect(meta.fileTypes.master).toBe('anim:webp');
+    expect(meta.fileTypes.master).toBe('anim:gif');
 
-    const asGif = await metadata(
-      (await Client.guest().get(`/i/${id}.gif`)).body,
-    );
+    // Served as it was uploaded
+    const servedGif = (await Client.guest().get(`/i/${id}.gif`)).body;
+    expect(servedGif.equals(gif)).toBe(true);
+    const asGif = await metadata(servedGif);
     expect(asGif.format).toBe('gif');
     expect(asGif.pages).toBe(3);
 
@@ -406,6 +429,266 @@ describe('formats', () => {
     );
     expect(asPng.format).toBe('png');
     expect(asPng.pages ?? 1).toBe(1);
+  });
+
+  // The number of frames an APNG says it has
+  function apngFrames(image: Buffer): number {
+    const control = image.indexOf('acTL');
+    return control === -1 ? 0 : image.readUInt32BE(control + 4);
+  }
+
+  it('keeps APNG animations animated', async () => {
+    const gif = makeAnimatedGif(3);
+    const { id: gifId } = await client.uploadOk(gif, 'animated.gif');
+    const apng = (await Client.guest().get(`/i/${gifId}.apng`)).body;
+    expect(apngFrames(apng)).toBe(3);
+
+    const { id } = await client.uploadOk(apng, 'animated.png');
+    const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
+    expect(meta.fileTypes.master).toBe('anim:apng');
+    // Kept as it was uploaded
+    expect((await Client.guest().get(`/i/${id}.apng`)).body.equals(apng)).toBe(
+      true,
+    );
+
+    for (const ext of ['gif', 'webp']) {
+      const converted = await metadata(
+        (await Client.guest().get(`/i/${id}.${ext}`)).body,
+      );
+      expect(converted.pages, ext).toBe(3);
+      expect(converted.delay, ext).toEqual((await metadata(gif)).delay);
+    }
+    // The frames are the same as in the GIF
+    const [fromApng, fromGif] = await Promise.all(
+      [`/i/${id}.gif`, `/i/${gifId}.gif`].map(async (path) =>
+        sharp((await Client.guest().get(path)).body, { animated: true })
+          .removeAlpha()
+          .raw()
+          .toBuffer(),
+      ),
+    );
+    expect(fromApng.equals(fromGif)).toBe(true);
+
+    // And resizing keeps every frame
+    const small = await Client.guest().get(`/i/${id}.apng?width=16`);
+    expect(apngFrames(small.body)).toBe(3);
+    expect((await metadata(small.body)).width).toBe(16);
+
+    // Still formats get the first frame
+    const still = await metadata(
+      (await Client.guest().get(`/i/${id}.png`)).body,
+    );
+    expect([still.width, still.pages ?? 1]).toEqual([32, 1]);
+  });
+
+  it('accepts ICO and TGA uploads', async () => {
+    const png = await makePng(40, 30);
+    const { id } = await client.uploadOk(png, 'source.png');
+
+    for (const ext of ['ico', 'tga']) {
+      const file = (await Client.guest().get(`/i/${id}.${ext}`)).body;
+      const upload = await client.uploadOk(file, `upload.${ext}`);
+      const meta = expectSuccess(
+        await Client.guest().get(`/i/meta/${upload.id}`),
+      );
+      // Converted to a lossless master, like other formats browsers can not
+      // show
+      expect(meta.fileTypes.master, ext).toBe('image:qoi');
+      const served = await metadata(
+        (await Client.guest().get(`/i/${upload.id}.png`)).body,
+      );
+      expect([served.width, served.height], ext).toEqual([40, 30]);
+    }
+
+    // Older TGA files have nothing at the end that says what they are
+    const tga = (await Client.guest().get(`/i/${id}.tga`)).body;
+    const withoutFooter = tga.subarray(0, tga.length - 26);
+    const upload = await client.uploadOk(withoutFooter, 'old.tga');
+    expect(
+      (await metadata((await Client.guest().get(`/i/${upload.id}.png`)).body))
+        .width,
+    ).toBe(40);
+  });
+
+  it('makes icons of large images small enough', async () => {
+    const { id } = await client.uploadOk(await makePng(600, 300), 'wide.png');
+    const res = await Client.guest().get(`/i/${id}.ico`);
+    // One image of at most 256 pixels
+    expect(res.body.readUInt16LE(4)).toBe(1);
+    expect([res.body[6], res.body[7]]).toEqual([0, 128]);
+    // And asked for sizes are kept
+    const small = await Client.guest().get(`/i/${id}.ico?width=32`);
+    expect([small.body[6], small.body[7]]).toEqual([32, 16]);
+  });
+
+  it('keeps uploads as they are, without their metadata', async () => {
+    const secret = 'Somewhere secret';
+    const photo = await sharp(await makePng(120, 80))
+      .jpeg({ quality: 90 })
+      .withExif({
+        IFD0: { ImageDescription: secret },
+        IFD3: { GPSLatitudeRef: 'N', GPSLatitude: '52/1 22/1 0/1' },
+      })
+      .withXmp(`<x:xmpmeta xmlns:x="adobe:ns:meta/">${secret}</x:xmpmeta>`)
+      .toBuffer();
+    // With a video after the end of the image, like a motion photo
+    const upload = Buffer.concat([photo, Buffer.from(secret)]);
+
+    const { id } = await client.uploadOk(upload, 'photo.jpg');
+    const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
+    expect(meta.fileTypes.master).toBe('image:jpeg');
+
+    const served = (await Client.guest().get(`/i/${id}.jpg`)).body;
+    expect(served.includes(Buffer.from(secret))).toBe(false);
+    const servedMeta = await metadata(served);
+    expect(servedMeta.exif).toBeUndefined();
+    expect(servedMeta.xmp).toBeUndefined();
+    // The very same image, not converted again
+    expect(served.length).toBeLessThan(photo.length);
+    expect(await sharp(served).raw().toBuffer()).toEqual(
+      await sharp(photo).raw().toBuffer(),
+    );
+  });
+
+  it('turns photos the way their orientation says', async () => {
+    // Stored sideways, to be turned a quarter clockwise when shown
+    const sideways = await sharp(await makePng(300, 100))
+      .jpeg()
+      .withMetadata({ orientation: 6 })
+      .toBuffer();
+    const { id } = await client.uploadOk(sideways, 'portrait.jpg');
+
+    const asPng = await metadata(
+      (await Client.guest().get(`/i/${id}.png`)).body,
+    );
+    expect([asPng.width, asPng.height]).toEqual([100, 300]);
+
+    const resized = await metadata(
+      (await Client.guest().get(`/i/${id}.webp?width=50`)).body,
+    );
+    expect([resized.width, resized.height]).toEqual([50, 150]);
+
+    // Kept as it is, browsers turn it
+    const asJpeg = await metadata(
+      (await Client.guest().get(`/i/${id}.jpg`)).body,
+    );
+    expect(asJpeg.orientation).toBe(6);
+  });
+
+  it('turns animations the way their orientation says', async () => {
+    const webp = await makeAnimatedWebp(40, 20);
+    const { id: plainId } = await client.uploadOk(webp, 'plain.webp');
+    const apng = (await Client.guest().get(`/i/${plainId}.apng`)).body;
+
+    // Where the black corner at the top left ends up, and the size of the
+    // frames after
+    const cases = [
+      { orientation: 3, corner: 'bottom right', size: [40, 20] },
+      { orientation: 6, corner: 'top right', size: [20, 40] },
+      { orientation: 7, corner: 'bottom right', size: [20, 40] },
+    ];
+    for (const { orientation, corner, size } of cases) {
+      for (const [upload, name] of [
+        [withWebpOrientation(webp, orientation), 'turned.webp'],
+        [withPngOrientation(apng, orientation), 'turned.png'],
+      ] as const) {
+        const what = `${name} with orientation ${orientation}`;
+        const { id } = await client.uploadOk(upload, name);
+        const served = (await Client.guest().get(`/i/${id}.webp`)).body;
+
+        const meta = await metadata(served);
+        expect([meta.width, meta.pageHeight], what).toEqual(size);
+        expect(meta.pages, what).toBe(3);
+        expect(meta.delay, what).toEqual([100, 200, 300]);
+
+        // Every frame turned by itself, still in the same order
+        const [width, height] = size;
+        const { data, info } = await sharp(served, { animated: true })
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+        const pixel = (frame: number, x: number, y: number) => {
+          const at = ((frame * height + y) * width + x) * info.channels;
+          return [data[at], data[at + 1], data[at + 2]];
+        };
+        const [cornerX, cornerY] = {
+          'top right': [width - 1, 0],
+          'bottom right': [width - 1, height - 1],
+        }[corner]!;
+        for (const [frame, colour] of [
+          [255, 0, 0],
+          [0, 255, 0],
+          [0, 0, 255],
+        ].entries()) {
+          expect(pixel(frame, cornerX, cornerY), what).toEqual([0, 0, 0]);
+          expect(pixel(frame, width >> 1, height >> 1), what).toEqual(colour);
+        }
+      }
+    }
+  });
+
+  it('turns and mirrors animations frame by frame', async () => {
+    const webp = await makeAnimatedWebp(40, 20);
+    const { id } = await client.uploadOk(webp, 'edited.webp');
+    const colours = [
+      [255, 0, 0],
+      [0, 255, 0],
+      [0, 0, 255],
+    ];
+
+    for (const query of [
+      'rotate=90',
+      'rotate=180',
+      'rotate=270',
+      'flipx=yes',
+      'flipy=yes',
+      'rotate=90&flipx=yes',
+      'rotate=270&flipy=yes',
+      'rotate=90&width=10',
+    ]) {
+      // How libvips does it for still images, which is the first frame
+      const still = await sharp(
+        (await Client.guest().get(`/i/${id}.png?${query}`)).body,
+      )
+        .removeAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+      const animated = (await Client.guest().get(`/i/${id}.gif?${query}`)).body;
+      const meta = await metadata(animated);
+      expect([meta.width, meta.pageHeight], query).toEqual([
+        still.info.width,
+        still.info.height,
+      ]);
+      expect(meta.pages, query).toBe(3);
+      expect(meta.delay, query).toEqual([100, 200, 300]);
+      // Resized frames have colours in between at the corner
+      if (query.includes('width')) continue;
+
+      // Every frame the same as the first one, in its own colour, and still
+      // in the same order
+      const frames = await sharp(animated, { animated: true })
+        .removeAlpha()
+        .raw()
+        .toBuffer();
+      const size = still.data.length;
+      for (const [frame, colour] of colours.entries()) {
+        const expected = Buffer.from(still.data);
+        for (let i = 0; i < size; i += 3) {
+          if (expected[i] + expected[i + 1] + expected[i + 2] !== 0) {
+            expected.set(colour, i);
+          }
+        }
+        const pixels = frames.subarray(frame * size, (frame + 1) * size);
+        expect(pixels.equals(expected), `${query}, frame ${frame}`).toBe(true);
+      }
+    }
+  });
+
+  it('converts uploads it can not keep as they are', async () => {
+    const tiff = await convertTo(await makePng(), 'tiff');
+    const { id } = await client.uploadOk(tiff, 'scan.tiff');
+    const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
+    expect(meta.fileTypes.master).toBe('image:qoi');
   });
 
   it('strips exif data', async () => {
@@ -436,7 +719,7 @@ describe('keeping originals', () => {
 
     const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
     expect(meta.fileTypes).toEqual({
-      master: 'image:qoi',
+      master: 'image:jpeg',
       original: 'image:jpeg',
     });
 
@@ -455,7 +738,7 @@ describe('keeping originals', () => {
     const { id } = await client.uploadOk(await makeJpeg(), 'photo.jpg');
 
     const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
-    expect(meta.fileTypes).toEqual({ master: 'image:qoi' });
+    expect(meta.fileTypes).toEqual({ master: 'image:jpeg' });
 
     // Asking for the original gives the "not found" placeholder
     const res = await Client.guest().get(`/i/${id}`);

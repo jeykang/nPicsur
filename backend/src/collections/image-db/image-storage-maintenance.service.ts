@@ -2,22 +2,25 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import { FileType2Mime } from 'picsur-shared/dist/dto/mimes.dto';
-import {
-  AsyncFailable,
-  Fail,
-  FT,
-  HasFailed,
-} from 'picsur-shared/dist/types/failable';
+import { Failure, HasFailed } from 'picsur-shared/dist/types/failable';
 import { UUIDRegex } from 'picsur-shared/dist/util/common-regex';
 import { In, Repository } from 'typeorm';
+import {
+  ExternalStorageDriver,
+  StorageDriver,
+} from '../../config/early/storage.config.service.js';
 import { EImageDerivativeBackend } from '../../database/entities/images/image-derivative.entity.js';
 import { EImageFileBackend } from '../../database/entities/images/image-file.entity.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
-import { ObjectStorageService } from '../object-storage/object-storage.service.js';
+import { ExternalStorage } from '../external-storage/external-storage.js';
+import { ExternalStorageService } from '../external-storage/external-storage.service.js';
+
+// How many are stored in each place
+export type LocationCounts = Record<StorageDriver, number>;
 
 export interface StorageStatus {
-  files: { database: number; objectStorage: number };
-  derivatives: { database: number; objectStorage: number };
+  files: LocationCounts;
+  derivatives: LocationCounts;
 }
 
 export interface MigrationResult {
@@ -48,6 +51,7 @@ interface FileRow {
   image_id: string;
   variant: ImageEntryVariant;
   filetype: string;
+  storage: ExternalStorageDriver | null;
   storage_key: string | null;
 }
 
@@ -55,7 +59,8 @@ interface FileRow {
 // default, they might belong to an upload that is still being saved
 export const GC_DEFAULT_MIN_AGE_MS = 60 * 60 * 1000;
 
-// Maintenance tasks for image storage, used by the command line tool
+// Maintenance tasks for image storage, used by the command line tool and the
+// settings page
 @Injectable()
 export class ImageStorageMaintenanceService {
   private readonly logger = new Logger('Storage');
@@ -67,40 +72,53 @@ export class ImageStorageMaintenanceService {
     private readonly fileRepo: Repository<EImageFileBackend>,
     @InjectRepository(EImageDerivativeBackend)
     private readonly derivativeRepo: Repository<EImageDerivativeBackend>,
-    private readonly objectStorage: ObjectStorageService,
+    private readonly storages: ExternalStorageService,
   ) {}
 
   public async status(): Promise<StorageStatus> {
     const count = async (
       repo: Repository<EImageFileBackend> | Repository<EImageDerivativeBackend>,
-      inDatabase: boolean,
-    ) =>
-      repo
+    ): Promise<LocationCounts> => {
+      const rows: { storage: string | null; count: string }[] = await repo
         .createQueryBuilder('row')
-        .where(inDatabase ? 'row.data IS NOT NULL' : 'row.data IS NULL')
-        .getCount();
+        .select('row.storage', 'storage')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('row.storage')
+        .getRawMany();
+
+      const counts: LocationCounts = {
+        [StorageDriver.Database]: 0,
+        [StorageDriver.S3]: 0,
+        [StorageDriver.Filesystem]: 0,
+      };
+      for (const row of rows) {
+        const location = (row.storage ??
+          StorageDriver.Database) as StorageDriver;
+        if (location in counts) counts[location] += Number(row.count);
+      }
+      return counts;
+    };
 
     return {
-      files: {
-        database: await count(this.fileRepo, true),
-        objectStorage: await count(this.fileRepo, false),
-      },
-      derivatives: {
-        database: await count(this.derivativeRepo, true),
-        objectStorage: await count(this.derivativeRepo, false),
-      },
+      files: await count(this.fileRepo),
+      derivatives: await count(this.derivativeRepo),
     };
   }
 
-  // Moves all image files to where new ones are stored. Cached derivatives in
-  // the other location are simply dropped, they are generated again when
-  // needed. Safe to run while Picsur is running, and to run again after it
-  // was interrupted.
+  // Where new image data goes
+  public get target(): StorageDriver {
+    return this.storages.writeTarget?.driver ?? StorageDriver.Database;
+  }
+
+  // Moves all image files to where new ones are stored, from wherever they
+  // are. Cached derivatives elsewhere are simply dropped, they are generated
+  // again when needed. Safe to run while Picsur is running, and to run again
+  // after it was interrupted.
   public async migrate(
     options: MigrationOptions = {},
   ): Promise<MigrationResult> {
     const { batchSize = 50, onProgress, shouldStop = () => false } = options;
-    const toObjectStorage = this.objectStorage.isWriteTarget;
+    const target = this.storages.writeTarget;
     const result: MigrationResult = {
       moved: 0,
       movedBytes: 0,
@@ -117,8 +135,14 @@ export class ImageStorageMaintenanceService {
         .addSelect('file.image_id', 'image_id')
         .addSelect('file.variant', 'variant')
         .addSelect('file.filetype', 'filetype')
+        .addSelect('file.storage', 'storage')
         .addSelect('file.storage_key', 'storage_key')
-        .where(toObjectStorage ? 'file.data IS NOT NULL' : 'file.data IS NULL')
+        .where(
+          target === null
+            ? 'file.storage IS NOT NULL'
+            : 'file.storage IS DISTINCT FROM :target',
+          { target: target?.driver },
+        )
         .andWhere('file._id > :lastId', { lastId })
         .orderBy('file._id', 'ASC')
         .limit(batchSize)
@@ -131,9 +155,7 @@ export class ImageStorageMaintenanceService {
           result.stopped = true;
           break;
         }
-        const moved = toObjectStorage
-          ? await this.moveToObjectStorage(row)
-          : await this.moveToDatabase(row);
+        const moved = await this.move(row, target);
         if (moved === false) {
           result.failed++;
         } else {
@@ -154,23 +176,27 @@ export class ImageStorageMaintenanceService {
       return result;
     }
 
-    // Cached conversions stored in the old location are dropped
-    result.droppedDerivatives = await this.dropDerivatives(toObjectStorage);
+    // Cached conversions stored elsewhere are dropped
+    result.droppedDerivatives = await this.dropDerivatives(
+      target === null
+        ? 'storage IS NOT NULL'
+        : 'storage IS DISTINCT FROM :target',
+      { target: target?.driver },
+    );
     return result;
   }
 
-  // Drops the cached conversions stored in object storage
-  public async dropObjectStorageDerivatives(): AsyncFailable<number> {
-    try {
-      return await this.dropDerivatives(false);
-    } catch (e) {
-      return Fail(FT.Database, e);
-    }
+  // Drops the cached conversions kept in this storage, when it is going to
+  // be somewhere else
+  public async dropDerivativesIn(
+    driver: ExternalStorageDriver,
+  ): Promise<number> {
+    return this.dropDerivatives('storage = :driver', { driver });
   }
 
-  // Deletes objects that no image refers to anymore. These are left behind
-  // when deleting them failed, for example because the bucket was not
-  // reachable at the time.
+  // Deletes files that no image refers to anymore. These are left behind when
+  // deleting them failed, for example because the bucket was not reachable at
+  // the time.
   public async gc(
     dryRun: boolean,
     minAgeMs = GC_DEFAULT_MIN_AGE_MS,
@@ -180,8 +206,19 @@ export class ImageStorageMaintenanceService {
       orphanedObjects: 0,
       deleted: !dryRun,
     };
+    for (const storage of this.storages.configured) {
+      await this.gcStorage(storage, dryRun, minAgeMs, result);
+    }
+    return result;
+  }
 
-    const ids = await this.objectStorage.listImageIds();
+  private async gcStorage(
+    storage: ExternalStorage,
+    dryRun: boolean,
+    minAgeMs: number,
+    result: GcResult,
+  ) {
+    const ids = await storage.listImageIds();
     if (HasFailed(ids)) throw ids;
     // Anything that does not look like one of our images is not ours to
     // delete
@@ -200,12 +237,12 @@ export class ImageStorageMaintenanceService {
       );
 
       for (const imageId of batch) {
-        const objects = await this.objectStorage.listImageObjects(imageId);
+        const objects = await storage.listImageObjects(imageId);
         if (HasFailed(objects)) throw objects;
 
         let orphans = objects.filter((object) => object.lastModified < minAge);
         if (existing.has(imageId)) {
-          const referenced = await this.referencedKeys(imageId);
+          const referenced = await this.referencedKeys(imageId, storage.driver);
           orphans = orphans.filter((object) => !referenced.has(object.key));
         } else if (orphans.length > 0) {
           result.orphanedImages++;
@@ -215,92 +252,128 @@ export class ImageStorageMaintenanceService {
         result.orphanedObjects += orphans.length;
         for (const object of orphans) {
           this.logger.log(
-            `${dryRun ? 'Would delete' : 'Deleting'} ${object.key}`,
+            `${dryRun ? 'Would delete' : 'Deleting'} ${object.key} in ${storage.description}`,
           );
         }
         if (!dryRun) {
-          const deleted = await this.objectStorage.delete(
+          const deleted = await storage.delete(
             orphans.map((object) => object.key),
           );
           if (HasFailed(deleted)) throw deleted;
         }
       }
     }
-
-    return result;
   }
 
-  private async moveToObjectStorage(row: FileRow): Promise<number | false> {
-    const withData = await this.fileRepo
-      .createQueryBuilder('file')
-      .select('file.data', 'data')
-      .where('file._id = :id', { id: row.id })
-      .getRawOne<{ data: Buffer | null }>();
-    if (!withData?.data) return 0; // Moved or deleted in the meantime
+  // Moves one file to where new ones go, returns how large it is, or false
+  // when it could not be moved
+  private async move(
+    row: FileRow,
+    target: ExternalStorage | null,
+  ): Promise<number | false> {
+    const failed = (reason: Failure) => {
+      reason.print(this.logger, { prefix: `Image ${row.image_id}:` });
+      return false as const;
+    };
 
-    const key = this.objectStorage.fileKey(row.image_id, row.variant);
-    const mime = FileType2Mime(row.filetype);
-    const stored = await this.objectStorage.put(
-      key,
-      withData.data,
-      HasFailed(mime) ? 'application/octet-stream' : mime,
-    );
-    if (HasFailed(stored)) {
-      stored.print(this.logger, { prefix: `Image ${row.image_id}:` });
-      return false;
+    // Read it from where it is
+    const source = row.storage === null ? null : this.storages.get(row.storage);
+    let data: Buffer;
+    if (row.storage === null) {
+      const withData = await this.fileRepo
+        .createQueryBuilder('file')
+        .select('file.data', 'data')
+        .where('file._id = :id', { id: row.id })
+        .getRawOne<{ data: Buffer | null }>();
+      if (!withData?.data) return 0; // Moved or deleted in the meantime
+      data = withData.data;
+    } else {
+      if (!source?.isConfigured || row.storage_key === null) {
+        this.logger.error(
+          `Image ${row.image_id}: stored in ${row.storage}, which is not configured`,
+        );
+        return false;
+      }
+      const loaded = await source.get(row.storage_key);
+      if (HasFailed(loaded)) return failed(loaded);
+      data = loaded;
     }
 
-    await this.fileRepo
-      .createQueryBuilder()
-      .update()
-      .set({ data: null, storage_key: key })
-      .where('_id = :id', { id: row.id })
-      .execute();
-    return withData.data.length;
-  }
-
-  private async moveToDatabase(row: FileRow): Promise<number | false> {
-    if (row.storage_key === null) return 0;
-
-    const data = await this.objectStorage.get(row.storage_key);
-    if (HasFailed(data)) {
-      data.print(this.logger, { prefix: `Image ${row.image_id}:` });
-      return false;
+    // Write it to where new ones go
+    let key: string | null = null;
+    if (target !== null) {
+      key = target.fileKey(row.image_id, row.variant);
+      const mime = FileType2Mime(row.filetype);
+      const stored = await target.put(
+        key,
+        data,
+        HasFailed(mime) ? 'application/octet-stream' : mime,
+      );
+      if (HasFailed(stored)) return failed(stored);
     }
 
-    await this.fileRepo
+    // Only when it is still where it was read from
+    const update = this.fileRepo
       .createQueryBuilder()
       .update()
-      .set({ data, storage_key: null })
-      .where('_id = :id AND storage_key = :key', {
-        id: row.id,
+      .set(
+        target === null
+          ? { data, storage: null, storage_key: null }
+          : { data: null, storage: target.driver, storage_key: key },
+      )
+      .where('_id = :id', { id: row.id });
+    if (row.storage === null) {
+      update.andWhere('storage IS NULL');
+    } else {
+      update.andWhere('storage = :storage AND storage_key = :key', {
+        storage: row.storage,
         key: row.storage_key,
-      })
-      .execute();
+      });
+    }
+    const updated = await update.execute();
 
-    const deleted = await this.objectStorage.delete([row.storage_key]);
-    if (HasFailed(deleted)) {
-      deleted.print(this.logger, { prefix: `Image ${row.image_id}:` });
+    if (!updated.affected && target !== null && key !== null) {
+      // Deleted or moved in the meantime, so the copy is not used
+      const deleted = await target.delete([key]);
+      if (HasFailed(deleted)) failed(deleted);
+      return 0;
+    }
+
+    // The old copy is not needed anymore
+    if (source !== null && row.storage_key !== null) {
+      const deleted = await source.delete([row.storage_key]);
+      if (HasFailed(deleted)) failed(deleted);
     }
     return data.length;
   }
 
-  // Drops derivatives stored in the database (when inDatabase is true), or in
-  // object storage
-  private async dropDerivatives(inDatabase: boolean): Promise<number> {
+  // Drops the derivatives matching the condition, and whatever is stored for
+  // them outside the database
+  private async dropDerivatives(
+    condition: string,
+    parameters: Record<string, unknown>,
+  ): Promise<number> {
     const result = await this.derivativeRepo
       .createQueryBuilder()
       .delete()
-      .where(inDatabase ? 'data IS NOT NULL' : 'data IS NULL')
-      .returning(['storage_key'])
+      .where(condition, parameters)
+      .returning(['storage', 'storage_key'])
       .execute();
-    const rows: { storage_key: string | null }[] = result.raw;
+    const rows: { storage: string | null; storage_key: string | null }[] =
+      result.raw;
 
-    const keys = rows
-      .map((row) => row.storage_key)
-      .filter((key) => key !== null);
-    if (keys.length > 0 && this.objectStorage.isConfigured) {
-      const deleted = await this.objectStorage.delete(keys);
+    const keys = new Map<string, string[]>();
+    for (const row of rows) {
+      if (row.storage === null || row.storage_key === null) continue;
+      keys.set(row.storage, [
+        ...(keys.get(row.storage) ?? []),
+        row.storage_key,
+      ]);
+    }
+    for (const [driver, storageKeys] of keys) {
+      const storage = this.storages.get(driver);
+      if (!storage?.isConfigured) continue;
+      const deleted = await storage.delete(storageKeys);
       if (HasFailed(deleted)) {
         deleted.print(this.logger, { prefix: 'Dropping derivatives:' });
       }
@@ -309,14 +382,17 @@ export class ImageStorageMaintenanceService {
     return rows.length;
   }
 
-  private async referencedKeys(imageId: string): Promise<Set<string>> {
+  private async referencedKeys(
+    imageId: string,
+    driver: ExternalStorageDriver,
+  ): Promise<Set<string>> {
     const [files, derivatives] = await Promise.all([
       this.fileRepo.find({
-        where: { image_id: imageId },
+        where: { image_id: imageId, storage: driver },
         select: ['storage_key'],
       }),
       this.derivativeRepo.find({
-        where: { image_id: imageId },
+        where: { image_id: imageId, storage: driver },
         select: ['storage_key'],
       }),
     ]);

@@ -4,6 +4,7 @@ import {
   ServerSettingsResponse,
   ServerSettingsUpdateRequest,
   StorageStatusResponse,
+  StorageTestRequest,
   StorageTestResponse,
 } from 'picsur-shared/dist/dto/api/server.dto';
 import { ThrowIfFailed } from 'picsur-shared/dist/types/failable';
@@ -44,9 +45,11 @@ export class ServerController {
   @Returns(StorageTestResponse)
   @EasyThrottle(20)
   async testStorage(
-    @Body() body: ServerSettingsUpdateRequest,
+    @Body() body: StorageTestRequest,
   ): Promise<StorageTestResponse> {
-    return ThrowIfFailed(await this.settingsService.testStorage(body.values));
+    return ThrowIfFailed(
+      await this.settingsService.testStorage(body.values, body.storage),
+    );
   }
 
   @Post('restart')

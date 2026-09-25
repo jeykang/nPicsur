@@ -11,6 +11,11 @@ export const ServerSettingUI: {
     helpText:
       'Images that are already stored stay where they are, until they are moved.',
   },
+  [ServerSetting.StoragePath]: {
+    name: 'Directory',
+    helpText:
+      'Where the images are stored, like /picsur/images. In Docker, mount a volume there. Created when it does not exist yet.',
+  },
   [ServerSetting.S3Endpoint]: {
     name: 'Endpoint',
     helpText:

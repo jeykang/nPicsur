@@ -28,7 +28,7 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
 
 - Uploading and viewing images, anonymously or with an account
 - User accounts, with roles and permissions
-- Many formats: QOI, JPEG, PNG, WebP (animated), GIF (animated), TIFF, AVIF, HEIF/HEIC, BMP, JPEG XL, JPEG 2000
+- Many formats: QOI, JPEG, PNG, APNG (animated), WebP (animated), GIF (animated), TIFF, AVIF, HEIF/HEIC, BMP, ICO, TGA, JPEG XL, JPEG 2000
 - Converting and editing images through the url: resize, rotate, flip, strip transparency, negative, greyscale
 - EXIF stripping, with the option to keep the original file
 - Expiring images, and deleting images with a secret deletion link
@@ -97,7 +97,8 @@ The `latest` tag is the latest release, `edge` follows the master branch.
 | `PICSUR_TRUST_PROXY`                | private addresses           | Which proxies may pass on the visitor's address (`X-Forwarded-For`), used for rate limiting. `true`, `false`, or a comma separated list of addresses and ranges |
 | `PICSUR_MAX_CONCURRENT_CONVERSIONS` | number of CPUs              | How many images are converted at once, more wait in line                                                                                                        |
 | `PICSUR_CONVERSION_RATE_LIMIT`      | `120`                       | New conversions a single visitor may start per minute, `0` for no limit                                                                                         |
-| `PICSUR_STORAGE_DRIVER`             | `database`                  | Where new images are stored, `database` or `s3`                                                                                                                 |
+| `PICSUR_STORAGE_DRIVER`             | `database`                  | Where new images are stored, `database`, `s3` or `filesystem`                                                                                                   |
+| `PICSUR_STORAGE_PATH`               |                             | See [Storing images on disk](#storing-images-on-disk)                                                                                                           |
 | `PICSUR_S3_*`                       |                             | See [Storing images in S3](#storing-images-in-s3)                                                                                                               |
 | `PICSUR_HOST` / `PICSUR_PORT`       | `0.0.0.0` / `8080`          | Where the server listens                                                                                                                                        |
 | `PICSUR_STATIC_FRONTEND_ROOT`       | the built in frontend       | Only needed for a custom frontend                                                                                                                               |
@@ -113,6 +114,36 @@ Encrypted secrets are stored as `enc:v1:env:...` or `enc:v1:db:...`, [`settings-
 
 Everything else is set in the web interface, under settings.
 
+## Storing images on disk
+
+Image data can also be stored as files in a directory, instead of in the database. The database still holds everything else, and which file belongs to which image. Backing up the images is then a matter of copying the directory, next to a backup of the database.
+
+In Docker, mount a volume for the images. The image has a directory ready for that, `/picsur/images`:
+
+```yaml
+services:
+  picsur:
+    # ...
+    volumes:
+      - picsur-images:/picsur/images
+volumes:
+  picsur-data:
+  picsur-images:
+```
+
+A directory on the host works as well, like `./images:/picsur/images`, as long as Picsur may write to it: it runs as user 1000, so `sudo chown 1000:1000 images` does it.
+
+Then choose to store new images in a directory on disk under Settings → Server, with `/picsur/images` as the directory. Testing it tells whether Picsur can store images there, and warns when the directory is not on a volume, which would lose the images when the container is replaced. After saving and restarting, the images stored so far can be moved there, like with a bucket. The same can be set with environment variables:
+
+| Variable                | Description                                                         |
+| ----------------------- | ------------------------------------------------------------------- |
+| `PICSUR_STORAGE_DRIVER` | `filesystem` to store new images in the directory                   |
+| `PICSUR_STORAGE_PATH`   | The directory, a full path. It is created if it does not exist yet. |
+
+Every file is written under another name first, and only gets its name once it is completely on disk, so an image is never cut short when Picsur or the server stops halfway. Files are laid out like in a bucket, `images/<image id>/master`, with converted versions under `images/<image id>/derivatives/`.
+
+Like a bucket, the directory can only be changed once no images are stored in it anymore. To move the files somewhere else yourself, stop Picsur, move them, and change `PICSUR_STORAGE_PATH`.
+
 ## Storing images in S3
 
 Image data can be stored in any S3 compatible object storage instead of the database, like AWS S3, Garage, MinIO or RustFS. The database still holds everything else.
@@ -123,7 +154,7 @@ The easiest way to set it up is on the settings page, under Settings → Server:
 2. Test the storage, which also creates the bucket when it does not exist yet.
 3. Save, and restart Picsur when asked. It offers to move the images stored so far into the bucket after restarting. Picsur keeps working while they are moved, and the page shows how far along it is.
 
-Moving back to the database works the same way. A bucket can only be changed or removed once no images are stored in it anymore, so they do not become unreachable.
+Moving back to the database, or to a directory, works the same way. A bucket can only be changed or removed once no images are stored in it anymore, so they do not become unreachable.
 
 The secret access key is saved encrypted, see [Configuration](#configuration) for how to keep it safe from copies of the database as well.
 
@@ -150,8 +181,8 @@ docker exec picsur node backend/dist/cli.js storage status
 # running, and can be run again if it was interrupted.
 docker exec picsur node backend/dist/cli.js storage migrate
 
-# Delete objects in the bucket that no image uses anymore, for example after
-# the bucket could not be reached while images were deleted
+# Delete files in the bucket or the directory that no image uses anymore, for
+# example after the bucket could not be reached while images were deleted
 docker exec picsur node backend/dist/cli.js storage gc --dry-run
 docker exec picsur node backend/dist/cli.js storage gc
 ```
@@ -227,7 +258,7 @@ Do keep in mind here, that the exif data will NOT be removed from the original i
 
 ### This service says its supports the QOI format, what is this?
 
-QOI is a lossless image format that is designed to be very fast to encode and decode, while still offering good compression ratios. This is the primary format the server stores images in when uploaded.
+QOI is a lossless image format that is designed to be very fast to encode and decode, while still offering good compression ratios. Uploads in formats Picsur can not keep as they are, like TIFF, HEIC or TGA, are stored as QOI. JPEG, PNG, APNG, WebP and GIF uploads are kept as they were uploaded, only without their metadata.
 
 You can [read more about QOI here](https://qoiformat.org/).
 

@@ -17,3 +17,9 @@ overrides:
   # @nestjs/platform-fastify pins an exact fastify version, which lags behind
   # security releases. One version for everything also keeps the types in sync.
   fastify: ^5.12.5
+
+# Fixes for dependencies that are no longer maintained
+patchedDependencies:
+  # Memory limits above 2 GB were cut down to 32 bits, which could turn them
+  # off, or make them smaller than what a worker needs to start
+  posix.js@0.1.2: patches/posix.js@0.1.2.patch

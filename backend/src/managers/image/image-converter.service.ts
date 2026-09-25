@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import ms from 'ms';
 import { ImageRequestParams } from 'picsur-shared/dist/dto/api/image.dto';
 import {
+  AnimFileType,
   FileType,
+  ImageFileType,
   SupportedFileTypeCategory,
 } from 'picsur-shared/dist/dto/mimes.dto';
 import { SysPreference } from 'picsur-shared/dist/dto/sys-preferences.enum';
@@ -12,8 +14,10 @@ import {
   FT,
   HasFailed,
 } from 'picsur-shared/dist/types/failable';
+import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
 import { SharpOptions } from 'sharp';
 import { SysPreferenceDbService } from '../../collections/preference-db/sys-preference-db.service.js';
+import { SharpWorkerPool } from '../../workers/sharp.pool.js';
 import { SharpWrapper } from '../../workers/sharp.wrapper.js';
 import { ConversionLimiterService } from './conversion-limiter.service.js';
 import { ImageResult } from './imageresult.js';
@@ -30,6 +34,7 @@ export class ImageConverterService {
   constructor(
     private readonly sysPref: SysPreferenceDbService,
     private readonly limiter: ConversionLimiterService,
+    private readonly workers: SharpWorkerPool,
   ) {}
 
   public async convert(
@@ -59,8 +64,23 @@ export class ImageConverterService {
     }
   }
 
+  // Makes sure an image can be read, by making a tiny version of it
+  public async check(image: Buffer, filetype: FileType): AsyncFailable<true> {
+    const target = ParseFileType(
+      filetype.category === SupportedFileTypeCategory.Animation
+        ? AnimFileType.WEBP
+        : ImageFileType.WEBP,
+    );
+    if (HasFailed(target)) return target;
+
+    const result = await this.convertImage(image, filetype, target, {
+      width: 16,
+    });
+    return HasFailed(result) ? result : true;
+  }
+
   // Only a limited amount of conversions run at the same time, each one runs
-  // in its own process and can take a lot of memory
+  // in a worker process and can take a lot of memory
   private async convertImage(
     image: Buffer,
     sourceFiletype: FileType,
@@ -97,7 +117,7 @@ export class ImageConverterService {
     let timeLimitMS = ms(timeLimit as string);
     if (isNaN(timeLimitMS) || timeLimitMS === 0) timeLimitMS = 15 * 1000; // 15 seconds
 
-    const sharpWrapper = new SharpWrapper(timeLimitMS, memLimit);
+    const sharpWrapper = new SharpWrapper(this.workers, timeLimitMS, memLimit);
     const sharpOptions: SharpOptions = {
       animated: targetFiletype.category === SupportedFileTypeCategory.Animation,
     };

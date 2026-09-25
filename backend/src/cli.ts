@@ -10,8 +10,9 @@ import { ImageDBService } from './collections/image-db/image-db.service.js';
 import {
   formatBytes,
   ImageStorageMaintenanceService,
+  LocationCounts,
 } from './collections/image-db/image-storage-maintenance.service.js';
-import { ObjectStorageService } from './collections/object-storage/object-storage.service.js';
+import { ExternalStorageService } from './collections/external-storage/external-storage.service.js';
 import { EarlyConfigModule } from './config/early/early-config.module.js';
 import { StorageConfigService } from './config/early/storage.config.service.js';
 import {
@@ -30,9 +31,10 @@ Commands:
                           elsewhere are dropped, they are made again when
                           needed. Can be run while Picsur is running.
   storage gc [--dry-run] [--min-age <seconds>]
-                          Delete objects in the bucket that no image uses.
-                          Objects younger than an hour are skipped, they
-                          might belong to an upload that is in progress.
+                          Delete files in the bucket and the directory that
+                          no image uses. Files younger than an hour are
+                          skipped, they might belong to an upload that is in
+                          progress.
   images delete-orphaned [--dry-run]
                           Delete the images of users that no longer exist.
                           Deleting a user deletes their images, but Picsur
@@ -67,18 +69,16 @@ async function main(args: string[]): Promise<number> {
 
   try {
     const maintenance = app.get(ImageStorageMaintenanceService);
-    const objectStorage = app.get(ObjectStorageService);
+    const storages = app.get(ExternalStorageService);
     const driver = app.get(StorageConfigService).getDriver();
+    const counted = (counts: LocationCounts) =>
+      `${counts.database} in the database, ${counts.s3} in S3, ${counts.filesystem} on disk`;
 
     if (command === 'status') {
       const status = await maintenance.status();
       logger.log(`New images are stored in: ${driver}`);
-      logger.log(
-        `Image files: ${status.files.database} in the database, ${status.files.objectStorage} in object storage`,
-      );
-      logger.log(
-        `Cached conversions: ${status.derivatives.database} in the database, ${status.derivatives.objectStorage} in object storage`,
-      );
+      logger.log(`Image files: ${counted(status.files)}`);
+      logger.log(`Cached conversions: ${counted(status.derivatives)}`);
     } else if (command === 'migrate') {
       logger.log(`Moving all image data to: ${driver}`);
       const result = await maintenance.migrate();
@@ -93,7 +93,7 @@ async function main(args: string[]): Promise<number> {
         );
         return 1;
       }
-      if (objectStorage.isWriteTarget && result.moved > 0) {
+      if (storages.writeTarget !== null && result.moved > 0) {
         logger.log(
           'Postgres only gives the freed up space back to the system after a ' +
             '"VACUUM FULL e_image_file_backend, e_image_derivative_backend;" ' +
@@ -101,8 +101,10 @@ async function main(args: string[]): Promise<number> {
         );
       }
     } else if (command === 'gc') {
-      if (!objectStorage.isConfigured) {
-        logger.error('No bucket is configured, there is nothing to clean up');
+      if (storages.configured.length === 0) {
+        logger.error(
+          'No bucket or directory is configured, there is nothing to clean up',
+        );
         return 1;
       }
       const dryRun = flags.includes('--dry-run');
@@ -118,7 +120,7 @@ async function main(args: string[]): Promise<number> {
         minAgeSeconds === undefined ? undefined : minAgeSeconds * 1000,
       );
       logger.log(
-        `${dryRun ? 'Would delete' : 'Deleted'} ${result.orphanedObjects} unused objects` +
+        `${dryRun ? 'Would delete' : 'Deleted'} ${result.orphanedObjects} unused files` +
           (result.orphanedImages > 0
             ? `, including everything of ${result.orphanedImages} deleted images`
             : ''),

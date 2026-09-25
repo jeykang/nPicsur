@@ -57,8 +57,24 @@ describe('MasterDimensions', () => {
     expect(MasterDimensions(animated)).toEqual({ width: 17, height: 11 });
   });
 
+  it('reads the other formats uploads are kept in', async () => {
+    const png = await makePng(37, 23);
+    expect(MasterDimensions(png)).toEqual({ width: 37, height: 23 });
+    const jpeg = await sharp(png).jpeg().toBuffer();
+    expect(MasterDimensions(jpeg)).toEqual({ width: 37, height: 23 });
+    const gif = await sharp(png).gif().toBuffer();
+    expect(MasterDimensions(gif)).toEqual({ width: 37, height: 23 });
+  });
+
   it('gives up on other formats', async () => {
-    expect(MasterDimensions(await makePng())).toBeNull();
+    expect(
+      MasterDimensions(
+        await sharp(await makePng())
+          .tiff()
+          .toBuffer(),
+      ),
+    ).toBeNull();
     expect(MasterDimensions(Buffer.alloc(40))).toBeNull();
+    expect(MasterDimensions(Buffer.alloc(0))).toBeNull();
   });
 });

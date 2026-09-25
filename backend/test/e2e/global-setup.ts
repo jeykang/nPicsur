@@ -15,7 +15,8 @@
 //   E2E_SERVER_ENV
 //       Extra environment for the backend as a JSON object, e.g. to select a
 //       storage driver. When it configures object storage without naming a
-//       bucket, a new bucket is used.
+//       bucket, a new bucket is used, and a new directory when it stores
+//       images on disk without naming one.
 //   E2E_DOCKER_IMAGE
 //       Test this Docker image instead of dist/main.js. The container uses
 //       the host's network, and serves the frontend built into the image.
@@ -204,6 +205,13 @@ export default async function setup(project: TestProject) {
   const newBucket =
     usesObjectStorage && extraEnv['PICSUR_S3_BUCKET'] === undefined;
   if (newBucket) extraEnv['PICSUR_S3_BUCKET'] = `picsur-e2e-${runId}`;
+  // And a new directory, when images are stored on disk
+  if (
+    extraEnv['PICSUR_STORAGE_DRIVER'] === 'filesystem' &&
+    extraEnv['PICSUR_STORAGE_PATH'] === undefined
+  ) {
+    extraEnv['PICSUR_STORAGE_PATH'] = join(workDir, 'images');
+  }
 
   const serverEnv: Record<string, string> = {
     TZ: 'UTC',

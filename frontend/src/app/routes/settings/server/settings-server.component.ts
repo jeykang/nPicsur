@@ -25,7 +25,8 @@ import { DialogService } from '../../../util/dialog-manager/dialog.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
 
 type SettingControls = { [key in ServerSetting]: FormControl<string> };
-type StorageDriver = 'database' | 's3';
+type StorageDriver = 'database' | 's3' | 'filesystem';
+const StorageDrivers: StorageDriver[] = ['database', 's3', 'filesystem'];
 
 // The maximum upload size is shown in MB instead of bytes
 const BYTES_PER_MB = 1000 * 1000;
@@ -42,7 +43,18 @@ function mbToBytes(mb: string): string | null {
 }
 
 export function StorageName(driver: StorageDriver | null): string {
-  return driver === 's3' ? 'object storage' : 'the database';
+  switch (driver) {
+    case 's3':
+      return 'the bucket';
+    case 'filesystem':
+      return 'the directory';
+    default:
+      return 'the database';
+  }
+}
+
+function AsDriver(value: string | null | undefined): StorageDriver {
+  return StorageDrivers.find((driver) => driver === value) ?? 'database';
 }
 
 @Component({
@@ -66,8 +78,11 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
   private initial: Partial<Record<ServerSetting, string>> = {};
   // Whether the stored secret access key is removed on saving
   public removeSecret = false;
+  // Why the directory that was tested might not be safe for images
+  public pathWarning: string | null = null;
 
   public busy: 'saving' | 'testing' | 'restarting' | 'migrating' | null = null;
+  public testing: 's3' | 'filesystem' | null = null;
   private migrationTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -188,9 +203,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
   }
 
   public get driver(): StorageDriver {
-    return this.form.controls[ServerSetting.StorageDriver].value === 's3'
-      ? 's3'
-      : 'database';
+    return AsDriver(this.form.controls[ServerSetting.StorageDriver].value);
   }
 
   // A bucket that is set is also used to read images stored there before
@@ -202,6 +215,15 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     return this.driver === 's3' || this.bucketIsSet;
   }
 
+  // Like the bucket, a directory that is set is also used for reading
+  public get pathIsSet(): boolean {
+    return this.state(ServerSetting.StoragePath)?.set ?? false;
+  }
+
+  public get showPath(): boolean {
+    return this.driver === 'filesystem' || this.pathIsSet;
+  }
+
   public get secretIsSet(): boolean {
     return this.state(ServerSetting.S3SecretAccessKey)?.set ?? false;
   }
@@ -210,12 +232,29 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     return Object.keys(this.changes()).length > 0;
   }
 
+  // How many image files are where, of the places that are used
+  public get fileCounts(): string {
+    const storage = this.storage;
+    if (storage === null) return '';
+
+    const count = storage.files.database;
+    let text = `There ${count === 1 ? 'is' : 'are'} ${count} image ${count === 1 ? 'file' : 'files'} in the database`;
+    const others: string[] = [];
+    if (storage.bucket !== null || storage.files.s3 > 0) {
+      others.push(`${storage.files.s3} in the bucket`);
+    }
+    if (storage.path !== null || storage.files.filesystem > 0) {
+      others.push(`${storage.files.filesystem} in the directory`);
+    }
+    if (others.length === 1) text += `, and ${others[0]}`;
+    if (others.length === 2) text += `, ${others[0]} and ${others[1]}`;
+    return text + '.';
+  }
+
   // Files that are not where new ones go
   public get filesElsewhere(): number {
     if (this.storage === null) return 0;
-    return this.storage.driver === 's3'
-      ? this.storage.files.database
-      : this.storage.files.object_storage;
+    return this.filesNotIn(this.storage.driver);
   }
 
   public get migrationProgress(): number {
@@ -232,12 +271,26 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
   // Empties all bucket settings, to be saved
   public removeBucket() {
     for (const key of StorageSettings) {
-      if (key === ServerSetting.StorageDriver || this.locked(key)) continue;
+      if (
+        key === ServerSetting.StorageDriver ||
+        key === ServerSetting.StoragePath ||
+        this.locked(key)
+      ) {
+        continue;
+      }
       const control = this.form.controls[key];
       control.setValue(key === ServerSetting.S3ForcePathStyle ? 'false' : '');
       control.markAsDirty();
     }
     if (this.secretIsSet) this.removeSecret = true;
+  }
+
+  // Empties the directory setting, to be saved
+  public removePath() {
+    const control = this.form.controls[ServerSetting.StoragePath];
+    control.setValue('');
+    control.markAsDirty();
+    this.pathWarning = null;
   }
 
   // Actions
@@ -263,22 +316,38 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     await this.promptRestart();
   }
 
-  async testStorage() {
+  async testStorage(storage: 's3' | 'filesystem') {
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
 
     this.busy = 'testing';
+    this.testing = storage;
     const result = await this.serverSettings.testStorage(
       this.changes(StorageSettings),
+      storage,
     );
     this.busy = null;
+    this.testing = null;
     if (HasFailed(result)) {
       return this.errorService.showFailure(result, this.logger);
     }
+
+    const where =
+      result.driver === 's3'
+        ? `bucket "${result.location}"`
+        : `directory "${result.location}"`;
+    if (result.driver === 'filesystem') this.pathWarning = result.warning;
+    if (result.warning !== null) {
+      this.errorService.warn(
+        `Images can be stored in ${where}, but look into the warning`,
+        this.logger,
+      );
+      return;
+    }
     this.errorService.success(
       result.created
-        ? `Created bucket "${result.bucket}", images can be stored there`
-        : `Images can be stored in bucket "${result.bucket}"`,
+        ? `Created ${where}, images can be stored there`
+        : `Images can be stored in ${where}`,
     );
   }
 
@@ -286,22 +355,13 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     if (this.settings === null || this.storage === null) return;
 
     // Where new images go once restarted
-    const next: StorageDriver =
-      this.state(ServerSetting.StorageDriver)?.value === 's3'
-        ? 's3'
-        : 'database';
-    const current = this.storage.driver;
-    const toMove =
-      next === current
-        ? 0
-        : next === 's3'
-          ? this.storage.files.database
-          : this.storage.files.object_storage;
+    const next = AsDriver(this.state(ServerSetting.StorageDriver)?.value);
+    const toMove = next === this.storage.driver ? 0 : this.filesNotIn(next);
 
     let description =
       'Picsur is unavailable for a moment while it restarts, uploads in progress fail.';
     if (toMove > 0) {
-      description += ` There ${toMove === 1 ? 'is 1 image file' : `are ${toMove} image files`} in ${StorageName(current)}, which can be moved to ${StorageName(next)} after the restart.`;
+      description += ` There ${toMove === 1 ? 'is 1 image file' : `are ${toMove} image files`} stored elsewhere, which can be moved to ${StorageName(next)} after the restart.`;
     }
 
     const pressed = await this.dialogService.showDialog({
@@ -367,9 +427,18 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
   // Internals
 
+  private filesNotIn(driver: StorageDriver): number {
+    if (this.storage === null) return 0;
+    return StorageDrivers.filter((other) => other !== driver).reduce(
+      (total, other) => total + this.storage!.files[other],
+      0,
+    );
+  }
+
   private showSettings(settings: ServerSettingsResponse) {
     this.settings = settings;
     this.removeSecret = false;
+    this.pathWarning = null;
     this.initial = {};
 
     for (const state of settings.settings) {

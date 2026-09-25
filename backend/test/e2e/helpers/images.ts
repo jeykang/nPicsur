@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { crc32 } from 'node:zlib';
 import sharp from 'sharp';
 
 // Test images are generated on the fly where possible, instead of being kept
@@ -99,6 +100,87 @@ export function makeAnimatedGif(frames = 3, width = 32, height = 32): Buffer {
 
   bytes.push(0x3b);
   return Buffer.from(bytes);
+}
+
+// An animated WebP with frames of red, green and blue, each with a black
+// corner at the top left, so it can be seen how they are turned
+export async function makeAnimatedWebp(
+  width = 40,
+  height = 20,
+): Promise<Buffer> {
+  const colours = [
+    [255, 0, 0],
+    [0, 255, 0],
+    [0, 0, 255],
+  ];
+  const frames = colours.map((colour) => {
+    const frame = Buffer.alloc(width * height * 3);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        frame.set(x < 4 && y < 4 ? [0, 0, 0] : colour, (y * width + x) * 3);
+      }
+    }
+    return frame;
+  });
+  return sharp(Buffer.concat(frames), {
+    animated: true,
+    raw: {
+      width,
+      height: height * frames.length,
+      channels: 3,
+      pageHeight: height,
+    },
+  })
+    .webp({ lossless: true, delay: [100, 200, 300], loop: 0 })
+    .toBuffer();
+}
+
+// EXIF data that only has an orientation
+function orientationExif(orientation: number): Buffer {
+  const tiff = Buffer.alloc(26);
+  tiff.write('MM', 0, 'latin1');
+  tiff.writeUInt16BE(42, 2);
+  tiff.writeUInt32BE(8, 4);
+  tiff.writeUInt16BE(1, 8);
+  tiff.writeUInt16BE(0x0112, 10);
+  tiff.writeUInt16BE(3, 12);
+  tiff.writeUInt32BE(1, 14);
+  tiff.writeUInt16BE(orientation, 18);
+  return tiff;
+}
+
+// Says the WebP image is to be turned, which sharp can not write for
+// animations
+export function withWebpOrientation(webp: Buffer, orientation: number) {
+  if (webp.toString('latin1', 12, 16) !== 'VP8X') {
+    throw new Error('Only extended WebP images can have EXIF data');
+  }
+  const exif = orientationExif(orientation);
+  const chunk = Buffer.alloc(8 + exif.length);
+  chunk.write('EXIF', 0, 'latin1');
+  chunk.writeUInt32LE(exif.length, 4);
+  exif.copy(chunk, 8);
+
+  const result = Buffer.concat([webp, chunk]);
+  result.writeUInt32LE(result.length - 8, 4);
+  // The flag that says there is EXIF data
+  result[20] |= 0x08;
+  return result;
+}
+
+// Says the PNG image is to be turned, with an eXIf chunk after its header
+export function withPngOrientation(png: Buffer, orientation: number) {
+  const exif = orientationExif(orientation);
+  const chunk = Buffer.alloc(12 + exif.length);
+  chunk.writeUInt32BE(exif.length, 0);
+  chunk.write('eXIf', 4, 'latin1');
+  exif.copy(chunk, 8);
+  chunk.writeUInt32BE(
+    crc32(chunk.subarray(4, 8 + exif.length)),
+    8 + exif.length,
+  );
+  // The signature and the header chunk come first
+  return Buffer.concat([png.subarray(0, 33), chunk, png.subarray(33)]);
 }
 
 export async function metadata(image: Buffer) {

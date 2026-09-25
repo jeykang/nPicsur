@@ -60,6 +60,9 @@ export interface SharpWorkerResultMessage {
   type: 'result';
   processingTime: number;
   result: SharpResult;
+  // How much more memory the worker holds than when it started, in bytes,
+  // when it can tell
+  memoryGrowth?: number;
 }
 
 // Accumulators

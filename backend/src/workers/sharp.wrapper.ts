@@ -1,7 +1,4 @@
 import { Logger } from '@nestjs/common';
-import { ChildProcess, fork } from 'child_process';
-import pTimeout from 'p-timeout';
-import { dirname, join as pathJoin } from 'path';
 import { FileType } from 'picsur-shared/dist/dto/mimes.dto';
 import {
   AsyncFailable,
@@ -11,6 +8,7 @@ import {
   HasFailed,
 } from 'picsur-shared/dist/types/failable';
 import { Sharp, SharpOptions } from 'sharp';
+import { SharpWorkerPool, SharpWorkerProcess } from './sharp.pool.js';
 import {
   SharpWorkerFinishOptions,
   SharpWorkerOperation,
@@ -21,22 +19,15 @@ import {
 } from './sharp/sharp.message.js';
 import { SharpResult } from './sharp/universal-sharp.js';
 
-const moduleURL = new URL(import.meta.url);
-const __dirname = dirname(moduleURL.pathname);
-
+// One conversion, in a worker from the pool
 export class SharpWrapper {
-  private readonly workerID: number = Math.floor(Math.random() * 100000);
-  private readonly logger: Logger = new Logger('SharpWrapper' + this.workerID);
+  private readonly logger: Logger = new Logger(SharpWrapper.name);
 
-  private static readonly WORKER_PATH = pathJoin(
-    __dirname,
-    './sharp',
-    'sharp.worker.js',
-  );
-
-  private worker: ChildProcess | null = null;
+  private worker: SharpWorkerProcess | null = null;
+  private result: Promise<SharpWorkerResultMessage> | null = null;
 
   constructor(
+    private readonly pool: SharpWorkerPool,
     private readonly instance_timeout: number,
     private readonly memory_limit: number,
   ) {}
@@ -46,47 +37,13 @@ export class SharpWrapper {
     filetype: FileType,
     sharpOptions?: SharpOptions,
   ): AsyncFailable<true> {
-    this.worker = fork(SharpWrapper.WORKER_PATH, {
-      serialization: 'advanced',
-      timeout: this.instance_timeout,
-      env: {
-        // The worker handles untrusted data, so it does not get the
-        // environment (and with it the secrets) of the server, apart from
-        // settings meant for libvips and sharp
-        ...Object.fromEntries(
-          Object.entries(process.env).filter(
-            ([key]) => key.startsWith('VIPS_') || key.startsWith('SHARP_'),
-          ),
-        ),
-        MEMORY_LIMIT_MB: this.memory_limit.toString(),
-        NODE_OPTIONS: '--no-warnings',
-      },
-      stdio: 'overlapped',
-    });
-
-    this.worker.stdout?.on('data', (data) => {
-      this.logger.verbose(`Worker log: ${data}`);
-    });
-    this.worker.stderr?.on('data', (data) => {
-      this.logger.warn(`Worker error: ${data}`);
-    });
-
-    this.worker.on('error', (error) => {
-      this.logger.error(`Worker ${this.workerID} error: ${error}`);
-    });
-
-    this.worker.on('close', (code, signal) => {
-      this.logger.verbose(
-        `Worker ${this.workerID} exited with code ${code} and signal ${signal}`,
-      );
-      this.purge();
-    });
-
-    const isReady = await this.waitReady();
-    if (HasFailed(isReady)) {
-      this.purge();
-      return isReady;
-    }
+    const worker = await this.pool.acquire(
+      this.memory_limit,
+      this.instance_timeout,
+    );
+    if (HasFailed(worker)) return worker;
+    this.worker = worker;
+    this.result = this.waitForResult(worker);
 
     const hasSent = this.sendToWorker({
       type: 'init',
@@ -99,10 +56,6 @@ export class SharpWrapper {
       return hasSent;
     }
 
-    this.logger.verbose(
-      `Worker ${this.workerID} initialized with ${this.instance_timeout}ms timeout and ${this.memory_limit}MB memory limit`,
-    );
-
     return true;
   }
 
@@ -110,10 +63,6 @@ export class SharpWrapper {
     operation: Operation,
     ...parameters: Parameters<Sharp[Operation]>
   ): Failable<true> {
-    if (!this.worker) {
-      return Fail(FT.Internal, 'Worker is not initialized');
-    }
-
     const hasSent = this.sendToWorker({
       type: 'operation',
       operation: {
@@ -133,7 +82,9 @@ export class SharpWrapper {
     targetFiletype: FileType,
     options?: SharpWorkerFinishOptions,
   ): AsyncFailable<SharpResult> {
-    if (!this.worker) {
+    const worker = this.worker;
+    const result = this.result;
+    if (worker === null || result === null) {
       return Fail(FT.Internal, 'Worker is not initialized');
     }
 
@@ -142,58 +93,73 @@ export class SharpWrapper {
       filetype: targetFiletype,
       options: options ?? {},
     });
+    this.worker = null;
+    this.result = null;
     if (HasFailed(hasSent)) {
-      this.purge();
+      this.pool.discard(worker);
       return hasSent;
     }
 
     try {
-      const finishPromise = new Promise<SharpWorkerResultMessage>(
-        (resolve, reject) => {
-          if (!this.worker) return reject('Worker is not initialized');
-
-          this.worker.once('message', (message: SharpWorkerRecieveMessage) => {
-            if (message.type === 'result') {
-              resolve(message);
-            } else reject('Unknown message type');
-          });
-          this.worker.once('close', () => reject('Worker closed'));
-        },
-      );
-
-      const result = await pTimeout(finishPromise, {
-        milliseconds: this.instance_timeout,
-      });
-
+      const message = await result;
       this.logger.verbose(
-        `Worker ${this.workerID} finished in ${result.processingTime}ms`,
+        `Worker ${worker.id} finished in ${message.processingTime}ms`,
       );
-
-      this.purge();
-
-      return result.result;
+      this.pool.release(worker, message.memoryGrowth);
+      return message.result;
     } catch (error) {
-      this.purge();
       return Fail(FT.Internal, error);
     }
   }
 
-  private async waitReady(): AsyncFailable<true> {
-    try {
-      const waitReadyPromise = new Promise<void>((resolve, reject) => {
-        if (!this.worker) return reject('Worker is not initialized');
+  // The whole conversion has to be done within the time limit, otherwise the
+  // worker is stopped. That also stops it when the conversion is given up on
+  // without finishing it.
+  private waitForResult(
+    worker: SharpWorkerProcess,
+  ): Promise<SharpWorkerResultMessage> {
+    const child = worker.process;
+    const result = new Promise<SharpWorkerResultMessage>((resolve, reject) => {
+      let settled = false;
+      const done = (
+        error: Error | null,
+        message?: SharpWorkerResultMessage,
+      ) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        child.off('message', onMessage);
+        child.off('exit', onExit);
 
-        this.worker.once('message', (message: SharpWorkerRecieveMessage) => {
-          if (message.type === 'ready') resolve();
-          else reject('Unknown message type');
-        });
-      });
+        if (error !== null || message === undefined) {
+          this.pool.discard(worker);
+          reject(error);
+        } else {
+          resolve(message);
+        }
+      };
 
-      await pTimeout(waitReadyPromise, { milliseconds: this.instance_timeout });
-      return true;
-    } catch (error) {
-      return Fail(FT.Internal, error);
-    }
+      const onMessage = (message: SharpWorkerRecieveMessage) => {
+        if (message.type === 'result') done(null, message);
+        else done(new Error(`Unexpected message from worker: ${message.type}`));
+      };
+      const onExit = (code: number | null, signal: string | null) => {
+        done(new Error(`Worker exited with code ${code} and signal ${signal}`));
+      };
+      const timer = setTimeout(() => {
+        done(
+          new Error(
+            `Conversion took longer than ${this.instance_timeout}ms, stopped it`,
+          ),
+        );
+      }, this.instance_timeout);
+
+      child.on('message', onMessage);
+      child.on('exit', onExit);
+    });
+    // Nothing waits for it when the conversion is given up on
+    result.catch(() => undefined);
+    return result;
   }
 
   private sendToWorker(message: SharpWorkerSendMessage): Failable<true> {
@@ -201,13 +167,17 @@ export class SharpWrapper {
       return Fail(FT.Internal, 'Worker is not initialized');
     }
 
-    this.worker.send(message);
+    try {
+      this.worker.process.send(message);
+    } catch (error) {
+      return Fail(FT.Internal, error);
+    }
     return true;
   }
 
   private purge() {
-    this.worker?.kill();
-    this.worker?.removeAllListeners();
+    if (this.worker) this.pool.discard(this.worker);
     this.worker = null;
+    this.result = null;
   }
 }

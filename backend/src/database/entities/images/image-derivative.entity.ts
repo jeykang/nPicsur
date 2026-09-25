@@ -8,11 +8,14 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
+import type { ExternalStorageDriver } from '../../../config/early/storage.config.service.js';
 import { EImageBackend } from './image.entity.js';
 
 @Entity()
 @Unique(['image_id', 'key'])
-@Check(`"data" IS NOT NULL OR "storage_key" IS NOT NULL`)
+@Check(
+  `"data" IS NOT NULL OR ("storage" IS NOT NULL AND "storage_key" IS NOT NULL)`,
+)
 export class EImageDerivativeBackend {
   @PrimaryGeneratedColumn('uuid')
   private _id?: string;
@@ -50,8 +53,11 @@ export class EImageDerivativeBackend {
   @Column({ type: 'bytea', nullable: true, select: false })
   data?: Buffer | null;
 
-  // Where the converted image is stored instead, when it lives in object
-  // storage
+  // Where the converted image is stored instead, when it is not in the
+  // database: in which storage, and under which key there
+  @Column({ type: 'varchar', nullable: true })
+  storage: ExternalStorageDriver | null;
+
   @Column({ type: 'varchar', nullable: true })
   storage_key: string | null;
 }

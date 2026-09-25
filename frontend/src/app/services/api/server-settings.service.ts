@@ -4,6 +4,7 @@ import {
   ServerSettingsResponse,
   ServerSettingsUpdateRequest,
   StorageStatusResponse,
+  StorageTestRequest,
   StorageTestResponse,
 } from 'picsur-shared/dist/dto/api/server.dto';
 import {
@@ -40,14 +41,16 @@ export class ServerSettingsService {
   }
 
   // Tries out the storage the given changes would result in
+  // Tries out the bucket or the directory
   public testStorage(
     values: Record<string, string | null>,
+    storage: 's3' | 'filesystem',
   ): AsyncFailable<StorageTestResponse> {
     return this.api.post(
-      ServerSettingsUpdateRequest,
+      StorageTestRequest,
       StorageTestResponse,
       '/api/server/settings/test-storage',
-      { values },
+      { values, storage },
     ).result;
   }
 

@@ -8,6 +8,9 @@ export const backendRoot = resolve(
   '../../..',
 );
 
+// The memory settings the Docker image starts the server with
+const MainNodeOptions = ['--max-semi-space-size=16', '--expose-gc'];
+
 // Starts one of the backend's entry points (dist/main.js or dist/cli.js),
 // either from the local build or from the Docker image being tested. The
 // container shares the host's network, so it reaches the database and the
@@ -22,7 +25,11 @@ export function spawnBackend(
   if (dockerImage === null) {
     return spawn(
       process.env['E2E_NODE'] ?? process.execPath,
-      [`dist/${script}.js`, ...args],
+      [
+        ...(script === 'main' ? MainNodeOptions : []),
+        `dist/${script}.js`,
+        ...args,
+      ],
       {
         cwd: backendRoot,
         env: {
@@ -47,9 +54,10 @@ export function spawnBackend(
         `${key}=${value}`,
       ]),
       dockerImage,
-      'node',
-      `backend/dist/${script}.js`,
-      ...args,
+      // The server is started the way the image starts it
+      ...(script === 'main' && args.length === 0
+        ? []
+        : ['node', `backend/dist/${script}.js`, ...args]),
     ],
     { stdio: ['ignore', 'pipe', 'pipe'] },
   );

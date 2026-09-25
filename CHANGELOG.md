@@ -9,6 +9,25 @@
 - Secrets saved on that page are encrypted. By default with a generated key that is kept in the database. The new `PICSUR_ENCRYPTION_KEY` keeps the key out of the database, which protects secrets from copies of it as well. Secrets saved before it was set are encrypted with it when Picsur starts.
 - Images can be moved between the database and S3 from that page, which shows how far along it is. Picsur keeps working in the meantime.
 - The command line tool uses the settings from the page as well.
+- APNG, ICO and TGA images can be uploaded, and any image can be converted to them. Animated PNGs stay animated, also when converted to GIF or WebP and the other way around, and are kept as they were uploaded, like PNG images. Icons are read from their largest image, and written with images of at most 256 pixels. TGA images are read in all their variants, including run length encoded and color-mapped ones.
+- Images can be stored as files in a directory, besides the database and S3, with `PICSUR_STORAGE_DRIVER=filesystem` and `PICSUR_STORAGE_PATH`, or on the settings page. The Docker image has `/picsur/images` ready for a volume, and the settings page warns when the directory is not on one. Images can be moved between any of the three, and `storage gc` cleans up the directory too.
+
+### Faster
+
+- JPEG, PNG, WebP and GIF uploads are kept as they were uploaded, only without their metadata, instead of being converted to QOI. A lossless copy of a photo is many times larger than the photo itself while holding nothing more: a 12 megapixel JPEG used to take up 9 times its size. Uploading it is about 9 times faster now, and making a smaller version of it about 5 times. Other formats are still converted to QOI. Images uploaded before stay as they are.
+- Lists of images, the gallery and albums load WebP thumbnails instead of QOI ones. The thumbnail of a photo is about 30 times smaller, 26 KB instead of 823 KB, and browsers show them without decoding them in a script first. Thumbnails of animations are animated.
+- Converting animations to GIF is 2 to 6 times faster, with files up to 13% larger. 30 frames of a video at 480x270 take 1.7 seconds instead of 4.1, and 30 frames of noise, the worst case, 4 seconds instead of 26, which was past the default time limit.
+- The processes that convert images are used for more than one conversion, instead of starting a new one every time, which took longer than converting most images. A small image that was not converted to the requested size and format before is ready in about 20 ms instead of 120 ms. A process is replaced after 50 conversions, when a conversion fails, or when it holds on to a lot of memory afterwards, and stops after 30 seconds without work.
+
+### Lighter
+
+- Picsur gives back the memory it took while it was busy once it is idle again, instead of keeping it until it restarts, and takes less of it while busy. Measured with the Docker image: 120 MB when idle instead of 160 MB, about 250 MB instead of 390 MB while handling a lot of requests, and back to about 140 MB within half a minute after. Outside the Docker image, this needs Node to be started with `--expose-gc`, see the `start:prod` script.
+
+### Fixed
+
+- Photos were shown sideways when their EXIF orientation said to turn them, like phones do for photos taken upright. Animations are turned as well, each frame by itself. Images uploaded before stay as they are.
+- Conversion memory limits above about 1.5 GB were not applied as set: depending on the value, conversions had no memory limit at all, a much lower one, or could not run at all.
+- Animations could not be turned a quarter with `rotate=90` or `rotate=270` in the url, and turning them upside down with `rotate=180` or mirroring them with `flipy` played them backwards.
 
 ## 0.6.0
 

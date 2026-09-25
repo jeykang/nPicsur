@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { EAlbumSummary } from 'picsur-shared/dist/dto/api/album.dto';
-import { ImageFileType } from 'picsur-shared/dist/dto/mimes.dto';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import {
   AlbumNameDialogComponent,
@@ -74,10 +73,7 @@ export class AlbumsComponent implements OnInit {
 
   getCoverUrl(album: EAlbumSummary) {
     if (album.cover_id === null) return null;
-    return (
-      this.imageService.GetImageURL(album.cover_id, ImageFileType.QOI) +
-      '?height=480&shrinkonly=yes'
-    );
+    return this.imageService.GetThumbnailURL(album.cover_id);
   }
 
   openAlbum(album: EAlbumSummary) {

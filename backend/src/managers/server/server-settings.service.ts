@@ -19,12 +19,17 @@ import {
   HasFailed,
 } from 'picsur-shared/dist/types/failable';
 import { ImageStorageMaintenanceService } from '../../collections/image-db/image-storage-maintenance.service.js';
+import {
+  DiskStorageService,
+  TestDiskStorage,
+} from '../../collections/disk-storage/disk-storage.service.js';
 import { TestS3Storage } from '../../collections/object-storage/object-storage.service.js';
 import { ServerSettingsDbService } from '../../collections/server-settings-db/server-settings-db.service.js';
 import { SystemStateDbService } from '../../collections/system-state-db/system-state-db.service.js';
 import {
   BuildStorageConfig,
-  SameStorageLocation,
+  ChangedStorageLocations,
+  ExternalStorageDriver,
   StorageConfig,
   StorageConfigService,
   StorageDriver,
@@ -64,6 +69,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     private readonly maintenance: ImageStorageMaintenanceService,
     private readonly migration: StorageMigrationService,
     private readonly storageConfig: StorageConfigService,
+    private readonly diskStorage: DiskStorageService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -184,27 +190,39 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     if (plan.changes.size === 0) return this.describeStored(plan.stored);
 
     // Keep what is stored where it can be found
-    const locationChanged = !SameStorageLocation(
-      this.runningStorage().s3,
-      plan.storage.s3,
+    const movedLocations = ChangedStorageLocations(
+      this.runningStorage(),
+      plan.storage,
     );
-    if (locationChanged) {
-      const kept = await this.checkBucketIsEmpty();
+    for (const location of movedLocations) {
+      const kept = await this.checkLocationIsEmpty(location);
       if (HasFailed(kept)) return kept;
     }
 
-    // Only a bucket that works is stored, so Picsur can start with it. It is
+    // Only storage that works is stored, so Picsur can start with it. It is
     // not needed for switching back to the database, and moving images there.
     const changed = [...plan.changes.keys()];
+    const driverChanged = changed.includes(ServerSetting.StorageDriver);
     const bucketChanged = changed.some(
       (key) =>
-        StorageSettings.includes(key) && key !== ServerSetting.StorageDriver,
+        StorageSettings.includes(key) &&
+        key !== ServerSetting.StorageDriver &&
+        key !== ServerSetting.StoragePath,
     );
-    const toBucket =
-      changed.includes(ServerSetting.StorageDriver) &&
-      plan.storage.driver === StorageDriver.S3;
-    if (plan.storage.s3 !== null && (bucketChanged || toBucket)) {
+    if (
+      plan.storage.s3 !== null &&
+      (bucketChanged ||
+        (driverChanged && plan.storage.driver === StorageDriver.S3))
+    ) {
       const tested = await TestS3Storage(plan.storage.s3);
+      if (HasFailed(tested)) return tested;
+    }
+    if (
+      plan.storage.filesystem !== null &&
+      (changed.includes(ServerSetting.StoragePath) ||
+        (driverChanged && plan.storage.driver === StorageDriver.Filesystem))
+    ) {
+      const tested = await TestDiskStorage(plan.storage.filesystem);
       if (HasFailed(tested)) return tested;
     }
 
@@ -214,30 +232,52 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       `Changed server settings: ${[...plan.changes.keys()].join(', ')}`,
     );
 
-    // Cached conversions in the old bucket would not be found anymore, they
-    // are made again when needed
-    if (locationChanged) {
-      const dropped = await this.maintenance.dropObjectStorageDerivatives();
-      if (HasFailed(dropped)) dropped.print(this.logger);
+    // Cached conversions in the old bucket or directory would not be found
+    // anymore, they are made again when needed
+    for (const location of movedLocations) {
+      await this.maintenance
+        .dropDerivativesIn(location)
+        .catch((e) =>
+          this.logger.warn(`Dropping cached conversions: ${String(e)}`),
+        );
     }
 
     return this.describeStored(plan.stored);
   }
 
-  // Tries out the storage the given changes would result in
+  // Tries out the bucket or directory the given changes would result in
   async testStorage(
     values: Record<string, string | null>,
+    storage: `${ExternalStorageDriver}`,
   ): AsyncFailable<StorageTestResponse> {
     const plan = await this.plan(values);
     if (HasFailed(plan)) return plan;
 
-    const s3 = plan.storage.s3;
-    if (s3 === null) {
-      return Fail(FT.BadRequest, 'There is no bucket to test');
+    if (storage === StorageDriver.S3) {
+      const s3 = plan.storage.s3;
+      if (s3 === null) return Fail(FT.BadRequest, 'There is no bucket to test');
+      const tested = await TestS3Storage(s3);
+      if (HasFailed(tested)) return tested;
+      return {
+        driver: storage,
+        location: s3.bucket,
+        created: tested.created,
+        warning: null,
+      };
     }
-    const tested = await TestS3Storage(s3);
+
+    const filesystem = plan.storage.filesystem;
+    if (filesystem === null) {
+      return Fail(FT.BadRequest, 'There is no directory to test');
+    }
+    const tested = await TestDiskStorage(filesystem);
     if (HasFailed(tested)) return tested;
-    return { bucket: s3.bucket, created: tested.created };
+    return {
+      driver: storage,
+      location: filesystem.path,
+      created: tested.created,
+      warning: tested.warning,
+    };
   }
 
   async restart(): AsyncFailable<Date> {
@@ -252,8 +292,11 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     const stored = await this.settingsDb.getAll();
     if (HasFailed(stored)) return stored;
     const next = BuildStorageConfig(ServerSettingResolver(stored));
-    if (!SameStorageLocation(this.runningStorage().s3, next.s3)) {
-      const kept = await this.checkBucketIsEmpty();
+    for (const location of ChangedStorageLocations(
+      this.runningStorage(),
+      next,
+    )) {
+      const kept = await this.checkLocationIsEmpty(location);
       if (HasFailed(kept)) return kept;
     }
 
@@ -269,14 +312,10 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       return {
         driver: this.storageConfig.getDriver(),
         bucket: this.storageConfig.getS3Config()?.bucket ?? null,
-        files: {
-          database: status.files.database,
-          object_storage: status.files.objectStorage,
-        },
-        derivatives: {
-          database: status.derivatives.database,
-          object_storage: status.derivatives.objectStorage,
-        },
+        path: this.storageConfig.getFilesystemConfig()?.path ?? null,
+        warning: this.diskStorage.warning,
+        files: status.files,
+        derivatives: status.derivatives,
         migration: this.migration.getState(),
       };
     } catch (e) {
@@ -392,20 +431,28 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     );
   }
 
-  // The bucket used now can only be changed when no images are stored there,
-  // they would not be found anymore otherwise
-  private async checkBucketIsEmpty(): AsyncFailable<true> {
+  // The bucket or directory used now can only be changed when no images are
+  // stored there, they would not be found anymore otherwise
+  private async checkLocationIsEmpty(
+    location: ExternalStorageDriver,
+  ): AsyncFailable<true> {
     let files: number;
     try {
-      files = (await this.maintenance.status()).files.objectStorage;
+      files = (await this.maintenance.status()).files[location];
     } catch (e) {
       return Fail(FT.Database, e);
     }
     if (files === 0) return true;
 
+    const running = this.runningStorage();
+    const where =
+      location === StorageDriver.S3
+        ? `The bucket "${running.s3?.bucket}"`
+        : `The directory "${running.filesystem?.path}"`;
+    const what = location === StorageDriver.S3 ? 'bucket' : 'directory';
     return Fail(
       FT.Conflict,
-      `The bucket "${this.runningStorage().s3?.bucket}" still holds ${files} image ${files === 1 ? 'file' : 'files'}. Move them to the database first: store new images in the database, restart, and move the existing images there. Then the bucket can be changed.`,
+      `${where} still holds ${files} image ${files === 1 ? 'file' : 'files'}. Move them elsewhere first: store new images somewhere else, restart, and move the existing images there. Then the ${what} can be changed.`,
     );
   }
 }

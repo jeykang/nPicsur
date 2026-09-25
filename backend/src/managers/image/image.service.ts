@@ -6,6 +6,7 @@ import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.en
 import {
   AnimFileType,
   FileType,
+  FileType2Ext,
   ImageFileType,
   Mime2FileType,
 } from 'picsur-shared/dist/dto/mimes.dto';
@@ -33,7 +34,9 @@ import { ConversionLimiterService } from './conversion-limiter.service.js';
 import { MasterDimensions } from './dimensions.js';
 import { ImageConverterService } from './image-converter.service.js';
 import { ImageProcessorService } from './image-processor.service.js';
+import { IsICO } from '../../workers/codecs/ico.js';
 import { IsQOI } from '../../workers/codecs/qoi.js';
+import { IsTGA } from '../../workers/codecs/tga.js';
 import { IsAnimatedWebP } from './webp.js';
 
 // Images can be resized to at most this many pixels, or their own size when
@@ -190,9 +193,11 @@ export class ImageManagerService {
         if (HasFailed(sourceFileType)) return sourceFileType;
 
         // Nothing to convert, serve the master as it is instead of storing
-        // another copy of it
+        // another copy of it. A still WebP is as much a .webp as an animated
+        // one is.
         if (
-          sourceFileType.identifier === targetFileType.identifier &&
+          FileType2Ext(sourceFileType.identifier) ===
+            FileType2Ext(targetFileType.identifier) &&
           Object.keys(effectiveOptions).length === 0
         ) {
           return masterImage;
@@ -332,7 +337,12 @@ export class ImageManagerService {
 
     let mime: string | undefined;
     if (filetypeResult === undefined) {
+      // Formats that file-type does not know
       if (IsQOI(image)) mime = 'image/x-qoi';
+      else if (IsTGA(image)) mime = 'image/x-tga';
+    } else if (filetypeResult.mime === 'image/x-icon' && !IsICO(image)) {
+      // Only four bytes identify icons, which some TGA images start with too
+      if (IsTGA(image)) mime = 'image/x-tga';
     } else {
       mime = filetypeResult.mime;
     }

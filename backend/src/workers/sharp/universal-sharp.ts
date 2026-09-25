@@ -3,7 +3,7 @@ import {
   FileType,
   ImageFileType,
 } from 'picsur-shared/dist/dto/mimes.dto';
-import sharp, { OutputInfo, Sharp, SharpOptions } from 'sharp';
+import sharp, { Channels, OutputInfo, Sharp, SharpOptions } from 'sharp';
 import { APNGcompose, APNGencode, APNGsplit } from '../codecs/apng.js';
 import { BMPdecode, BMPencode } from '../codecs/bmp.js';
 import { ICOdecode, ICOencode } from '../codecs/ico.js';
@@ -36,14 +36,14 @@ export async function UniversalSharpIn(
 ): Promise<SharpInput> {
   switch (filetype.identifier) {
     case ImageFileType.BMP:
-      return still(rawSharpIn(BMPdecode(image), options));
+      return untimed(rawSharpIn(BMPdecode(image), options));
     case ImageFileType.QOI:
-      return still(rawSharpIn(QOIdecode(image), options));
+      return untimed(rawSharpIn(QOIdecode(image), options));
     case ImageFileType.TGA:
-      return still(rawSharpIn(TGAdecode(image), options));
+      return untimed(rawSharpIn(TGAdecode(image), options));
     case ImageFileType.ICO: {
       const icon = ICOdecode(image);
-      return still(
+      return untimed(
         'png' in icon
           ? sharp(icon.png, options)
           : rawSharpIn(icon.bitmap, options),
@@ -55,11 +55,13 @@ export async function UniversalSharpIn(
       // Photos are often stored sideways, with their EXIF orientation saying
       // how to turn them. Masters of JPEGs keep it, and every conversion
       // applies it, other masters are turned when they are made.
-      return still(sharp(image, { ...options, autoOrient: true }));
+      if (options?.animated) return animatedSharpIn(image, options);
+      return untimed(sharp(image, { ...options, autoOrient: true }));
   }
 }
 
-function still(image: Sharp): SharpInput {
+// Still images, and animations libvips knows how to play
+function untimed(image: Sharp): SharpInput {
   return { image, timing: null };
 }
 
@@ -85,7 +87,13 @@ async function apngSharpIn(
 ): Promise<SharpInput> {
   const animation = APNGsplit(image);
   // What is shown without APNG support, which is what a still image of it is
-  if (!options?.animated) return still(sharp(animation.defaultImage, options));
+  if (!options?.animated) {
+    return untimed(
+      sharp(animation.defaultImage, { ...options, autoOrient: true }),
+    );
+  }
+  // Its EXIF data is only in the default image
+  const { orientation } = await sharp(animation.defaultImage).metadata();
 
   const pixels: Buffer[] = [];
   for (const frame of animation.frames) {
@@ -99,25 +107,138 @@ async function apngSharpIn(
   }
   const composed = APNGcompose(animation, pixels);
   // Without transparency, other formats need not store any
-  const frames = IsOpaque(composed) ? WithoutAlpha(composed) : composed;
+  const opaque = IsOpaque(composed);
+  const frames = TurnFrames(
+    opaque ? WithoutAlpha(composed) : composed,
+    {
+      width: animation.width,
+      height: animation.height,
+      channels: opaque ? 3 : 4,
+      pages: animation.frames.length,
+    },
+    orientation,
+  );
 
   return {
-    // Still animated, or operations like resizing would only keep the first
-    // frame
-    image: sharp(frames, {
-      ...options,
-      raw: {
-        width: animation.width,
-        height: animation.height * animation.frames.length,
-        channels: frames === composed ? 4 : 3,
-        pageHeight: animation.height,
-      },
-    }),
+    image: framesSharpIn(frames, options),
     timing: {
       delay: animation.frames.map((frame) => frame.delay),
       loop: animation.loop,
     },
   };
+}
+
+// libvips turns an animation upside down as one tall image, which plays its
+// frames backwards, and can not turn it sideways at all. So animations that
+// are stored turned have each of their frames turned by itself.
+async function animatedSharpIn(
+  image: Buffer,
+  options: SharpOptions,
+): Promise<SharpInput> {
+  const { orientation, pages, delay, loop } = await sharp(
+    image,
+    options,
+  ).metadata();
+  if (!pages || pages === 1 || !Turns[orientation ?? 1]) {
+    return untimed(sharp(image, { ...options, autoOrient: true }));
+  }
+
+  const raw = await sharp(image, options)
+    .raw({ depth: 'uchar' })
+    .toBuffer({ resolveWithObject: true });
+  const frames = TurnFrames(
+    raw.data,
+    {
+      width: raw.info.width,
+      height: raw.info.height / pages,
+      channels: raw.info.channels,
+      pages,
+    },
+    orientation,
+  );
+
+  return {
+    image: framesSharpIn(frames, options),
+    // How it plays does not come along with the raw frames
+    timing: { delay: delay ?? [], loop: loop ?? 0 },
+  };
+}
+
+interface Frames {
+  // Every frame, one after the other
+  pixels: Buffer;
+  // Of one frame
+  width: number;
+  height: number;
+  channels: Channels;
+  pages: number;
+}
+
+// Still animated, or operations like resizing would only keep the first
+// frame
+function framesSharpIn(frames: Frames, options?: SharpOptions): Sharp {
+  return sharp(frames.pixels, {
+    ...options,
+    raw: {
+      width: frames.width,
+      height: frames.height * frames.pages,
+      channels: frames.channels,
+      pageHeight: frames.height,
+    },
+  });
+}
+
+// For the EXIF orientations that turn an image, of w by h pixels as stored:
+// which stored pixel is shown at the top left, and how far away in the stored
+// image the pixels are that are shown to the right of it and below it
+const Turns: Partial<
+  Record<number, (w: number, h: number) => [number, number, number]>
+> = {
+  // Mirrored
+  2: (w) => [w - 1, -1, w],
+  // Upside down, and mirrored
+  3: (w, h) => [w * h - 1, -1, -w],
+  4: (w, h) => [(h - 1) * w, 1, -w],
+  // A quarter turned, with width and height swapped: mirrored, clockwise,
+  // mirrored and counterclockwise
+  5: (w) => [0, w, 1],
+  6: (w, h) => [(h - 1) * w, -w, 1],
+  7: (w, h) => [w * h - 1, -w, -1],
+  8: (w) => [w - 1, w, -1],
+};
+
+// Turns every frame the way the orientation says
+export function TurnFrames(
+  pixels: Buffer,
+  frame: Omit<Frames, 'pixels'>,
+  orientation: number | undefined,
+): Frames {
+  const turn = Turns[orientation ?? 1];
+  if (turn === undefined) return { ...frame, pixels };
+
+  const { width, height, channels } = frame;
+  const [start, right, down] = turn(width, height);
+  const swapped = (orientation ?? 1) >= 5;
+  const turned = {
+    ...frame,
+    pixels: Buffer.alloc(pixels.length),
+    width: swapped ? height : width,
+    height: swapped ? width : height,
+  };
+
+  let to = 0;
+  for (let page = 0; page < frame.pages; page++) {
+    const first = page * width * height + start;
+    for (let y = 0; y < turned.height; y++) {
+      let from = first + y * down;
+      for (let x = 0; x < turned.width; x++, from += right) {
+        for (let c = 0; c < channels; c++) {
+          turned.pixels[to++] = pixels[from * channels + c];
+        }
+      }
+    }
+  }
+  return turned;
 }
 
 function IsOpaque(rgba: Buffer): boolean {

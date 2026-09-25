@@ -10,10 +10,13 @@ import {
 import {
   convertTo,
   makeAnimatedGif,
+  makeAnimatedWebp,
   makeHevcHeic,
   makeJpeg,
   makePng,
   metadata,
+  withPngOrientation,
+  withWebpOrientation,
 } from './helpers/images.js';
 
 describe('image upload and retrieval', () => {
@@ -570,6 +573,57 @@ describe('formats', () => {
       (await Client.guest().get(`/i/${id}.jpg`)).body,
     );
     expect(asJpeg.orientation).toBe(6);
+  });
+
+  it('turns animations the way their orientation says', async () => {
+    const webp = await makeAnimatedWebp(40, 20);
+    const { id: plainId } = await client.uploadOk(webp, 'plain.webp');
+    const apng = (await Client.guest().get(`/i/${plainId}.apng`)).body;
+
+    // Where the black corner at the top left ends up, and the size of the
+    // frames after
+    const cases = [
+      { orientation: 3, corner: 'bottom right', size: [40, 20] },
+      { orientation: 6, corner: 'top right', size: [20, 40] },
+      { orientation: 7, corner: 'bottom right', size: [20, 40] },
+    ];
+    for (const { orientation, corner, size } of cases) {
+      for (const [upload, name] of [
+        [withWebpOrientation(webp, orientation), 'turned.webp'],
+        [withPngOrientation(apng, orientation), 'turned.png'],
+      ] as const) {
+        const what = `${name} with orientation ${orientation}`;
+        const { id } = await client.uploadOk(upload, name);
+        const served = (await Client.guest().get(`/i/${id}.webp`)).body;
+
+        const meta = await metadata(served);
+        expect([meta.width, meta.pageHeight], what).toEqual(size);
+        expect(meta.pages, what).toBe(3);
+        expect(meta.delay, what).toEqual([100, 200, 300]);
+
+        // Every frame turned by itself, still in the same order
+        const [width, height] = size;
+        const { data, info } = await sharp(served, { animated: true })
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+        const pixel = (frame: number, x: number, y: number) => {
+          const at = ((frame * height + y) * width + x) * info.channels;
+          return [data[at], data[at + 1], data[at + 2]];
+        };
+        const [cornerX, cornerY] = {
+          'top right': [width - 1, 0],
+          'bottom right': [width - 1, height - 1],
+        }[corner]!;
+        for (const [frame, colour] of [
+          [255, 0, 0],
+          [0, 255, 0],
+          [0, 0, 255],
+        ].entries()) {
+          expect(pixel(frame, cornerX, cornerY), what).toEqual([0, 0, 0]);
+          expect(pixel(frame, width >> 1, height >> 1), what).toEqual(colour);
+        }
+      }
+    }
   });
 
   it('converts uploads it can not keep as they are', async () => {

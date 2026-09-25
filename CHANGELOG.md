@@ -24,7 +24,7 @@
 
 ### Fixed
 
-- Photos were shown sideways when their EXIF orientation said to turn them, like phones do for photos taken upright. Images uploaded before stay as they are.
+- Photos were shown sideways when their EXIF orientation said to turn them, like phones do for photos taken upright. Animations are turned as well, each frame by itself. Images uploaded before stay as they are.
 - Conversion memory limits above about 1.5 GB were not applied as set: depending on the value, conversions had no memory limit at all, a much lower one, or could not run at all.
 
 ## 0.6.0

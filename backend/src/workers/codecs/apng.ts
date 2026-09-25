@@ -49,7 +49,8 @@ export interface APNGAnimation {
   // How many times it plays, 0 for forever
   loop: number;
   // What programs without APNG support show, which is not always one of the
-  // frames
+  // frames. It has the EXIF data of the animation, which the frames leave
+  // out: they are put together as they are stored, and turned after.
   defaultImage: Buffer;
 }
 
@@ -127,6 +128,7 @@ export function APNGsplit(data: Buffer): APNGAnimation {
 
   const shared: Buffer[] = [];
   const defaultData: Buffer[] = [];
+  let exif: Buffer | null = null;
   let loop = 0;
   let declaredFrames = 0;
 
@@ -136,7 +138,7 @@ export function APNGsplit(data: Buffer): APNGAnimation {
   const frames: APNGFrame[] = [];
   let totalPixels = 0;
 
-  const png = (w: number, h: number, parts: Buffer[]) => {
+  const png = (w: number, h: number, parts: Buffer[], extra: Buffer[] = []) => {
     const frameHeader = Buffer.from(header);
     frameHeader.writeUInt32BE(w, 0);
     frameHeader.writeUInt32BE(h, 4);
@@ -144,6 +146,7 @@ export function APNGsplit(data: Buffer): APNGAnimation {
       SIGNATURE,
       writeChunk('IHDR', frameHeader),
       ...shared,
+      ...extra,
       ...parts.map((part) => writeChunk('IDAT', part)),
       writeChunk('IEND', Buffer.alloc(0)),
     ]);
@@ -209,6 +212,8 @@ export function APNGsplit(data: Buffer): APNGAnimation {
       frameData.push(chunk.subarray(4));
     } else if (SharedChunks.has(type) && !seenData) {
       shared.push(writeChunk(type, chunk));
+    } else if (type === 'eXIf' && exif === null) {
+      exif = writeChunk(type, chunk);
     }
   }
   finishFrame();
@@ -223,7 +228,7 @@ export function APNGsplit(data: Buffer): APNGAnimation {
     height,
     frames,
     loop,
-    defaultImage: png(width, height, defaultData),
+    defaultImage: png(width, height, defaultData, exif ? [exif] : []),
   };
 }
 

@@ -1,0 +1,20 @@
+<div class="content-border">
+  <div class="centered">
+    <h1>Delete this image?</h1>
+    <img class="preview" [src]="previewUrl" alt="The image to delete" />
+    <p>This can not be undone.</p>
+    <div class="actions">
+      <button
+        mat-raised-button
+        color="warn"
+        [disabled]="busy"
+        (click)="delete()"
+      >
+        Delete
+      </button>
+      <button mat-stroked-button [disabled]="busy" (click)="keep()">
+        Keep it
+      </button>
+    </div>
+  </div>
+</div>

@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import {
   ImageDeleteRequest,
   ImageDeleteResponse,
+  ImageDeleteWithKeyRequest,
+  ImageDeleteWithKeyResponse,
   ImageListRequest,
   ImageListResponse,
   ImageUpdateRequest,
@@ -136,6 +138,18 @@ export class ImageService {
     }
 
     return result.images[0];
+  }
+
+  public async DeleteImageWithKey(
+    image: string,
+    key: string,
+  ): AsyncFailable<EImage> {
+    return await this.api.post(
+      ImageDeleteWithKeyRequest,
+      ImageDeleteWithKeyResponse,
+      '/api/image/delete/key',
+      { id: image, key },
+    ).result;
   }
 
   // Non api calls

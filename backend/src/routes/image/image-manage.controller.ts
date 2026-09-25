@@ -20,12 +20,7 @@ import {
   ImageUploadResponse,
 } from 'picsur-shared/dist/dto/api/image-manage.dto';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
-import {
-  FT,
-  Fail,
-  HasFailed,
-  ThrowIfFailed,
-} from 'picsur-shared/dist/types/failable';
+import { FT, Fail, ThrowIfFailed } from 'picsur-shared/dist/types/failable';
 import { EasyThrottle } from '../../decorators/easy-throttle.decorator.js';
 import { PostFiles } from '../../decorators/multipart/multipart.decorator.js';
 import type { FileIterator } from '../../decorators/multipart/postfiles.pipe.js';
@@ -137,7 +132,7 @@ export class ImageManageController {
   @Post('delete/key')
   @RequiredPermissions(Permission.ImageDeleteKey)
   @Returns(ImageDeleteWithKeyResponse)
-  async deleteImageWithKeyGet(
+  async deleteImageWithKey(
     @Body() body: ImageDeleteWithKeyRequest,
   ): Promise<ImageDeleteWithKeyResponse> {
     return ThrowIfFailed(
@@ -145,21 +140,18 @@ export class ImageManageController {
     );
   }
 
+  // Deletion links, as handed out to ShareX, lead to a page that asks to
+  // confirm. Chat apps and browsers open links by themselves to show a
+  // preview, which deleted the image as soon as its link was shared.
   @Get('delete/:id/:key')
   @RequiredPermissions(Permission.ImageDeleteKey)
-  async deleteImageWithKeyPost(
+  async confirmDeleteImageWithKey(
     @Param() params: ImageDeleteWithKeyRequest,
     @Res({ passthrough: true }) res: FastifyReply,
   ): Promise<string> {
-    const image = await this.imagesService.deleteWithKey(params.id, params.key);
-    if (HasFailed(image)) {
-      res.header('Location', '/error/delete-failure');
-      res.code(302);
-      return 'Failed to delete image';
-    }
-
-    res.header('Location', '/error/delete-success');
+    // Both are validated, an uuid and 32 letters or digits
+    res.header('Location', `/delete/${params.id}/${params.key}`);
     res.code(302);
-    return 'Successsfully deleted image';
+    return 'Confirm deleting the image';
   }
 }

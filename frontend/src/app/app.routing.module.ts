@@ -39,6 +39,11 @@ const routes: PRoutes = [
       import('./routes/settings/settings.module').then((m) => m.default),
   },
   {
+    path: 'delete',
+    loadChildren: () =>
+      import('./routes/delete/delete.module').then((m) => m.default),
+  },
+  {
     path: 'error',
     loadChildren: () =>
       import('./routes/errors/errors.module').then((m) => m.default),

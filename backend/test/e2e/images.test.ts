@@ -623,21 +623,26 @@ describe('image management', () => {
     expectFailure(await guest.get(`/i/meta/${id}`), 404, 'notfound');
   });
 
-  it('deletes images through the delete link', async () => {
+  it('asks to confirm before deleting through the delete link', async () => {
     const { id, delete_key } = await alice.client.uploadOk(png);
     const guest = Client.guest();
 
-    const bad = await guest.get(`/api/image/delete/${id}/${'A'.repeat(32)}`, {
+    const link = await guest.get(`/api/image/delete/${id}/${delete_key}`, {
       manualRedirect: true,
     });
-    expect(bad.status).toBe(302);
-    expect(bad.headers.get('location')).toBe('/error/delete-failure');
+    expect(link.status).toBe(302);
+    expect(link.headers.get('location')).toBe(`/delete/${id}/${delete_key}`);
 
-    const good = await guest.get(`/api/image/delete/${id}/${delete_key}`, {
-      manualRedirect: true,
-    });
-    expect(good.status).toBe(302);
-    expect(good.headers.get('location')).toBe('/error/delete-success');
+    // Like a chat app fetching a preview of the link
+    const preview = await guest.get(`/api/image/delete/${id}/${delete_key}`);
+    expect(preview.status).toBe(200);
+    expect(preview.headers.get('content-type')).toContain('text/html');
+    expectSuccess(await guest.get(`/i/meta/${id}`));
+
+    // The confirmation page deletes it
+    expectSuccess(
+      await guest.post('/api/image/delete/key', { id, key: delete_key }),
+    );
     expectFailure(await guest.get(`/i/meta/${id}`), 404, 'notfound');
   });
 });

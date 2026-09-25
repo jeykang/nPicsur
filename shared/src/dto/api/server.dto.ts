@@ -48,9 +48,23 @@ export class ServerSettingsUpdateRequest extends createZodDto(
 
 // StorageTest, of the storage the given changes would result in
 
+export const StorageTestRequestSchema =
+  ServerSettingsUpdateRequestSchema.extend({
+    // The bucket, or the directory
+    storage: z.enum(['s3', 'filesystem']),
+  });
+export class StorageTestRequest extends createZodDto(
+  StorageTestRequestSchema,
+) {}
+
 export const StorageTestResponseSchema = z.object({
-  bucket: z.string(),
+  driver: z.enum(['s3', 'filesystem']),
+  // The bucket, or the directory
+  location: z.string(),
+  // Whether it did not exist yet
   created: z.boolean(),
+  // Something to look into, even though images can be stored there
+  warning: z.string().nullable(),
 });
 export class StorageTestResponse extends createZodDto(
   StorageTestResponseSchema,
@@ -67,9 +81,12 @@ export class ServerRestartResponse extends createZodDto(
 
 // StorageStatus
 
+const StorageDriverSchema = z.enum(['database', 's3', 'filesystem']);
+
 const LocationCountsSchema = z.object({
   database: IsPosInt(),
-  object_storage: IsPosInt(),
+  s3: IsPosInt(),
+  filesystem: IsPosInt(),
 });
 
 // Moving image files to where new ones are stored
@@ -77,7 +94,7 @@ export const StorageMigrationStateSchema = z.object({
   running: z.boolean(),
   // Whether it was stopped before it was done
   stopped: z.boolean(),
-  target: z.enum(['database', 's3']).nullable(),
+  target: StorageDriverSchema.nullable(),
   // How many files there were to move when it started
   total: IsPosInt(),
   moved: IsPosInt(),
@@ -90,8 +107,12 @@ export type StorageMigrationState = z.infer<typeof StorageMigrationStateSchema>;
 
 export const StorageStatusResponseSchema = z.object({
   // Where new image data goes
-  driver: z.enum(['database', 's3']),
+  driver: StorageDriverSchema,
+  // Used whenever they are set, also to read images stored there before
   bucket: z.string().nullable(),
+  path: z.string().nullable(),
+  // Why images in the directory might not be safe there
+  warning: z.string().nullable(),
   files: LocationCountsSchema,
   derivatives: LocationCountsSchema,
   migration: StorageMigrationStateSchema,

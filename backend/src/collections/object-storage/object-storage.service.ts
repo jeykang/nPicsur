@@ -23,11 +23,10 @@ import {
   StorageConfigService,
   StorageDriver,
 } from '../../config/early/storage.config.service.js';
-
-export interface StoredObject {
-  key: string;
-  lastModified: Date;
-}
+import {
+  ExternalStorage,
+  StoredObject,
+} from '../external-storage/external-storage.js';
 
 // DeleteObjects accepts at most this many keys per request
 const DELETE_BATCH_SIZE = 1000;
@@ -41,8 +40,11 @@ const IMAGES_DIR = 'images/';
 // Stores image data in an S3 compatible bucket. The database keeps track of
 // which object belongs to which image, so this only has to deal with keys.
 @Injectable()
-export class ObjectStorageService implements OnApplicationShutdown {
+export class ObjectStorageService
+  implements ExternalStorage, OnApplicationShutdown
+{
   private readonly logger = new Logger(ObjectStorageService.name);
+  public readonly driver = StorageDriver.S3;
 
   private readonly config: S3StorageConfig | null;
   private readonly client: S3Client | null;
@@ -63,6 +65,10 @@ export class ObjectStorageService implements OnApplicationShutdown {
 
   public get isConfigured(): boolean {
     return this.client !== null;
+  }
+
+  public get description(): string {
+    return `the bucket "${this.config?.bucket}"`;
   }
 
   public fileKey(imageId: string, variant: ImageEntryVariant): string {

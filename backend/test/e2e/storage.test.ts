@@ -6,6 +6,8 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import pg from 'pg';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
@@ -19,8 +21,14 @@ import {
 import { makeJpeg, makePng } from './helpers/images.js';
 
 const env = inject('serverEnv');
+const target = env['PICSUR_STORAGE_DRIVER'] ?? 'database';
 const s3Configured = env['PICSUR_S3_BUCKET'] !== undefined;
-const s3IsTarget = env['PICSUR_STORAGE_DRIVER'] === 's3';
+const s3IsTarget = target === 's3';
+// The directory is only reachable from here when the server is not in a
+// container
+const diskPath = env['PICSUR_STORAGE_PATH'] ?? '';
+const diskConfigured = diskPath !== '' && inject('dockerImage') === null;
+const diskIsTarget = target === 'filesystem';
 
 function s3Client() {
   return new S3Client({
@@ -83,28 +91,44 @@ describe('image storage', () => {
 
   async function fileRows(imageId: string) {
     const result = await db.query(
-      `SELECT variant, data IS NOT NULL AS in_db, storage_key
+      `SELECT variant, data IS NOT NULL AS in_db, storage, storage_key
          FROM e_image_file_backend WHERE image_id = $1 ORDER BY variant`,
       [imageId],
     );
     return result.rows as {
       variant: string;
       in_db: boolean;
+      storage: string | null;
       storage_key: string | null;
     }[];
   }
 
   async function derivativeRows(imageId: string) {
     const result = await db.query(
-      `SELECT key, data IS NOT NULL AS in_db, storage_key
+      `SELECT key, data IS NOT NULL AS in_db, storage, storage_key
          FROM e_image_derivative_backend WHERE image_id = $1`,
       [imageId],
     );
     return result.rows as {
       key: string;
       in_db: boolean;
+      storage: string | null;
       storage_key: string | null;
     }[];
+  }
+
+  // The files of an image in the directory, like their keys
+  async function diskFiles(imageId: string) {
+    const entries = await readdir(join(diskPath, 'images', imageId), {
+      recursive: true,
+      withFileTypes: true,
+    }).catch(() => []);
+    return entries
+      .filter((entry) => entry.isFile())
+      .map((entry) =>
+        join(entry.parentPath, entry.name).slice(diskPath.length + 1),
+      )
+      .sort();
   }
 
   async function objectKeys(imageId: string) {
@@ -141,10 +165,23 @@ describe('image storage', () => {
       expect(object.contentType).toBe('image/png');
       const served = await Client.guest().get(`/i/${id}.png`);
       expect(object.body.equals(served.body)).toBe(true);
+    } else if (diskIsTarget) {
+      expect(master).toMatchObject({
+        variant: 'master',
+        in_db: false,
+        storage: 'filesystem',
+        storage_key: `images/${id}/master`,
+      });
+      if (diskConfigured) {
+        const file = await readFile(join(diskPath, master.storage_key!));
+        const served = await Client.guest().get(`/i/${id}.png`);
+        expect(file.equals(served.body)).toBe(true);
+      }
     } else {
       expect(master).toMatchObject({
         variant: 'master',
         in_db: true,
+        storage: null,
         storage_key: null,
       });
     }
@@ -168,8 +205,9 @@ describe('image storage', () => {
       expect(derivatives).toHaveLength(1);
 
       for (const row of [...files, ...derivatives]) {
-        expect(row.in_db).toBe(!s3IsTarget);
-        expect(row.storage_key !== null).toBe(s3IsTarget);
+        expect(row.in_db).toBe(target === 'database');
+        expect(row.storage).toBe(target === 'database' ? null : target);
+        expect(row.storage_key !== null).toBe(target !== 'database');
       }
 
       if (s3IsTarget) {
@@ -182,6 +220,19 @@ describe('image storage', () => {
         );
         const original = await getObject(`${prefix}images/${id}/original`);
         expect(original.body.equals(jpeg)).toBe(true);
+      }
+      if (diskIsTarget && diskConfigured) {
+        expect(await diskFiles(id)).toEqual(
+          [
+            `images/${id}/derivatives/${derivatives[0].key}`,
+            `images/${id}/master`,
+            `images/${id}/original`,
+          ].sort(),
+        );
+        const original = await readFile(
+          join(diskPath, `images/${id}/original`),
+        );
+        expect(original.equals(jpeg)).toBe(true);
       }
     } finally {
       expectSuccess(
@@ -226,6 +277,7 @@ describe('image storage', () => {
     expect(await fileRows(id)).toEqual([]);
     expect(await derivativeRows(id)).toEqual([]);
     if (s3Configured) expect(await objectKeys(id)).toEqual([]);
+    if (diskConfigured) expect(await diskFiles(id)).toEqual([]);
   });
 
   it('deletes the stored data of deleted users', async () => {
@@ -238,8 +290,9 @@ describe('image storage', () => {
 
     expect(await fileRows(id)).toEqual([]);
     expect(await derivativeRows(id)).toEqual([]);
-    // The bucket is cleaned up after the response
+    // The bucket and the directory are cleaned up after the response
     if (s3Configured) await expect.poll(() => objectKeys(id)).toEqual([]);
+    if (diskConfigured) await expect.poll(() => diskFiles(id)).toEqual([]);
     expect(await fileRows(kept.id)).toHaveLength(1);
   });
 
@@ -270,6 +323,7 @@ describe('image storage', () => {
     expect(await fileRows(id)).toEqual([]);
     expect(await derivativeRows(id)).toEqual([]);
     if (s3Configured) expect(await objectKeys(id)).toEqual([]);
+    if (diskConfigured) expect(await diskFiles(id)).toEqual([]);
     expectSuccess(await Client.guest().get(`/i/meta/${kept.id}`));
 
     const again = await cli(['images', 'delete-orphaned']);
@@ -291,39 +345,41 @@ describe('image storage', () => {
     );
     expect(rows.rows[0].n).toBe(0);
     if (s3Configured) expect(await objectKeys(id)).toEqual([]);
+    if (diskConfigured) expect(await diskFiles(id)).toEqual([]);
   });
 
-  it.runIf(s3IsTarget)(
+  // Deletes what is stored for a row behind Picsur's back
+  async function deleteStored(key: string) {
+    if (s3IsTarget) {
+      await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    } else {
+      await rm(join(diskPath, key));
+    }
+  }
+
+  it.runIf(s3IsTarget || (diskIsTarget && diskConfigured))(
     'makes cached conversions again when their data went missing',
     async () => {
       const { id } = await client.uploadOk(await makePng(40, 20));
       const first = await Client.guest().get(`/i/${id}.png?width=20`);
       const [derivative] = await derivativeRows(id);
 
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: bucket,
-          Key: derivative.storage_key!,
-        }),
-      );
+      await deleteStored(derivative.storage_key!);
 
       const again = await Client.guest().get(`/i/${id}.png?width=20`);
       expect(again.status).toBe(200);
       expect(again.body.equals(first.body)).toBe(true);
-      expect(await objectKeys(id)).toContain(derivative.storage_key);
+      const stored = s3IsTarget ? await objectKeys(id) : await diskFiles(id);
+      expect(stored).toContain(derivative.storage_key);
     },
   );
 
-  it.runIf(s3IsTarget)(
+  it.runIf(s3IsTarget || (diskIsTarget && diskConfigured))(
     'answers with the placeholder when the image data went missing',
     async () => {
       const { id } = await client.uploadOk(await makePng());
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: bucket,
-          Key: `${prefix}images/${id}/master`,
-        }),
-      );
+      const [master] = await fileRows(id);
+      await deleteStored(master.storage_key!);
       const res = await Client.guest().get(`/i/${id}.png`);
       expect(res.status).toBe(404);
       expect(res.headers.get('content-type')).toBe('image/png');
@@ -365,7 +421,7 @@ describe('image storage', () => {
         PICSUR_STORAGE_DRIVER: 'database',
       });
       expect(status.output).toMatch(
-        /Image files: \d+ in the database, 0 in object storage/,
+        /Image files: \d+ in the database, 0 in S3, \d+ on disk/,
       );
 
       // Still served, whatever the server itself is configured with
@@ -419,7 +475,7 @@ describe('image storage', () => {
       // Too young to be collected by default
       const young = await cli(['storage', 'gc']);
       expect(young.code, young.output).toBe(0);
-      expect(young.output).toContain('Deleted 0 unused objects');
+      expect(young.output).toContain('Deleted 0 unused files');
 
       const dryRun = await cli([
         'storage',
@@ -428,12 +484,12 @@ describe('image storage', () => {
         '--min-age',
         '0',
       ]);
-      expect(dryRun.output).toContain('Would delete 3 unused objects');
+      expect(dryRun.output).toContain('Would delete 3 unused files');
       expect(await objectKeys(orphanImage)).toHaveLength(2);
 
       const gc = await cli(['storage', 'gc', '--min-age', '0']);
       expect(gc.code, gc.output).toBe(0);
-      expect(gc.output).toContain('Deleted 3 unused objects');
+      expect(gc.output).toContain('Deleted 3 unused files');
       expect(await objectKeys(orphanImage)).toEqual([]);
       expect(await objectKeys(id)).toEqual([`${prefix}images/${id}/master`]);
       expect((await Client.guest().get(`/i/${id}.png`)).status).toBe(200);
@@ -453,4 +509,88 @@ describe('image storage', () => {
       expect(wrong.code).toBe(1);
     });
   });
+  describe.runIf(diskIsTarget && diskConfigured)(
+    'the storage command line tool, with a directory',
+    () => {
+      it('moves image data between the database and the directory', async () => {
+        const images = await Promise.all(
+          [makePng(30, 30), makePng(50, 40)].map(async (png) =>
+            client.uploadOk(await png),
+          ),
+        );
+
+        const toDatabase = await cli(['storage', 'migrate'], {
+          PICSUR_STORAGE_DRIVER: 'database',
+        });
+        expect(toDatabase.code, toDatabase.output).toBe(0);
+        for (const { id } of images) {
+          expect((await fileRows(id))[0]).toMatchObject({
+            in_db: true,
+            storage: null,
+            storage_key: null,
+          });
+          expect(await diskFiles(id)).toEqual([]);
+        }
+        const status = await cli(['storage', 'status'], {
+          PICSUR_STORAGE_DRIVER: 'database',
+        });
+        expect(status.output).toMatch(
+          /Image files: \d+ in the database, 0 in S3, 0 on disk/,
+        );
+
+        const toDisk = await cli(['storage', 'migrate']);
+        expect(toDisk.code, toDisk.output).toBe(0);
+        for (const { id } of images) {
+          expect((await fileRows(id))[0]).toMatchObject({
+            in_db: false,
+            storage: 'filesystem',
+            storage_key: `images/${id}/master`,
+          });
+          expect(await diskFiles(id)).toEqual([`images/${id}/master`]);
+          expect((await Client.guest().get(`/i/${id}.webp`)).status).toBe(200);
+        }
+      });
+
+      it('cleans up files that no image uses', async () => {
+        const { id } = await client.uploadOk(await makePng());
+        const orphanImage = randomUUID();
+        const orphans = [
+          `images/${orphanImage}/master`,
+          `images/${orphanImage}/derivatives/abc`,
+          `images/${id}/derivatives/not-in-the-database`,
+          // Left behind by a write that never finished
+          `images/${id}/master.${randomUUID()}.tmp`,
+        ];
+        // Not ours, must not be touched
+        const foreign = 'images/not-a-picsur-image/file';
+        for (const key of [...orphans, foreign]) {
+          await mkdir(dirname(join(diskPath, key)), { recursive: true });
+          await writeFile(join(diskPath, key), 'x');
+        }
+
+        // Too young to be collected by default
+        const young = await cli(['storage', 'gc']);
+        expect(young.code, young.output).toBe(0);
+        expect(young.output).toContain('Deleted 0 unused files');
+
+        const dryRun = await cli([
+          'storage',
+          'gc',
+          '--dry-run',
+          '--min-age',
+          '0',
+        ]);
+        expect(dryRun.output).toContain('Would delete 4 unused files');
+        expect(await diskFiles(orphanImage)).toHaveLength(2);
+
+        const gc = await cli(['storage', 'gc', '--min-age', '0']);
+        expect(gc.code, gc.output).toBe(0);
+        expect(gc.output).toContain('Deleted 4 unused files');
+        expect(await diskFiles(orphanImage)).toEqual([]);
+        expect(await diskFiles(id)).toEqual([`images/${id}/master`]);
+        expect((await Client.guest().get(`/i/${id}.png`)).status).toBe(200);
+        expect(await readFile(join(diskPath, foreign), 'utf8')).toBe('x');
+      });
+    },
+  );
 });

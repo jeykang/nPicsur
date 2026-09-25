@@ -5,7 +5,9 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { spawnBackend } from './helpers/backend.js';
@@ -21,8 +23,12 @@ const env = inject('serverEnv');
 const s3TestEnv = inject('s3TestEnv');
 // Storage set with environment variables can not be changed on the page
 const storageFromEnv = Object.keys(env).some(
-  (key) => key === 'PICSUR_STORAGE_DRIVER' || key.startsWith('PICSUR_S3_'),
+  (key) =>
+    key === 'PICSUR_STORAGE_DRIVER' ||
+    key === 'PICSUR_STORAGE_PATH' ||
+    key.startsWith('PICSUR_S3_'),
 );
+const dockerImage = inject('dockerImage');
 
 interface SettingState {
   key: string;
@@ -42,15 +48,19 @@ interface SettingsResponse {
   encryption_key: 'environment' | 'database' | null;
 }
 
+type Location = 'database' | 's3' | 'filesystem';
+
 interface StorageResponse {
-  driver: 'database' | 's3';
+  driver: Location;
   bucket: string | null;
-  files: { database: number; object_storage: number };
-  derivatives: { database: number; object_storage: number };
+  path: string | null;
+  warning: string | null;
+  files: Record<Location, number>;
+  derivatives: Record<Location, number>;
   migration: {
     running: boolean;
     stopped: boolean;
-    target: 'database' | 's3' | null;
+    target: Location | null;
     total: number;
     moved: number;
     failed: number;
@@ -276,18 +286,23 @@ describe('server settings', () => {
       failed: 0,
       error: null,
     });
-    expect(
-      storage.driver === 's3'
-        ? storage.files.database
-        : storage.files.object_storage,
-    ).toBe(0);
+    for (const [location, count] of Object.entries(storage.files)) {
+      if (location !== storage.driver) expect(count, location).toBe(0);
+    }
   });
 
   describe.skipIf(!storageFromEnv)('with storage from the environment', () => {
     it('can not change the storage', async () => {
-      const res = await update(admin, { s3_bucket: 'another-bucket' });
+      // One of the settings the environment sets
+      const [key, value] =
+        env['PICSUR_S3_BUCKET'] !== undefined
+          ? ['s3_bucket', 'another-bucket']
+          : env['PICSUR_STORAGE_PATH'] !== undefined
+            ? ['storage_path', '/somewhere/else']
+            : ['storage_driver', 'database'];
+      const res = await update(admin, { [key]: value });
       expectFailure(res, 400, 'usrvalidation');
-      expect(res.json.data.message).toContain('PICSUR_S3_BUCKET');
+      expect(res.json.data.message).toContain(`PICSUR_${key.toUpperCase()}`);
     });
   });
 
@@ -338,6 +353,7 @@ describe('server settings', () => {
     it('only stores storage that works', async () => {
       const tested = await admin.post('/api/server/settings/test-storage', {
         values: unreachable,
+        storage: 's3',
       });
       expectFailure(tested, 500, 'network');
       expect(tested.json.data.message).toContain(
@@ -381,6 +397,126 @@ describe('server settings', () => {
 
       // A restart that works clears the error
       expect((await restart(admin)).restart_error).toBeNull();
+    });
+
+    describe('and a directory', () => {
+      // Inside the container when testing the Docker image
+      const directory = join(
+        tmpdir(),
+        `picsur-e2e-images-${randomBytes(4).toString('hex')}`,
+      );
+
+      afterAll(() => {
+        rmSync(directory, { recursive: true, force: true });
+      });
+
+      it('needs a directory to store images on disk', async () => {
+        const res = await update(admin, { storage_driver: 'filesystem' });
+        expectFailure(res, 400, 'usrvalidation');
+        expect(res.json.data.message).toContain('directory');
+
+        const relative = await update(admin, { storage_path: 'images' });
+        expectFailure(relative, 400, 'usrvalidation');
+      });
+
+      it('only stores directories that work', async () => {
+        // A file, in the container as well
+        const values = {
+          storage_driver: 'filesystem',
+          storage_path: '/etc/hostname',
+        };
+        const tested = await admin.post('/api/server/settings/test-storage', {
+          values,
+          storage: 'filesystem',
+        });
+        expectFailure(tested, 400, 'badrequest');
+        expect(tested.json.data.message).toContain(
+          '"/etc/hostname" is not a directory',
+        );
+
+        expectFailure(await update(admin, values), 400, 'badrequest');
+        const settings = await getSettings(admin);
+        expect(setting(settings, 'storage_driver').source).toBe('default');
+        expect(settings.restart_needed).toBe(false);
+      });
+
+      it('moves images to a directory and back', async () => {
+        const { id } = await admin.uploadOk(await makePng(), 'to-disk.png');
+        const image = (await Client.guest().get(`/i/${id}.png`)).body;
+
+        const values = {
+          storage_driver: 'filesystem',
+          storage_path: directory,
+        };
+        const tested = expectSuccess(
+          await admin.post('/api/server/settings/test-storage', {
+            values,
+            storage: 'filesystem',
+          }),
+        );
+        expect(tested).toMatchObject({
+          driver: 'filesystem',
+          location: directory,
+          created: true,
+        });
+        // In a container, but not on a volume
+        if (dockerImage === null) expect(tested.warning).toBeNull();
+        else expect(tested.warning).toContain('is not on a volume');
+
+        expectSuccess(await update(admin, values));
+        await restart(admin);
+        let storage = await getStorage(admin);
+        expect(storage).toMatchObject({
+          driver: 'filesystem',
+          path: directory,
+        });
+        expect(storage.warning === null).toBe(dockerImage === null);
+
+        const files = storage.files.database;
+        expect(files).toBeGreaterThan(0);
+        storage = await migrate(admin);
+        expect(storage.migration).toMatchObject({
+          target: 'filesystem',
+          total: files,
+          moved: files,
+          failed: 0,
+          error: null,
+        });
+        expect(storage.files).toMatchObject({ database: 0, filesystem: files });
+        const served = await Client.guest().get(`/i/${id}.png`);
+        expect(served.body.equals(image)).toBe(true);
+        // Conversions are stored there as well
+        expect((await Client.guest().get(`/i/${id}.webp?width=8`)).status).toBe(
+          200,
+        );
+        expect((await getStorage(admin)).derivatives.filesystem).toBe(1);
+
+        // What is in the directory would not be found anymore
+        const moved = await update(admin, {
+          storage_path: `${directory}-other`,
+        });
+        expectFailure(moved, 409, 'conflict');
+        expect(moved.json.data.message).toContain(`"${directory}" still holds`);
+
+        expectSuccess(await update(admin, { storage_driver: null }));
+        await restart(admin);
+        storage = await migrate(admin);
+        expect(storage).toMatchObject({ driver: 'database', path: directory });
+        expect(storage.files.filesystem).toBe(0);
+        expect(storage.derivatives.filesystem).toBe(0);
+
+        // Now the directory can go
+        expectSuccess(await update(admin, { storage_path: null }));
+        await restart(admin);
+        expect(await getStorage(admin)).toMatchObject({
+          driver: 'database',
+          path: null,
+          warning: null,
+        });
+        expect(
+          (await Client.guest().get(`/i/${id}.png`)).body.equals(image),
+        ).toBe(true);
+      });
     });
 
     describe.skipIf(s3TestEnv === null)('and an S3 service', () => {
@@ -433,9 +569,15 @@ describe('server settings', () => {
         const tested = expectSuccess(
           await admin.post('/api/server/settings/test-storage', {
             values: { ...s3Settings, storage_driver: 's3' },
+            storage: 's3',
           }),
         );
-        expect(tested).toEqual({ bucket, created: true });
+        expect(tested).toEqual({
+          driver: 's3',
+          location: bucket,
+          created: true,
+          warning: null,
+        });
 
         expectSuccess(
           await update(admin, { ...s3Settings, storage_driver: 's3' }),
@@ -474,8 +616,8 @@ describe('server settings', () => {
         await restart(admin);
         storage = await migrate(admin);
         expect(storage).toMatchObject({ driver: 'database', bucket });
-        expect(storage.files.object_storage).toBe(0);
-        expect(storage.derivatives.object_storage).toBe(0);
+        expect(storage.files.s3).toBe(0);
+        expect(storage.derivatives.s3).toBe(0);
 
         // Now the bucket can go
         const removed = expectSuccess(
@@ -497,7 +639,7 @@ describe('server settings', () => {
           await update(admin, { ...s3Settings, storage_driver: 's3' }),
         );
         await restart(admin);
-        expect((await getStorage(admin)).files.object_storage).toBe(0);
+        expect((await getStorage(admin)).files.s3).toBe(0);
 
         // Nothing is stored in the bucket yet, so it can still change
         expectSuccess(await update(admin, { s3_bucket: nextBucket }));
@@ -527,6 +669,73 @@ describe('server settings', () => {
           driver: 'database',
           bucket: null,
         });
+      });
+
+      it('moves images from a directory to a bucket', async () => {
+        const directory = join(
+          tmpdir(),
+          `picsur-e2e-images-${randomBytes(4).toString('hex')}`,
+        );
+        try {
+          const { id } = await admin.uploadOk(await makePng(), 'across.png');
+          const image = (await Client.guest().get(`/i/${id}.png`)).body;
+
+          expectSuccess(
+            await update(admin, {
+              storage_driver: 'filesystem',
+              storage_path: directory,
+            }),
+          );
+          await restart(admin);
+          let storage = await migrate(admin);
+          const files = storage.files.filesystem;
+          expect(files).toBeGreaterThan(0);
+          expect(storage.files.database).toBe(0);
+
+          expectSuccess(
+            await update(admin, { ...s3Settings, storage_driver: 's3' }),
+          );
+          await restart(admin);
+          storage = await migrate(admin);
+          expect(storage.migration).toMatchObject({
+            target: 's3',
+            total: files,
+            moved: files,
+            failed: 0,
+          });
+          expect(storage.files).toMatchObject({
+            database: 0,
+            filesystem: 0,
+            s3: files,
+          });
+          const served = await Client.guest().get(`/i/${id}.png`);
+          expect(served.body.equals(image)).toBe(true);
+
+          // Back to how it was
+          expectSuccess(await update(admin, { storage_driver: null }));
+          await restart(admin);
+          storage = await migrate(admin);
+          expect(storage.files).toMatchObject({ s3: 0, filesystem: 0 });
+          expectSuccess(
+            await update(
+              admin,
+              Object.fromEntries(
+                ['storage_path', ...Object.keys(s3Settings)].map((k) => [
+                  k,
+                  null,
+                ]),
+              ),
+            ),
+          );
+          await restart(admin);
+          expect(await getStorage(admin)).toMatchObject({
+            driver: 'database',
+            bucket: null,
+            path: null,
+          });
+        } finally {
+          rmSync(directory, { recursive: true, force: true });
+        }
       });
     });
   });

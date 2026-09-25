@@ -6,6 +6,7 @@ import { IsHttpUrl } from '../validators/url.validator.js';
 // PICSUR_ followed by the key in capitals, which then takes precedence.
 export enum ServerSetting {
   StorageDriver = 'storage_driver',
+  StoragePath = 'storage_path',
   S3Endpoint = 's3_endpoint',
   S3Region = 's3_region',
   S3Bucket = 's3_bucket',
@@ -29,6 +30,7 @@ export const SecretServerSettings: ServerSetting[] = [
 // Where image data is kept, changing these makes what is stored there
 // unreachable
 export const StorageLocationSettings: ServerSetting[] = [
+  ServerSetting.StoragePath,
   ServerSetting.S3Endpoint,
   ServerSetting.S3Bucket,
   ServerSetting.S3Prefix,
@@ -36,6 +38,7 @@ export const StorageLocationSettings: ServerSetting[] = [
 
 export const StorageSettings: ServerSetting[] = [
   ServerSetting.StorageDriver,
+  ServerSetting.StoragePath,
   ServerSetting.S3Endpoint,
   ServerSetting.S3Region,
   ServerSetting.S3Bucket,
@@ -67,7 +70,11 @@ const NamedRanges = ['loopback', 'linklocal', 'uniquelocal'];
 export const ServerSettingValidators: {
   [key in ServerSetting]: z.ZodType<string>;
 } = {
-  [ServerSetting.StorageDriver]: z.enum(['database', 's3']),
+  [ServerSetting.StorageDriver]: z.enum(['database', 's3', 'filesystem']),
+  [ServerSetting.StoragePath]: z
+    .string()
+    .max(1024)
+    .regex(/^\/[^\0\r\n]*$/, 'Should be a full path, like /picsur/images'),
   [ServerSetting.S3Endpoint]: IsHttpUrl(),
   [ServerSetting.S3Region]: z
     .string()

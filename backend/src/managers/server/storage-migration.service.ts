@@ -2,7 +2,6 @@ import { BeforeApplicationShutdown, Injectable, Logger } from '@nestjs/common';
 import { StorageMigrationState } from 'picsur-shared/dist/dto/api/server.dto';
 import { AsyncFailable, Fail, FT } from 'picsur-shared/dist/types/failable';
 import { ImageStorageMaintenanceService } from '../../collections/image-db/image-storage-maintenance.service.js';
-import { ObjectStorageService } from '../../collections/object-storage/object-storage.service.js';
 
 // Moves image files to where new ones are stored in the background, started
 // from the settings page. The same as `cli.js storage migrate`, which can
@@ -25,10 +24,7 @@ export class StorageMigrationService implements BeforeApplicationShutdown {
   private job: Promise<void> | null = null;
   private stopRequested = false;
 
-  constructor(
-    private readonly maintenance: ImageStorageMaintenanceService,
-    private readonly objectStorage: ObjectStorageService,
-  ) {}
+  constructor(private readonly maintenance: ImageStorageMaintenanceService) {}
 
   public get isRunning(): boolean {
     return this.job !== null;
@@ -43,12 +39,13 @@ export class StorageMigrationService implements BeforeApplicationShutdown {
       return Fail(FT.Conflict, 'Images are already being moved');
     }
 
-    const target = this.objectStorage.isWriteTarget ? 's3' : 'database';
-    let total: number;
+    const target = this.maintenance.target;
+    let total = 0;
     try {
       const status = await this.maintenance.status();
-      total =
-        target === 's3' ? status.files.database : status.files.objectStorage;
+      for (const [location, count] of Object.entries(status.files)) {
+        if (location !== target) total += count;
+      }
     } catch (e) {
       return Fail(FT.Database, e);
     }

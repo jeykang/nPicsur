@@ -108,16 +108,28 @@
     <h2>Image storage</h2>
     <p>
       New images are stored in
-      @if (storage.driver === 's3') {
-        the bucket "{{ storage.bucket }}".
-      } @else {
-        the database.
+      @switch (storage.driver) {
+        @case ('s3') {
+          the bucket "{{ storage.bucket }}".
+        }
+        @case ('filesystem') {
+          the directory "{{ storage.path }}".
+        }
+        @default {
+          the database.
+        }
       }
-      There {{ storage.files.database === 1 ? 'is' : 'are' }}
-      {{ storage.files.database }} image
-      {{ storage.files.database === 1 ? 'file' : 'files' }} in the database, and
-      {{ storage.files.object_storage }} in object storage.
+      {{ fileCounts }}
     </p>
+
+    @if (storage.warning) {
+      <mat-card appearance="outlined" class="notice">
+        <mat-card-content class="notice-content">
+          <mat-icon color="warn">warning</mat-icon>
+          <span class="grow">{{ storage.warning }}</span>
+        </mat-card-content>
+      </mat-card>
+    }
 
     @if (storage.migration.running) {
       <mat-card appearance="outlined" class="notice">
@@ -157,9 +169,8 @@
             <span class="grow">
               {{ filesElsewhere }} image
               {{ filesElsewhere === 1 ? 'file is' : 'files are' }} still stored
-              in {{ storageName(storage.driver === 's3' ? 'database' : 's3') }}.
-              They can be moved to {{ storageName(storage.driver) }}, Picsur
-              keeps working in the meantime.
+              elsewhere. They can be moved to {{ storageName(storage.driver) }},
+              Picsur keeps working in the meantime.
             </span>
             <button
               mat-raised-button
@@ -182,6 +193,7 @@
           <mat-select [formControl]="control(S.StorageDriver)">
             <mat-option value="database">The database</mat-option>
             <mat-option value="s3">S3 compatible object storage</mat-option>
+            <mat-option value="filesystem">A directory on disk</mat-option>
           </mat-select>
           <mat-hint>{{ hint(S.StorageDriver) }}</mat-hint>
         </mat-form-field>
@@ -189,17 +201,17 @@
     </div>
 
     @if (showBucket) {
-      @if (driver === 'database' && bucketIsSet) {
+      @if (driver !== 's3' && bucketIsSet) {
         <p>
           Images stored in this bucket before can still be viewed. Once they are
-          moved to the database, the bucket can be removed.
+          moved elsewhere, the bucket can be removed.
         </p>
         @if (!locked(S.S3Bucket)) {
           <button
             mat-stroked-button
             type="button"
             class="remove-bucket"
-            [disabled]="busy !== null || storage.files.object_storage > 0"
+            [disabled]="busy !== null || storage.files.s3 > 0"
             (click)="removeBucket()"
           >
             REMOVE THE BUCKET
@@ -264,9 +276,52 @@
         mat-stroked-button
         type="button"
         [disabled]="busy !== null"
-        (click)="testStorage()"
+        (click)="testStorage('s3')"
       >
-        {{ busy === 'testing' ? 'TESTING...' : 'TEST STORAGE' }}
+        {{ testing === 's3' ? 'TESTING...' : 'TEST THE BUCKET' }}
+      </button>
+    }
+
+    @if (showPath) {
+      @if (driver !== 'filesystem' && pathIsSet) {
+        <p>
+          Images stored in this directory before can still be viewed. Once they
+          are moved elsewhere, Picsur can stop using the directory.
+        </p>
+        @if (!locked(S.StoragePath)) {
+          <button
+            mat-stroked-button
+            type="button"
+            class="remove-bucket"
+            [disabled]="busy !== null || storage.files.filesystem > 0"
+            (click)="removePath()"
+          >
+            STOP USING THE DIRECTORY
+          </button>
+        }
+      }
+      <div class="row">
+        <div class="col-12">
+          <ng-container
+            *ngTemplateOutlet="field; context: { $implicit: S.StoragePath }"
+          ></ng-container>
+        </div>
+      </div>
+      @if (pathWarning) {
+        <mat-card appearance="outlined" class="notice">
+          <mat-card-content class="notice-content">
+            <mat-icon color="warn">warning</mat-icon>
+            <span class="grow">{{ pathWarning }}</span>
+          </mat-card-content>
+        </mat-card>
+      }
+      <button
+        mat-stroked-button
+        type="button"
+        [disabled]="busy !== null"
+        (click)="testStorage('filesystem')"
+      >
+        {{ testing === 'filesystem' ? 'TESTING...' : 'TEST THE DIRECTORY' }}
       </button>
     }
 

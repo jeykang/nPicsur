@@ -145,6 +145,10 @@ ENV NODE_ENV=production \
     PICSUR_HOST=0.0.0.0 \
     PICSUR_PORT=8080
 
+# Where images are stored on disk, when they are. A volume mounted here for
+# the first time gets this owner, so Picsur can write to it.
+RUN mkdir /picsur/images && chown node:node /picsur/images
+
 WORKDIR /picsur
 USER node
 EXPOSE 8080

@@ -55,9 +55,14 @@ services:
       # PICSUR_MAX_CONCURRENT_CONVERSIONS: 4
       # PICSUR_CONVERSION_RATE_LIMIT: 120
 
-      ## Store images in S3 compatible object storage instead of the database.
-      ## Existing images can be moved over on the settings page, or with:
+      ## Store images as files in a directory instead of the database, with
+      ## the volume below. Existing images can be moved over on the settings
+      ## page, or with:
       ##   docker exec picsur node backend/dist/cli.js storage migrate
+      # PICSUR_STORAGE_DRIVER: filesystem
+      # PICSUR_STORAGE_PATH: /picsur/images
+
+      ## Or in S3 compatible object storage
       # PICSUR_STORAGE_DRIVER: s3
       # PICSUR_S3_BUCKET: picsur
       # PICSUR_S3_REGION: us-east-1
@@ -68,6 +73,9 @@ services:
       # PICSUR_S3_SECRET_ACCESS_KEY: CHANGE_ME
       ## Keep Picsur's objects under this path in the bucket
       # PICSUR_S3_PREFIX: picsur/
+    ## For storing images in a directory
+    # volumes:
+    #   - picsur-images:/picsur/images
     restart: unless-stopped
     depends_on:
       - picsur_postgres
@@ -83,3 +91,4 @@ services:
       - picsur-data:/var/lib/postgresql/data
 volumes:
   picsur-data:
+  # picsur-images:

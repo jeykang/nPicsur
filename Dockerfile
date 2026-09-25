@@ -55,6 +55,7 @@ RUN corepack enable
 WORKDIR /picsur
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY patches patches
 COPY shared/package.json shared/
 COPY frontend/package.json frontend/
 COPY backend/package.json backend/
@@ -82,6 +83,7 @@ RUN apk add --no-cache python3 \
 WORKDIR /picsur
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY patches patches
 COPY shared/package.json shared/
 COPY frontend/package.json frontend/
 COPY backend/package.json backend/

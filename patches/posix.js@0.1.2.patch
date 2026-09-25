@@ -1,0 +1,22 @@
+diff --git a/src/posix.cpp b/src/posix.cpp
+index c5aa7613563b999d02dae7fa832d010b75951940..8cfae267523e64a2618af5b47a6b9cbc2e13dbb7 100644
+--- a/src/posix.cpp
++++ b/src/posix.cpp
+@@ -455,7 +455,7 @@ Napi::Value node_setrlimit(const Napi::CallbackInfo &info)
+     }
+     else if (obj.Get("soft").IsNumber())
+     {
+-      limit.rlim_cur = obj.Get("soft").As<Napi::Number>().Int32Value();
++      limit.rlim_cur = (rlim_t)obj.Get("soft").As<Napi::Number>().Int64Value();
+     }
+     else
+     {
+@@ -471,7 +471,7 @@ Napi::Value node_setrlimit(const Napi::CallbackInfo &info)
+     }
+     else if (obj.Get("hard").IsNumber())
+     {
+-      limit.rlim_max = obj.Get("hard").As<Napi::Number>().Int32Value();
++      limit.rlim_max = (rlim_t)obj.Get("hard").As<Napi::Number>().Int64Value();
+     }
+     else
+     {

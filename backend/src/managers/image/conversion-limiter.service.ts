@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { availableParallelism } from 'os';
+import { ServerSetting } from 'picsur-shared/dist/dto/server-settings.dto';
 import {
   AsyncFailable,
   Fail,
@@ -8,7 +8,10 @@ import {
   FT,
 } from 'picsur-shared/dist/types/failable';
 import { ParseInt } from 'picsur-shared/dist/util/parse-simple';
-import { EnvPrefix } from '../../config/config.static.js';
+import {
+  DefaultConversionRateLimit,
+  GetServerSetting,
+} from '../../config/server-settings.js';
 
 const WINDOW_MS = 60 * 1000;
 // Requests waiting for a free worker, beyond this they are refused
@@ -31,17 +34,20 @@ export class ConversionLimiterService {
     { count: number; since: number }
   >();
 
-  constructor(configService: ConfigService) {
+  constructor() {
     this.maxConcurrent = Math.max(
       1,
       ParseInt(
-        configService.get(`${EnvPrefix}MAX_CONCURRENT_CONVERSIONS`),
+        GetServerSetting(ServerSetting.MaxConcurrentConversions),
         availableParallelism(),
       ),
     );
     this.perClientPerMinute = Math.max(
       0,
-      ParseInt(configService.get(`${EnvPrefix}CONVERSION_RATE_LIMIT`), 120),
+      ParseInt(
+        GetServerSetting(ServerSetting.ConversionRateLimit),
+        DefaultConversionRateLimit,
+      ),
     );
     this.logger.log(
       `At most ${this.maxConcurrent} conversions at once, ` +

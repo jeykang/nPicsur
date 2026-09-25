@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ParseBool, ParseString } from 'picsur-shared/dist/util/parse-simple';
-import { EnvPrefix } from '../config.static.js';
+import { ServerSetting } from 'picsur-shared/dist/dto/server-settings.dto';
+import { ParseBool } from 'picsur-shared/dist/util/parse-simple';
+import { DefaultS3Region, GetServerSetting } from '../server-settings.js';
 
 export enum StorageDriver {
   // Image data is stored in the database, next to everything else
@@ -26,14 +26,93 @@ export interface S3StorageConfig {
   prefix: string;
 }
 
+export interface StorageConfig {
+  driver: StorageDriver;
+  // The bucket is used for reading whenever it is configured, even when new
+  // images go to the database. That way nothing becomes unreachable when
+  // switching drivers before everything is migrated.
+  s3: S3StorageConfig | null;
+}
+
+// Works out the storage from the server settings, and throws when they do not
+// fit together
+export function BuildStorageConfig(
+  get: (key: ServerSetting) => string | undefined,
+): StorageConfig {
+  const value = (
+    get(ServerSetting.StorageDriver) ?? StorageDriver.Database
+  ).toLowerCase();
+  if (!Object.values<string>(StorageDriver).includes(value)) {
+    throw new Error(
+      `The storage driver (PICSUR_STORAGE_DRIVER) must be one of: ${Object.values(
+        StorageDriver,
+      ).join(', ')}`,
+    );
+  }
+  const driver = value as StorageDriver;
+
+  const s3 = BuildS3Config(get);
+  if (driver === StorageDriver.S3 && s3 === null) {
+    throw new Error(
+      'Storing images in S3 needs a bucket (PICSUR_S3_BUCKET) to store them in',
+    );
+  }
+  return { driver, s3 };
+}
+
+function BuildS3Config(
+  get: (key: ServerSetting) => string | undefined,
+): S3StorageConfig | null {
+  const bucket = get(ServerSetting.S3Bucket);
+  if (!bucket) return null;
+
+  const accessKeyId = get(ServerSetting.S3AccessKeyId);
+  const secretAccessKey = get(ServerSetting.S3SecretAccessKey);
+  if (!!accessKeyId !== !!secretAccessKey) {
+    throw new Error(
+      'Set both the S3 access key id and secret access key (PICSUR_S3_ACCESS_KEY_ID and PICSUR_S3_SECRET_ACCESS_KEY), or neither',
+    );
+  }
+
+  let prefix = get(ServerSetting.S3Prefix) ?? '';
+  // Keys never start with a slash, and a prefix is always a "directory"
+  prefix = prefix.replace(/^\/+/, '');
+  if (prefix !== '' && !prefix.endsWith('/')) prefix += '/';
+
+  return {
+    bucket,
+    region: get(ServerSetting.S3Region) ?? DefaultS3Region,
+    endpoint: get(ServerSetting.S3Endpoint),
+    forcePathStyle: ParseBool(get(ServerSetting.S3ForcePathStyle), false),
+    accessKeyId,
+    secretAccessKey,
+    prefix,
+  };
+}
+
+// Whether two storage configurations keep image data in the same place
+export function SameStorageLocation(
+  a: S3StorageConfig | null,
+  b: S3StorageConfig | null,
+): boolean {
+  if (a === null || b === null) return a === b;
+  return (
+    a.bucket === b.bucket &&
+    (a.endpoint ?? '') === (b.endpoint ?? '') &&
+    a.prefix === b.prefix
+  );
+}
+
 @Injectable()
 export class StorageConfigService {
   private readonly logger = new Logger(StorageConfigService.name);
+  private readonly config: StorageConfig;
 
-  constructor(private readonly configService: ConfigService) {
-    const driver = this.getDriver();
-    this.logger.log('Storage driver: ' + driver);
-    const s3 = this.getS3Config();
+  constructor() {
+    this.config = BuildStorageConfig(GetServerSetting);
+
+    this.logger.log('Storage driver: ' + this.config.driver);
+    const s3 = this.config.s3;
     if (s3 !== null) {
       this.logger.log(
         `S3 bucket: ${s3.bucket}` +
@@ -41,66 +120,13 @@ export class StorageConfigService {
           (s3.prefix ? ` with prefix "${s3.prefix}"` : ''),
       );
     }
-    if (driver === StorageDriver.S3 && s3 === null) {
-      throw new Error(
-        `${EnvPrefix}S3_BUCKET is required when using the s3 storage driver`,
-      );
-    }
   }
 
   public getDriver(): StorageDriver {
-    const value = (
-      this.getString('STORAGE_DRIVER') ?? StorageDriver.Database
-    ).toLowerCase();
-
-    if (!Object.values<string>(StorageDriver).includes(value)) {
-      throw new Error(
-        `${EnvPrefix}STORAGE_DRIVER must be one of: ${Object.values(
-          StorageDriver,
-        ).join(', ')}`,
-      );
-    }
-    return value as StorageDriver;
+    return this.config.driver;
   }
 
-  // The bucket is used for reading whenever it is configured, even when new
-  // images go to the database. That way nothing becomes unreachable when
-  // switching drivers before everything is migrated.
   public getS3Config(): S3StorageConfig | null {
-    const bucket = this.getString('S3_BUCKET');
-    if (!bucket) return null;
-
-    const accessKeyId = this.getString('S3_ACCESS_KEY_ID');
-    const secretAccessKey = this.getString('S3_SECRET_ACCESS_KEY');
-    if (!!accessKeyId !== !!secretAccessKey) {
-      throw new Error(
-        `Set both ${EnvPrefix}S3_ACCESS_KEY_ID and ${EnvPrefix}S3_SECRET_ACCESS_KEY, or neither`,
-      );
-    }
-
-    let prefix = this.getString('S3_PREFIX') ?? '';
-    // Keys never start with a slash, and a prefix is always a "directory"
-    prefix = prefix.replace(/^\/+/, '');
-    if (prefix !== '' && !prefix.endsWith('/')) prefix += '/';
-
-    return {
-      bucket,
-      region: this.getString('S3_REGION') ?? 'us-east-1',
-      endpoint: this.getString('S3_ENDPOINT'),
-      forcePathStyle: ParseBool(
-        this.configService.get(`${EnvPrefix}S3_FORCE_PATH_STYLE`),
-        false,
-      ),
-      accessKeyId,
-      secretAccessKey,
-      prefix,
-    };
-  }
-
-  private getString(name: string): string | undefined {
-    const value = ParseString(this.configService.get(`${EnvPrefix}${name}`));
-    if (value === null) return undefined;
-    const trimmed = value.trim();
-    return trimmed === '' ? undefined : trimmed;
+    return this.config.s3;
   }
 }

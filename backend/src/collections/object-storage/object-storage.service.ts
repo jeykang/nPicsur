@@ -1,5 +1,6 @@
 import {
   CreateBucketCommand,
+  DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
   HeadBucketCommand,
@@ -8,7 +9,8 @@ import {
   S3Client,
   S3ServiceException,
 } from '@aws-sdk/client-s3';
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import {
   AsyncFailable,
@@ -39,7 +41,7 @@ const IMAGES_DIR = 'images/';
 // Stores image data in an S3 compatible bucket. The database keeps track of
 // which object belongs to which image, so this only has to deal with keys.
 @Injectable()
-export class ObjectStorageService implements OnModuleDestroy {
+export class ObjectStorageService implements OnApplicationShutdown {
   private readonly logger = new Logger(ObjectStorageService.name);
 
   private readonly config: S3StorageConfig | null;
@@ -51,10 +53,11 @@ export class ObjectStorageService implements OnModuleDestroy {
   constructor(storageConfig: StorageConfigService) {
     this.config = storageConfig.getS3Config();
     this.isWriteTarget = storageConfig.getDriver() === StorageDriver.S3;
-    this.client = this.config === null ? null : this.createClient(this.config);
+    this.client = this.config === null ? null : CreateS3Client(this.config);
   }
 
-  onModuleDestroy() {
+  // After the http server stopped, so requests in progress can finish
+  onApplicationShutdown() {
     this.client?.destroy();
   }
 
@@ -78,11 +81,11 @@ export class ObjectStorageService implements OnModuleDestroy {
       await client.send(new HeadBucketCommand({ Bucket: config.bucket }));
       return true;
     } catch (e) {
-      if (!this.isNotFound(e)) {
+      if (!IsNotFound(e)) {
         return Fail(
           FT.Network,
           `Can not access bucket "${config.bucket}"`,
-          this.describeError(e),
+          DescribeS3Error(e),
         );
       }
     }
@@ -95,7 +98,7 @@ export class ObjectStorageService implements OnModuleDestroy {
       return Fail(
         FT.Network,
         `Bucket "${config.bucket}" does not exist and could not be created`,
-        this.describeError(e),
+        DescribeS3Error(e),
       );
     }
   }
@@ -119,7 +122,7 @@ export class ObjectStorageService implements OnModuleDestroy {
       );
       return true;
     } catch (e) {
-      return Fail(FT.Network, 'Could not store image', this.describeError(e));
+      return Fail(FT.Network, 'Could not store image', DescribeS3Error(e));
     }
   }
 
@@ -133,10 +136,10 @@ export class ObjectStorageService implements OnModuleDestroy {
       if (!result.Body) return Fail(FT.NotFound, 'Image not found');
       return Buffer.from(await result.Body.transformToByteArray());
     } catch (e) {
-      if (this.isNotFound(e)) {
+      if (IsNotFound(e)) {
         return Fail(FT.NotFound, 'Image not found', `Missing object ${key}`);
       }
-      return Fail(FT.Network, 'Could not load image', this.describeError(e));
+      return Fail(FT.Network, 'Could not load image', DescribeS3Error(e));
     }
   }
 
@@ -168,11 +171,7 @@ export class ObjectStorageService implements OnModuleDestroy {
           );
         }
       } catch (e) {
-        return Fail(
-          FT.Network,
-          'Could not delete images',
-          this.describeError(e),
-        );
+        return Fail(FT.Network, 'Could not delete images', DescribeS3Error(e));
       }
     }
 
@@ -222,7 +221,7 @@ export class ObjectStorageService implements OnModuleDestroy {
         token = page.IsTruncated ? page.NextContinuationToken : undefined;
       } while (token);
     } catch (e) {
-      return Fail(FT.Network, 'Could not list images', this.describeError(e));
+      return Fail(FT.Network, 'Could not list images', DescribeS3Error(e));
     }
 
     return ids;
@@ -252,7 +251,7 @@ export class ObjectStorageService implements OnModuleDestroy {
         token = page.IsTruncated ? page.NextContinuationToken : undefined;
       } while (token);
     } catch (e) {
-      return Fail(FT.Network, 'Could not list images', this.describeError(e));
+      return Fail(FT.Network, 'Could not list images', DescribeS3Error(e));
     }
 
     return objects;
@@ -269,47 +268,142 @@ export class ObjectStorageService implements OnModuleDestroy {
       throw Fail(
         FT.Internal,
         'Image storage is not configured',
-        'Image data is stored in S3, but PICSUR_S3_BUCKET is not set',
+        'Image data is stored in S3, but no bucket is configured',
       );
     }
     return { client: this.client, config: this.config };
   }
+}
 
-  private createClient(config: S3StorageConfig): S3Client {
-    return new S3Client({
-      region: config.region,
-      endpoint: config.endpoint,
-      forcePathStyle: config.forcePathStyle,
-      credentials:
-        config.accessKeyId && config.secretAccessKey
-          ? {
-              accessKeyId: config.accessKeyId,
-              secretAccessKey: config.secretAccessKey,
-            }
-          : undefined,
-      // Newer SDK versions add CRC checksums to every upload by default,
-      // which many S3 compatible services do not understand
-      requestChecksumCalculation: 'WHEN_REQUIRED',
-      responseChecksumValidation: 'WHEN_REQUIRED',
-    });
+function CreateS3Client(
+  config: S3StorageConfig,
+  // Give up quickly instead of retrying, for trying out settings
+  quick = false,
+): S3Client {
+  return new S3Client({
+    region: config.region,
+    endpoint: config.endpoint,
+    forcePathStyle: config.forcePathStyle,
+    credentials:
+      config.accessKeyId && config.secretAccessKey
+        ? {
+            accessKeyId: config.accessKeyId,
+            secretAccessKey: config.secretAccessKey,
+          }
+        : undefined,
+    // Newer SDK versions add CRC checksums to every upload by default,
+    // which many S3 compatible services do not understand
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
+    ...(quick
+      ? {
+          maxAttempts: 1,
+          requestHandler: {
+            connectionTimeout: 5000,
+            requestTimeout: 10000,
+            throwOnRequestTimeout: true,
+          },
+        }
+      : {}),
+  });
+}
+
+function IsNotFound(e: unknown): boolean {
+  if (e instanceof S3ServiceException) {
+    return (
+      e.name === 'NoSuchKey' ||
+      e.name === 'NotFound' ||
+      e.name === 'NoSuchBucket' ||
+      e.$metadata?.httpStatusCode === 404
+    );
   }
+  return false;
+}
 
-  private isNotFound(e: unknown): boolean {
-    if (e instanceof S3ServiceException) {
-      return (
-        e.name === 'NoSuchKey' ||
-        e.name === 'NotFound' ||
-        e.name === 'NoSuchBucket' ||
-        e.$metadata?.httpStatusCode === 404
+function DescribeS3Error(e: unknown): string {
+  if (e instanceof S3ServiceException) {
+    const status = `HTTP ${e.$metadata?.httpStatusCode}`;
+    // Errors to HEAD requests have no body to take a name or message from
+    const known = (text: string | undefined) =>
+      text && text !== 'Unknown' && text !== 'UnknownError' ? text : null;
+    const name = known(e.name);
+    const message = known(e.message);
+    return (
+      (name ? `${name} (${status})` : status) + (message ? `: ${message}` : '')
+    );
+  }
+  // Connecting to a name with several addresses fails with one per address
+  if (e instanceof AggregateError && e.errors.length > 0) {
+    return e.errors.map(DescribeS3Error).join(', ');
+  }
+  if (e instanceof Error) return e.message || e.name;
+  return String(e);
+}
+
+function S3ErrorHint(e: unknown): string {
+  if (!(e instanceof S3ServiceException)) return '';
+  switch (e.$metadata?.httpStatusCode) {
+    case 301:
+      return '. The bucket is in another region.';
+    case 403:
+      return '. Check the access key, and that it may use this bucket.';
+    default:
+      return '';
+  }
+}
+
+// Checks that images can be stored with the given settings, before they are
+// used. Creates the bucket when it does not exist yet, like Picsur does when
+// it starts.
+export async function TestS3Storage(
+  config: S3StorageConfig,
+): AsyncFailable<{ created: boolean }> {
+  const client = CreateS3Client(config, true);
+  const bucket = config.bucket;
+  // The reasons are shown on the settings page, where the details help
+  const failure = (message: string, e: unknown) =>
+    Fail(FT.Network, `${message}: ${DescribeS3Error(e)}${S3ErrorHint(e)}`);
+
+  try {
+    let created = false;
+    try {
+      await client.send(new HeadBucketCommand({ Bucket: bucket }));
+    } catch (e) {
+      if (!IsNotFound(e)) {
+        return failure(`Can not access bucket "${bucket}"`, e);
+      }
+      try {
+        await client.send(new CreateBucketCommand({ Bucket: bucket }));
+        created = true;
+      } catch (e) {
+        return failure(
+          `Bucket "${bucket}" does not exist and could not be created`,
+          e,
+        );
+      }
+    }
+
+    const key = `${config.prefix}picsur-test-${randomUUID()}`;
+    try {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: 'Picsur checks that it can store images here',
+          ContentType: 'text/plain',
+        }),
       );
+    } catch (e) {
+      return failure(`Can not store files in bucket "${bucket}"`, e);
     }
-    return false;
-  }
+    try {
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    } catch (e) {
+      return failure(`Can not delete files in bucket "${bucket}"`, e);
+    }
 
-  private describeError(e: unknown): string {
-    if (e instanceof S3ServiceException) {
-      return `${e.name} (HTTP ${e.$metadata?.httpStatusCode}): ${e.message}`;
-    }
-    return String(e);
+    return { created };
+  } finally {
+    client.destroy();
   }
 }

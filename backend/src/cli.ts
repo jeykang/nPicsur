@@ -1,5 +1,6 @@
 // Command line maintenance tool, run with `node dist/cli.js <command>`.
-// Uses the same PICSUR_* environment variables as the server.
+// Uses the same PICSUR_* environment variables and server settings as the
+// server.
 
 import { Logger, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -13,13 +14,18 @@ import {
 import { ObjectStorageService } from './collections/object-storage/object-storage.service.js';
 import { EarlyConfigModule } from './config/early/early-config.module.js';
 import { StorageConfigService } from './config/early/storage.config.service.js';
+import {
+  LoadStoredServerSettings,
+  UseStoredServerSettings,
+} from './config/server-settings.js';
 import { DatabaseModule } from './database/database.module.js';
 
 const usage = `Usage: node dist/cli.js <command>
 
 Commands:
   storage status          Show where image data is stored
-  storage migrate         Move image data to the storage configured with
+  storage migrate         Move image data to where new images are stored,
+                          as set on the settings page or with
                           PICSUR_STORAGE_DRIVER. Cached conversions stored
                           elsewhere are dropped, they are made again when
                           needed. Can be run while Picsur is running.
@@ -53,6 +59,7 @@ async function main(args: string[]): Promise<number> {
     return group === undefined || group === '--help' ? 0 : 1;
   }
 
+  UseStoredServerSettings(await LoadStoredServerSettings());
   const app = await NestFactory.createApplicationContext(CliModule, {
     logger: ['error', 'warn', 'log'],
   });

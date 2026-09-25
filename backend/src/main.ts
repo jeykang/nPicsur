@@ -60,6 +60,9 @@ async function bootstrap() {
   app.useLogger(app.get(PicsurLoggerService));
   app.flushLogs();
 
+  // Close database connections and the like when stopped
+  app.enableShutdownHooks();
+
   app.useGlobalFilters(app.get(MainExceptionFilter));
   app.useGlobalInterceptors(app.get(SuccessInterceptor));
   app.useGlobalPipes(app.get(ZodValidationPipe));

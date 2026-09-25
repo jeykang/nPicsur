@@ -8,7 +8,10 @@ describe('info', () => {
     const info = expectSuccess(await guest.get('/api/info'));
     expect(info.production).toBe(true);
     expect(info.demo).toBe(false);
-    expect(info.version).toMatch(/^\d+\.\d+\.\d+$/);
+    const pkg = await import('../../package.json', {
+      with: { type: 'json' },
+    });
+    expect(info.version).toBe(pkg.default.version);
   });
 
   it('lists all permissions', async () => {

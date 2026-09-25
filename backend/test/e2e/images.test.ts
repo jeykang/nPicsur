@@ -119,6 +119,24 @@ describe('image upload and retrieval', () => {
     expect(res.body.subarray(0, magic.length).toString('latin1')).toBe(magic);
   });
 
+  // Formats that Picsur reads and writes itself, which are read back the same
+  it.each([
+    ['tga', 'image/x-tga'],
+    ['ico', 'image/x-icon'],
+    ['apng', 'image/apng'],
+  ])('converts to %s, and reads it back', async (ext, mime) => {
+    const res = await Client.guest().get(`/i/${imageId}.${ext}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe(mime);
+
+    const copy = await user.client.uploadOk(res.body, `copy.${ext}`);
+    const back = await Client.guest().get(`/i/${copy.id}.png`);
+    const [served, source] = await Promise.all(
+      [back.body, png].map((image) => sharp(image).raw().toBuffer()),
+    );
+    expect(served.equals(source)).toBe(true);
+  });
+
   // These need a libvips with every codec, which the Docker image has
   describe.runIf(inject('fullCodecs'))('with every codec', () => {
     it.each([
@@ -408,6 +426,96 @@ describe('formats', () => {
     );
     expect(asPng.format).toBe('png');
     expect(asPng.pages ?? 1).toBe(1);
+  });
+
+  // The number of frames an APNG says it has
+  function apngFrames(image: Buffer): number {
+    const control = image.indexOf('acTL');
+    return control === -1 ? 0 : image.readUInt32BE(control + 4);
+  }
+
+  it('keeps APNG animations animated', async () => {
+    const gif = makeAnimatedGif(3);
+    const { id: gifId } = await client.uploadOk(gif, 'animated.gif');
+    const apng = (await Client.guest().get(`/i/${gifId}.apng`)).body;
+    expect(apngFrames(apng)).toBe(3);
+
+    const { id } = await client.uploadOk(apng, 'animated.png');
+    const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
+    expect(meta.fileTypes.master).toBe('anim:apng');
+    // Kept as it was uploaded
+    expect((await Client.guest().get(`/i/${id}.apng`)).body.equals(apng)).toBe(
+      true,
+    );
+
+    for (const ext of ['gif', 'webp']) {
+      const converted = await metadata(
+        (await Client.guest().get(`/i/${id}.${ext}`)).body,
+      );
+      expect(converted.pages, ext).toBe(3);
+      expect(converted.delay, ext).toEqual((await metadata(gif)).delay);
+    }
+    // The frames are the same as in the GIF
+    const [fromApng, fromGif] = await Promise.all(
+      [`/i/${id}.gif`, `/i/${gifId}.gif`].map(async (path) =>
+        sharp((await Client.guest().get(path)).body, { animated: true })
+          .removeAlpha()
+          .raw()
+          .toBuffer(),
+      ),
+    );
+    expect(fromApng.equals(fromGif)).toBe(true);
+
+    // And resizing keeps every frame
+    const small = await Client.guest().get(`/i/${id}.apng?width=16`);
+    expect(apngFrames(small.body)).toBe(3);
+    expect((await metadata(small.body)).width).toBe(16);
+
+    // Still formats get the first frame
+    const still = await metadata(
+      (await Client.guest().get(`/i/${id}.png`)).body,
+    );
+    expect([still.width, still.pages ?? 1]).toEqual([32, 1]);
+  });
+
+  it('accepts ICO and TGA uploads', async () => {
+    const png = await makePng(40, 30);
+    const { id } = await client.uploadOk(png, 'source.png');
+
+    for (const ext of ['ico', 'tga']) {
+      const file = (await Client.guest().get(`/i/${id}.${ext}`)).body;
+      const upload = await client.uploadOk(file, `upload.${ext}`);
+      const meta = expectSuccess(
+        await Client.guest().get(`/i/meta/${upload.id}`),
+      );
+      // Converted to a lossless master, like other formats browsers can not
+      // show
+      expect(meta.fileTypes.master, ext).toBe('image:qoi');
+      const served = await metadata(
+        (await Client.guest().get(`/i/${upload.id}.png`)).body,
+      );
+      expect([served.width, served.height], ext).toEqual([40, 30]);
+    }
+
+    // Older TGA files have nothing at the end that says what they are
+    const tga = (await Client.guest().get(`/i/${id}.tga`)).body;
+    const withoutFooter = tga.subarray(0, tga.length - 26);
+    const upload = await client.uploadOk(withoutFooter, 'old.tga');
+    expect(
+      (await metadata((await Client.guest().get(`/i/${upload.id}.png`)).body))
+        .width,
+    ).toBe(40);
+  });
+
+  it('makes icons of large images small enough', async () => {
+    const { id } = await client.uploadOk(await makePng(600, 300), 'wide.png');
+    const res = await Client.guest().get(`/i/${id}.ico`);
+    // One image of at most 256 pixels
+    expect(res.body.readUInt16LE(4)).toBe(1);
+    expect([res.body[6], res.body[7]]).toEqual([0, 128]);
+    // And asked for sizes are kept
+    const small = await Client.guest().get(`/i/${id}.ico?width=32`);
+    expect([small.body[6], small.body[7]]).toEqual([32, 16]);
   });
 
   it('keeps uploads as they are, without their metadata', async () => {

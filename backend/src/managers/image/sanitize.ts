@@ -19,7 +19,9 @@ export function SanitizeImage(data: Buffer, filetype: string): Buffer | null {
       case ImageFileType.JPEG:
         return SanitizeJpeg(data);
       case ImageFileType.PNG:
-        return SanitizePng(data);
+        return SanitizePng(data, false);
+      case AnimFileType.APNG:
+        return SanitizePng(data, true);
       case ImageFileType.WEBP:
       case AnimFileType.WEBP:
         return SanitizeWebp(data);
@@ -185,8 +187,10 @@ const PngKeep = new Set([
   'bKGD',
 ]);
 
-function SanitizePng(data: Buffer): Buffer | null {
+// Animations keep the chunks with their frames, still images can not have them
+function SanitizePng(data: Buffer, animated: boolean): Buffer | null {
   if (!data.subarray(0, 8).equals(PngSignature)) return null;
+  let sawAnimation = false;
 
   const parts: Buffer[] = [PngSignature];
   let offset = 8;
@@ -197,8 +201,9 @@ function SanitizePng(data: Buffer): Buffer | null {
     if (end > data.length) return null;
     if (offset === 8 && type !== 'IHDR') return null;
 
-    // Animations are not kept like this
-    if (type === 'acTL' || type === 'fcTL' || type === 'fdAT') return null;
+    const isAnimation = type === 'acTL' || type === 'fcTL' || type === 'fdAT';
+    if (isAnimation && !animated) return null;
+    if (isAnimation) sawAnimation = true;
     if (type === 'eXIf') {
       // Only JPEGs keep their orientation, others get it applied
       const orientation = ExifOrientation(
@@ -208,10 +213,14 @@ function SanitizePng(data: Buffer): Buffer | null {
     }
 
     // Chunks are copied as they are, with their checksum
-    if (PngKeep.has(type)) parts.push(data.subarray(offset, end));
+    if (PngKeep.has(type) || isAnimation) {
+      parts.push(data.subarray(offset, end));
+    }
     offset = end;
     // Anything after the end of the image is dropped
-    if (type === 'IEND') return Buffer.concat(parts);
+    if (type === 'IEND') {
+      return animated && !sawAnimation ? null : Buffer.concat(parts);
+    }
   }
 }
 

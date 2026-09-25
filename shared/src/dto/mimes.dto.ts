@@ -12,13 +12,14 @@ export enum ImageFileType {
   JXL = 'image:jxl',
   JP2 = 'image:jp2',
   BMP = 'image:bmp',
-  // ICO = 'image:ico',
+  ICO = 'image:ico',
+  TGA = 'image:tga',
 }
 
 export enum AnimFileType {
   GIF = 'anim:gif',
   WEBP = 'anim:webp',
-  //APNG = 'anim:apng',
+  APNG = 'anim:apng',
 }
 
 // Derivatives
@@ -49,7 +50,7 @@ const FileType2MimeMap: {
 } = {
   [AnimFileType.GIF]: 'image/gif',
   [AnimFileType.WEBP]: 'image/webp',
-  // [AnimFileType.APNG]: 'image/apng',
+  [AnimFileType.APNG]: 'image/apng',
   [ImageFileType.QOI]: 'image/x-qoi',
   [ImageFileType.JPEG]: 'image/jpeg',
   [ImageFileType.PNG]: 'image/png',
@@ -60,7 +61,8 @@ const FileType2MimeMap: {
   [ImageFileType.JXL]: 'image/jxl',
   [ImageFileType.JP2]: 'image/jp2',
   [ImageFileType.BMP]: 'image/bmp',
-  // [ImageFileType.ICO]: 'image/x-icon',
+  [ImageFileType.ICO]: 'image/x-icon',
+  [ImageFileType.TGA]: 'image/x-tga',
 };
 
 export const Mime2FileType = (mime: string): Failable<string> => {
@@ -85,7 +87,7 @@ const FileType2ExtMap: {
 } = {
   [AnimFileType.GIF]: 'gif',
   [AnimFileType.WEBP]: 'webp',
-  // [AnimFileType.APNG]: 'apng',
+  [AnimFileType.APNG]: 'apng',
   [ImageFileType.QOI]: 'qoi',
   [ImageFileType.JPEG]: 'jpg',
   [ImageFileType.PNG]: 'png',
@@ -96,7 +98,8 @@ const FileType2ExtMap: {
   [ImageFileType.JXL]: 'jxl',
   [ImageFileType.JP2]: 'jp2',
   [ImageFileType.BMP]: 'bmp',
-  // [ImageFileType.ICO]: 'ico',
+  [ImageFileType.ICO]: 'ico',
+  [ImageFileType.TGA]: 'tga',
 };
 
 export const Ext2FileType = (ext: string): Failable<string> => {

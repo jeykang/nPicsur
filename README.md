@@ -28,7 +28,7 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
 
 - Uploading and viewing images, anonymously or with an account
 - User accounts, with roles and permissions
-- Many formats: QOI, JPEG, PNG, WebP (animated), GIF (animated), TIFF, AVIF, HEIF/HEIC, BMP, JPEG XL, JPEG 2000
+- Many formats: QOI, JPEG, PNG, APNG (animated), WebP (animated), GIF (animated), TIFF, AVIF, HEIF/HEIC, BMP, ICO, TGA, JPEG XL, JPEG 2000
 - Converting and editing images through the url: resize, rotate, flip, strip transparency, negative, greyscale
 - EXIF stripping, with the option to keep the original file
 - Expiring images, and deleting images with a secret deletion link
@@ -258,7 +258,7 @@ Do keep in mind here, that the exif data will NOT be removed from the original i
 
 ### This service says its supports the QOI format, what is this?
 
-QOI is a lossless image format that is designed to be very fast to encode and decode, while still offering good compression ratios. Uploads in formats Picsur can not keep as they are, like TIFF or HEIC, are stored as QOI. JPEG, PNG, WebP and GIF uploads are kept as they were uploaded, only without their metadata.
+QOI is a lossless image format that is designed to be very fast to encode and decode, while still offering good compression ratios. Uploads in formats Picsur can not keep as they are, like TIFF, HEIC or TGA, are stored as QOI. JPEG, PNG, APNG, WebP and GIF uploads are kept as they were uploaded, only without their metadata.
 
 You can [read more about QOI here](https://qoiformat.org/).
 

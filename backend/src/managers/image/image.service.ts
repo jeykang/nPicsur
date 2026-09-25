@@ -34,7 +34,9 @@ import { ConversionLimiterService } from './conversion-limiter.service.js';
 import { MasterDimensions } from './dimensions.js';
 import { ImageConverterService } from './image-converter.service.js';
 import { ImageProcessorService } from './image-processor.service.js';
+import { IsICO } from '../../workers/codecs/ico.js';
 import { IsQOI } from '../../workers/codecs/qoi.js';
+import { IsTGA } from '../../workers/codecs/tga.js';
 import { IsAnimatedWebP } from './webp.js';
 
 // Images can be resized to at most this many pixels, or their own size when
@@ -335,7 +337,12 @@ export class ImageManagerService {
 
     let mime: string | undefined;
     if (filetypeResult === undefined) {
+      // Formats that file-type does not know
       if (IsQOI(image)) mime = 'image/x-qoi';
+      else if (IsTGA(image)) mime = 'image/x-tga';
+    } else if (filetypeResult.mime === 'image/x-icon' && !IsICO(image)) {
+      // Only four bytes identify icons, which some TGA images start with too
+      if (IsTGA(image)) mime = 'image/x-tga';
     } else {
       mime = filetypeResult.mime;
     }

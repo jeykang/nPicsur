@@ -9,7 +9,11 @@ import {
   SharpWorkerRecieveMessage,
   SharpWorkerSendMessage,
 } from './sharp.message.js';
-import { UniversalSharpIn, UniversalSharpOut } from './universal-sharp.js';
+import {
+  AnimationTiming,
+  UniversalSharpIn,
+  UniversalSharpOut,
+} from './universal-sharp.js';
 
 // Only there when the worker is started with --expose-gc
 const collectGarbage = (globalThis as { gc?: () => void }).gc;
@@ -30,6 +34,10 @@ function reservedMemory(): number | null {
 export class SharpWorker {
   private startTime = 0;
   private sharpi: Sharp | null = null;
+  private timing: AnimationTiming | null = null;
+  // Messages are handled one after another, reading some formats takes a
+  // while
+  private queue: Promise<void> = Promise.resolve();
 
   // In bytes
   private memoryLimit = 0;
@@ -115,29 +123,37 @@ export class SharpWorker {
   }
 
   private messageHandler(message: SharpWorkerSendMessage): void {
+    this.queue = this.queue
+      .then(() => this.handle(message))
+      .catch((e) => this.purge(e));
+  }
+
+  private async handle(message: SharpWorkerSendMessage): Promise<void> {
     if (message.type === 'init') {
-      this.init(message);
+      await this.init(message);
     } else if (message.type === 'operation') {
       this.operation(message);
     } else if (message.type === 'finish') {
-      this.finish(message.filetype, message.options);
+      await this.finish(message.filetype, message.options);
     } else {
       return this.purge('Unknown message type');
     }
   }
 
-  private init(message: SharpWorkerInitMessage): void {
+  private async init(message: SharpWorkerInitMessage): Promise<void> {
     if (this.sharpi !== null) {
       return this.purge('Already initialized');
     }
 
     this.startTime = Date.now();
     this.limitMemory();
-    this.sharpi = UniversalSharpIn(
+    const input = await UniversalSharpIn(
       message.image,
       message.filetype,
       message.options,
     );
+    this.sharpi = input.image;
+    this.timing = input.timing;
   }
 
   private operation(message: SharpWorkerOperationMessage): void {
@@ -160,10 +176,12 @@ export class SharpWorker {
     }
 
     const sharpi = this.sharpi;
+    const timing = this.timing;
     this.sharpi = null;
+    this.timing = null;
 
     try {
-      const result = await UniversalSharpOut(sharpi, filetype, options);
+      const result = await UniversalSharpOut(sharpi, filetype, options, timing);
       const processingTime = Date.now() - this.startTime;
       const memory = reservedMemory();
 

@@ -23,6 +23,10 @@
 //       Also test HEIC, JPEG XL and JPEG 2000, which need a libvips built
 //       with every codec like the one in the Docker image. On by default when
 //       testing a Docker image.
+//   E2E_S3_ENV
+//       An S3 compatible service the tests may use, in the same form as
+//       E2E_SERVER_ENV. Used to test setting up object storage on the
+//       settings page, when the server is not configured to use it already.
 //
 // The backend's log output is written to test/e2e/.output/server.log.
 
@@ -65,6 +69,8 @@ declare module 'vitest' {
     dockerImage: string | null;
     // Whether the server can handle HEIC, JPEG XL and JPEG 2000
     fullCodecs: boolean;
+    // PICSUR_S3_* settings of a service the tests may use, if any
+    s3TestEnv: Record<string, string> | null;
   }
 }
 
@@ -266,6 +272,10 @@ export default async function setup(project: TestProject) {
   project.provide('serverEnv', serverEnv);
   project.provide('dockerImage', dockerImage);
   project.provide('fullCodecs', fullCodecs);
+  project.provide(
+    's3TestEnv',
+    process.env['E2E_S3_ENV'] ? JSON.parse(process.env['E2E_S3_ENV']) : null,
+  );
 
   return async () => {
     const exited =

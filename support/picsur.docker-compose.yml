@@ -22,10 +22,17 @@ services:
       # PICSUR_JWT_SECRET: CHANGE_ME
       # PICSUR_JWT_EXPIRY: 7d
 
-      ## Maximum accepted size for uploads in bytes
-      # PICSUR_MAX_FILE_SIZE: 128000000
       ## No need to touch this, unless you use a custom frontend
       # PICSUR_STATIC_FRONTEND_ROOT: "/picsur/frontend/dist"
+
+      ## Warning: Verbose mode might log sensitive data
+      # PICSUR_VERBOSE: "true"
+
+      ## The settings below can also be changed in the web interface, under
+      ## Settings -> Server. When set here, they can not be changed there.
+
+      ## Maximum accepted size for uploads in bytes
+      # PICSUR_MAX_FILE_SIZE: 128000000
 
       ## Proxies allowed to pass on the visitor's address, used for rate
       ## limiting. By default any private address, like a reverse proxy in
@@ -40,7 +47,7 @@ services:
       # PICSUR_CONVERSION_RATE_LIMIT: 120
 
       ## Store images in S3 compatible object storage instead of the database.
-      ## Existing images can be moved over with:
+      ## Existing images can be moved over on the settings page, or with:
       ##   docker exec picsur node backend/dist/cli.js storage migrate
       # PICSUR_STORAGE_DRIVER: s3
       # PICSUR_S3_BUCKET: picsur
@@ -52,9 +59,6 @@ services:
       # PICSUR_S3_SECRET_ACCESS_KEY: CHANGE_ME
       ## Keep Picsur's objects under this path in the bucket
       # PICSUR_S3_PREFIX: picsur/
-
-      ## Warning: Verbose mode might log sensitive data
-      # PICSUR_VERBOSE: "true"
     restart: unless-stopped
     depends_on:
       - picsur_postgres

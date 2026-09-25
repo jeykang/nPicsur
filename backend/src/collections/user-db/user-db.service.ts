@@ -61,9 +61,7 @@ export class UserDbService {
       const rolesToAdd = roles ?? [];
       user.roles = makeUnique(rolesToAdd);
     } else {
-      // Strip soulbound roles and add default roles
-      const rolesToAdd = this.filterAddedRoles(roles ?? []);
-      user.roles = makeUnique([...DefaultRolesList, ...rolesToAdd]);
+      user.roles = this.resultingRoles(null, roles ?? []);
     }
 
     try {
@@ -103,18 +101,24 @@ export class UserDbService {
       return userToModify;
     }
 
-    const rolesToKeep = userToModify.roles.filter((role) =>
-      SoulBoundRolesList.includes(role),
-    );
-    const rolesToAdd = this.filterAddedRoles(roles);
-    const newRoles = makeUnique([...rolesToKeep, ...rolesToAdd]);
-    userToModify.roles = newRoles;
+    userToModify.roles = this.resultingRoles(userToModify.roles, roles);
 
     try {
       return await this.usersRepository.save(userToModify);
     } catch (e) {
       return Fail(FT.Database, e);
     }
+  }
+
+  // The roles a user ends up with when given these roles. Soulbound roles can
+  // not be given or taken away, and new users (without current roles) get the
+  // default roles.
+  public resultingRoles(current: string[] | null, roles: string[]): string[] {
+    const kept =
+      current === null
+        ? DefaultRolesList
+        : current.filter((role) => SoulBoundRolesList.includes(role));
+    return makeUnique([...kept, ...this.filterAddedRoles(roles)]);
   }
 
   public async removeRoleEveryone(role: string): AsyncFailable<true> {

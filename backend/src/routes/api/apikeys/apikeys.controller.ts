@@ -21,6 +21,15 @@ import {
 import { ReqUserID } from '../../../decorators/request-user.decorator.js';
 import { Returns } from '../../../decorators/returns.decorator.js';
 
+// Anyone who knows a key can act as its owner, so the keys of other users are
+// never shown, not even to administrators
+function hideOthersKey<T extends { user: string; key: string }>(
+  apikey: T,
+  userid: string,
+): T {
+  return apikey.user === userid ? apikey : { ...apikey, key: '' };
+}
+
 @Controller('api/apikeys')
 @RequiredPermissions(Permission.ApiKey)
 export class ApiKeysController {
@@ -33,9 +42,10 @@ export class ApiKeysController {
     @Body() body: ApiKeyInfoRequest,
     @HasPermission(Permission.ApiKeyAdmin) isAdmin: boolean,
   ): Promise<ApiKeyInfoResponse> {
-    return ThrowIfFailed(
+    const apikey = ThrowIfFailed(
       await this.apikeyDB.findOne(body.id, isAdmin ? undefined : userid),
     );
+    return hideOthersKey(apikey, userid);
   }
 
   @Post('list')
@@ -47,9 +57,13 @@ export class ApiKeysController {
   ): Promise<ApiKeyListResponse> {
     if (!isAdmin) body.user_id = userid;
 
-    return ThrowIfFailed(
+    const found = ThrowIfFailed(
       await this.apikeyDB.findMany(body.count, body.page, body.user_id),
     );
+    return {
+      ...found,
+      results: found.results.map((apikey) => hideOthersKey(apikey, userid)),
+    };
   }
 
   @Post('create')
@@ -68,13 +82,14 @@ export class ApiKeysController {
     @Body() body: ApiKeyUpdateRequest,
     @HasPermission(Permission.ApiKeyAdmin) isAdmin: boolean,
   ): Promise<ApiKeyUpdateResponse> {
-    return ThrowIfFailed(
+    const apikey = ThrowIfFailed(
       await this.apikeyDB.updateApiKey(
         body.id,
         body.name,
         isAdmin ? undefined : userID,
       ),
     );
+    return hideOthersKey(apikey, userID);
   }
 
   @Post('delete')
@@ -84,8 +99,9 @@ export class ApiKeysController {
     @Body() body: ApiKeyDeleteRequest,
     @HasPermission(Permission.ApiKeyAdmin) isAdmin: boolean,
   ): Promise<ApiKeyDeleteResponse> {
-    return ThrowIfFailed(
+    const apikey = ThrowIfFailed(
       await this.apikeyDB.deleteApiKey(body.id, isAdmin ? undefined : userID),
     );
+    return hideOthersKey(apikey, userID);
   }
 }

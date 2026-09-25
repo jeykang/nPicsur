@@ -126,7 +126,7 @@ describe('api keys', () => {
     );
     expect(list.total).toBe(0);
 
-    // Admins can see everyone's keys
+    // Admins can see everyone's keys, but not the keys themselves
     const adminList = expectSuccess(
       await admin.post('/api/apikeys/list', {
         count: 10,
@@ -135,6 +135,7 @@ describe('api keys', () => {
       }),
     );
     expect(adminList.total).toBe(1);
+    expect(adminList.results[0].key).toBe('');
   });
 
   it('deletes the keys of deleted users', async () => {

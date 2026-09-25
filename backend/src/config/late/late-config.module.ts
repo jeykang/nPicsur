@@ -1,4 +1,5 @@
 import { Logger, Module, OnModuleInit } from '@nestjs/common';
+import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { PreferenceDbModule } from '../../collections/preference-db/preference-db.module.js';
 import { SysPreferenceDbService } from '../../collections/preference-db/sys-preference-db.service.js';
 import { EarlyConfigModule } from '../early/early-config.module.js';
@@ -41,11 +42,28 @@ export class LateConfigModule implements OnModuleInit {
     if (envSecret === undefined) {
       await this.prefService.getPreference('jwt_secret');
     } else {
-      await this.prefService.setPreference('jwt_secret', envSecret);
+      if (envSecret.length < 32) {
+        this.logger.warn(
+          'PICSUR_JWT_SECRET is shorter than 32 characters, which makes it ' +
+            'easier to guess, and whoever knows it can log in as anyone. Use ' +
+            'a long random value, or leave it out to have one generated.',
+        );
+      }
+      const saved = await this.prefService.setPreference(
+        'jwt_secret',
+        envSecret,
+      );
+      if (HasFailed(saved)) saved.print(this.logger);
     }
 
     if (envExpiresIn !== undefined) {
-      await this.prefService.setPreference('jwt_expires_in', envExpiresIn);
+      const saved = await this.prefService.setPreference(
+        'jwt_expires_in',
+        envExpiresIn,
+      );
+      if (HasFailed(saved)) {
+        saved.print(this.logger, { prefix: 'PICSUR_JWT_EXPIRY is invalid:' });
+      }
     }
   }
 }

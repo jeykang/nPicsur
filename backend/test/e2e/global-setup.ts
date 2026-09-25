@@ -209,7 +209,9 @@ export default async function setup(project: TestProject) {
     PICSUR_DB_PASSWORD: db.password,
     PICSUR_DB_DATABASE: database,
     PICSUR_ADMIN_PASSWORD: ADMIN_PASSWORD,
-    PICSUR_JWT_SECRET: randomBytes(32).toString('hex'),
+    // Short on purpose, like the example value many instances use. A short
+    // secret used to break the settings page.
+    PICSUR_JWT_SECRET: 'CHANGE_ME',
     // The Docker image serves the frontend that was built into it
     ...(dockerImage === null
       ? { PICSUR_STATIC_FRONTEND_ROOT: frontendRoot }

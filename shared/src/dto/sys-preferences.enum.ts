@@ -55,7 +55,9 @@ export const SysPreferenceValidators: {
 } = {
   [SysPreference.HostOverride]: IsHttpUrl().or(z.literal('')),
 
-  [SysPreference.JwtSecret]: z.string().min(32),
+  // Short secrets are allowed, as they always were, but warned about when
+  // Picsur starts
+  [SysPreference.JwtSecret]: z.string().min(1),
   // Too short and nobody can stay logged in, including the admin
   [SysPreference.JwtExpiresIn]: IsValidMS(MINUTE, 365 * DAY),
 

@@ -130,11 +130,19 @@ export class SysPreferenceDbService {
     const internalSysPrefs = await Promise.all(
       SysPreferenceList.map((key) => this.getPreference(key)),
     );
-    if (internalSysPrefs.some((pref) => HasFailed(pref))) {
-      return Fail(FT.Internal, 'Could not get all preferences');
-    }
 
-    return internalSysPrefs as DecodedSysPref[];
+    // One broken preference should not make all the others unreachable
+    const prefs: DecodedSysPref[] = [];
+    internalSysPrefs.forEach((pref, i) => {
+      if (HasFailed(pref)) {
+        pref.print(this.logger, {
+          prefix: `Preference ${SysPreferenceList[i]}:`,
+        });
+      } else {
+        prefs.push(pref);
+      }
+    });
+    return prefs;
   }
 
   // Private

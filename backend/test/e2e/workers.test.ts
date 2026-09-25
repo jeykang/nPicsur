@@ -1,40 +1,32 @@
 import { Logger } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
-import { FileType } from 'picsur-shared/dist/dto/mimes.dto';
-import { Failable, HasFailed } from 'picsur-shared/dist/types/failable';
-import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
+import type { FileType } from 'picsur-shared/dist/dto/mimes.dto';
+import type { Failable } from 'picsur-shared/dist/types/failable';
 import sharp from 'sharp';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import {
+import { afterEach, beforeAll, describe, expect, inject, it } from 'vitest';
+import type {
   SharpWorkerPool,
-  type SharpWorkerProcess,
+  SharpWorkerProcess,
 } from '../../dist/workers/sharp.pool.js';
-import { SharpWrapper } from '../../dist/workers/sharp.wrapper.js';
+import type { SharpWrapper as SharpWrapperClass } from '../../dist/workers/sharp.wrapper.js';
 import type { SharpResult } from '../../dist/workers/sharp/universal-sharp.js';
 import { makePng } from './helpers/images.js';
 
-// The conversion workers of the compiled backend, without a server around them
+// The conversion workers of the compiled backend, without a server around
+// them. Loaded when the tests run, the Docker image has its backend inside the
+// container and these tests are skipped for it.
+
+let HasFailed: typeof import('picsur-shared/dist/types/failable').HasFailed;
+let SharpWrapper: typeof SharpWrapperClass;
+let PNG: FileType;
+let WEBP: FileType;
+let AVIF: FileType;
 
 // Remembers which workers conversions ran in
-class TestPool extends SharpWorkerPool {
-  public readonly used: SharpWorkerProcess[] = [];
-
-  public override async acquire(memoryLimit: number, timeout: number) {
-    const worker = await super.acquire(memoryLimit, timeout);
-    if (!HasFailed(worker)) this.used.push(worker);
-    return worker;
-  }
+interface TestPool extends SharpWorkerPool {
+  readonly used: SharpWorkerProcess[];
 }
-
-function fileType(identifier: string): FileType {
-  const parsed = ParseFileType(identifier);
-  if (HasFailed(parsed)) throw parsed;
-  return parsed;
-}
-
-const PNG = fileType('image:png');
-const WEBP = fileType('image:webp');
-const AVIF = fileType('image:avif');
+let TestPool: new () => TestPool;
 
 async function convert(
   pool: SharpWorkerPool,
@@ -77,8 +69,32 @@ function newPool() {
   return pool;
 }
 
-beforeAll(() => {
+beforeAll(async () => {
+  if (inject('dockerImage') !== null) return;
   Logger.overrideLogger(['error']);
+
+  ({ HasFailed } = await import('picsur-shared/dist/types/failable'));
+  const { ParseFileType } = await import('picsur-shared/dist/util/parse-mime');
+  const fileType = (identifier: string) => {
+    const parsed = ParseFileType(identifier);
+    if (HasFailed(parsed)) throw parsed;
+    return parsed;
+  };
+  PNG = fileType('image:png');
+  WEBP = fileType('image:webp');
+  AVIF = fileType('image:avif');
+
+  ({ SharpWrapper } = await import('../../dist/workers/sharp.wrapper.js'));
+  const { SharpWorkerPool } = await import('../../dist/workers/sharp.pool.js');
+  TestPool = class extends SharpWorkerPool {
+    public readonly used: SharpWorkerProcess[] = [];
+
+    public override async acquire(memoryLimit: number, timeout: number) {
+      const worker = await super.acquire(memoryLimit, timeout);
+      if (!HasFailed(worker)) this.used.push(worker);
+      return worker;
+    }
+  };
 });
 
 afterEach(() => {
@@ -86,7 +102,7 @@ afterEach(() => {
   pools = [];
 });
 
-describe('conversion workers', () => {
+describe.skipIf(inject('dockerImage') !== null)('conversion workers', () => {
   it('convert one image after another', async () => {
     const pool = newPool();
     const image = await makePng();

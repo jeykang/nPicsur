@@ -6,6 +6,7 @@ import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.en
 import {
   AnimFileType,
   FileType,
+  FileType2Ext,
   ImageFileType,
   Mime2FileType,
 } from 'picsur-shared/dist/dto/mimes.dto';
@@ -190,9 +191,11 @@ export class ImageManagerService {
         if (HasFailed(sourceFileType)) return sourceFileType;
 
         // Nothing to convert, serve the master as it is instead of storing
-        // another copy of it
+        // another copy of it. A still WebP is as much a .webp as an animated
+        // one is.
         if (
-          sourceFileType.identifier === targetFileType.identifier &&
+          FileType2Ext(sourceFileType.identifier) ===
+            FileType2Ext(targetFileType.identifier) &&
           Object.keys(effectiveOptions).length === 0
         ) {
           return masterImage;

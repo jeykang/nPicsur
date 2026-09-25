@@ -10,6 +10,14 @@
 - Images can be moved between the database and S3 from that page, which shows how far along it is. Picsur keeps working in the meantime.
 - The command line tool uses the settings from the page as well.
 
+### Faster
+
+- JPEG, PNG, WebP and GIF uploads are kept as they were uploaded, only without their metadata, instead of being converted to QOI. A lossless copy of a photo is many times larger than the photo itself while holding nothing more: a 12 megapixel JPEG used to take up 9 times its size. Uploading it is about 9 times faster now, and making a smaller version of it about 5 times. Other formats are still converted to QOI. Images uploaded before stay as they are.
+
+### Fixed
+
+- Photos were shown sideways when their EXIF orientation said to turn them, like phones do for photos taken upright. Images uploaded before stay as they are.
+
 ## 0.6.0
 
 The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0.5](README.md#upgrading-from-picsur-05) before updating.

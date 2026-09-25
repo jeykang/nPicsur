@@ -26,7 +26,10 @@ export function UniversalSharpIn(
   } else if (filetype.identifier === ImageFileType.QOI) {
     return qoiSharpIn(image, options);
   } else {
-    return sharp(image, options);
+    // Photos are often stored sideways, with their EXIF orientation saying
+    // how to turn them. Masters of JPEGs keep it, and every conversion
+    // applies it, other masters are turned when they are made.
+    return sharp(image, { ...options, autoOrient: true });
   }
 }
 

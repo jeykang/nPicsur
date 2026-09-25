@@ -138,8 +138,8 @@ describe('image storage', () => {
         storage_key: `${prefix}images/${id}/master`,
       });
       const object = await getObject(master.storage_key!);
-      expect(object.contentType).toBe('image/x-qoi');
-      const served = await Client.guest().get(`/i/${id}.qoi`);
+      expect(object.contentType).toBe('image/png');
+      const served = await Client.guest().get(`/i/${id}.png`);
       expect(object.body.equals(served.body)).toBe(true);
     } else {
       expect(master).toMatchObject({
@@ -192,10 +192,19 @@ describe('image storage', () => {
 
   it('does not store copies of the master', async () => {
     const { id } = await client.uploadOk(await makePng());
-    const res = await Client.guest().get(`/i/${id}.qoi`);
+    const res = await Client.guest().get(`/i/${id}.png`);
     expect(res.status).toBe(200);
-    expect(res.body.subarray(0, 4).toString()).toBe('qoif');
+    expect(res.body.subarray(1, 4).toString()).toBe('PNG');
     expect(await derivativeRows(id)).toEqual([]);
+
+    // Also for a still WebP, whose extension is the same as an animated one
+    const webp = await sharp(await makePng())
+      .webp()
+      .toBuffer();
+    const still = await client.uploadOk(webp, 'still.webp');
+    const served = await Client.guest().get(`/i/${still.id}.webp`);
+    expect(served.body.equals(webp)).toBe(true);
+    expect(await derivativeRows(still.id)).toEqual([]);
   });
 
   it('keeps at most 50 cached conversions per image', async () => {

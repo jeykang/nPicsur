@@ -15,15 +15,26 @@ import {
 import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
 import { ImageConverterService } from './image-converter.service.js';
 import { ImageResult } from './imageresult.js';
+import { SanitizeImage } from './sanitize.js';
 
 @Injectable()
 export class ImageProcessorService {
   constructor(private readonly imageConverter: ImageConverterService) {}
 
+  // Makes the master of an upload, which every other version is made from
   public async process(
     image: Buffer,
     filetype: FileType,
   ): AsyncFailable<ImageResult> {
+    // Kept as it is, without its metadata, when possible
+    const sanitized = SanitizeImage(image, filetype.identifier);
+    if (sanitized !== null) {
+      // Uploads that can not be read are refused, like when converting them
+      const readable = await this.imageConverter.check(sanitized, filetype);
+      if (HasFailed(readable)) return readable;
+      return { image: sanitized, filetype: filetype.identifier };
+    }
+
     if (filetype.category === SupportedFileTypeCategory.Image) {
       return await this.processStill(image, filetype);
     } else if (filetype.category === SupportedFileTypeCategory.Animation) {

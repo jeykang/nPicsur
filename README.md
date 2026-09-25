@@ -227,7 +227,7 @@ Do keep in mind here, that the exif data will NOT be removed from the original i
 
 ### This service says its supports the QOI format, what is this?
 
-QOI is a lossless image format that is designed to be very fast to encode and decode, while still offering good compression ratios. This is the primary format the server stores images in when uploaded.
+QOI is a lossless image format that is designed to be very fast to encode and decode, while still offering good compression ratios. Uploads in formats Picsur can not keep as they are, like TIFF or HEIC, are stored as QOI. JPEG, PNG, WebP and GIF uploads are kept as they were uploaded, only without their metadata.
 
 You can [read more about QOI here](https://qoiformat.org/).
 

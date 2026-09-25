@@ -88,7 +88,8 @@ describe('image upload and retrieval', () => {
     expect(meta.image).not.toHaveProperty('delete_key');
     // Only who uploaded it, not their roles
     expect(meta.user).toEqual({ id: user.id, username: user.username });
-    expect(meta.fileTypes).toEqual({ master: 'image:qoi' });
+    // Kept as it was uploaded
+    expect(meta.fileTypes).toEqual({ master: 'image:png' });
   });
 
   it.each([
@@ -386,11 +387,12 @@ describe('formats', () => {
     const { id } = await client.uploadOk(gif, 'animated.gif');
 
     const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
-    expect(meta.fileTypes.master).toBe('anim:webp');
+    expect(meta.fileTypes.master).toBe('anim:gif');
 
-    const asGif = await metadata(
-      (await Client.guest().get(`/i/${id}.gif`)).body,
-    );
+    // Served as it was uploaded
+    const servedGif = (await Client.guest().get(`/i/${id}.gif`)).body;
+    expect(servedGif.equals(gif)).toBe(true);
+    const asGif = await metadata(servedGif);
     expect(asGif.format).toBe('gif');
     expect(asGif.pages).toBe(3);
 
@@ -406,6 +408,67 @@ describe('formats', () => {
     );
     expect(asPng.format).toBe('png');
     expect(asPng.pages ?? 1).toBe(1);
+  });
+
+  it('keeps uploads as they are, without their metadata', async () => {
+    const secret = 'Somewhere secret';
+    const photo = await sharp(await makePng(120, 80))
+      .jpeg({ quality: 90 })
+      .withExif({
+        IFD0: { ImageDescription: secret },
+        IFD3: { GPSLatitudeRef: 'N', GPSLatitude: '52/1 22/1 0/1' },
+      })
+      .withXmp(`<x:xmpmeta xmlns:x="adobe:ns:meta/">${secret}</x:xmpmeta>`)
+      .toBuffer();
+    // With a video after the end of the image, like a motion photo
+    const upload = Buffer.concat([photo, Buffer.from(secret)]);
+
+    const { id } = await client.uploadOk(upload, 'photo.jpg');
+    const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
+    expect(meta.fileTypes.master).toBe('image:jpeg');
+
+    const served = (await Client.guest().get(`/i/${id}.jpg`)).body;
+    expect(served.includes(Buffer.from(secret))).toBe(false);
+    const servedMeta = await metadata(served);
+    expect(servedMeta.exif).toBeUndefined();
+    expect(servedMeta.xmp).toBeUndefined();
+    // The very same image, not converted again
+    expect(served.length).toBeLessThan(photo.length);
+    expect(await sharp(served).raw().toBuffer()).toEqual(
+      await sharp(photo).raw().toBuffer(),
+    );
+  });
+
+  it('turns photos the way their orientation says', async () => {
+    // Stored sideways, to be turned a quarter clockwise when shown
+    const sideways = await sharp(await makePng(300, 100))
+      .jpeg()
+      .withMetadata({ orientation: 6 })
+      .toBuffer();
+    const { id } = await client.uploadOk(sideways, 'portrait.jpg');
+
+    const asPng = await metadata(
+      (await Client.guest().get(`/i/${id}.png`)).body,
+    );
+    expect([asPng.width, asPng.height]).toEqual([100, 300]);
+
+    const resized = await metadata(
+      (await Client.guest().get(`/i/${id}.webp?width=50`)).body,
+    );
+    expect([resized.width, resized.height]).toEqual([50, 150]);
+
+    // Kept as it is, browsers turn it
+    const asJpeg = await metadata(
+      (await Client.guest().get(`/i/${id}.jpg`)).body,
+    );
+    expect(asJpeg.orientation).toBe(6);
+  });
+
+  it('converts uploads it can not keep as they are', async () => {
+    const tiff = await convertTo(await makePng(), 'tiff');
+    const { id } = await client.uploadOk(tiff, 'scan.tiff');
+    const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
+    expect(meta.fileTypes.master).toBe('image:qoi');
   });
 
   it('strips exif data', async () => {
@@ -436,7 +499,7 @@ describe('keeping originals', () => {
 
     const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
     expect(meta.fileTypes).toEqual({
-      master: 'image:qoi',
+      master: 'image:jpeg',
       original: 'image:jpeg',
     });
 
@@ -455,7 +518,7 @@ describe('keeping originals', () => {
     const { id } = await client.uploadOk(await makeJpeg(), 'photo.jpg');
 
     const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
-    expect(meta.fileTypes).toEqual({ master: 'image:qoi' });
+    expect(meta.fileTypes).toEqual({ master: 'image:jpeg' });
 
     // Asking for the original gives the "not found" placeholder
     const res = await Client.guest().get(`/i/${id}`);

@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import ms from 'ms';
 import { ImageRequestParams } from 'picsur-shared/dist/dto/api/image.dto';
 import {
+  AnimFileType,
   FileType,
+  ImageFileType,
   SupportedFileTypeCategory,
 } from 'picsur-shared/dist/dto/mimes.dto';
 import { SysPreference } from 'picsur-shared/dist/dto/sys-preferences.enum';
@@ -12,6 +14,7 @@ import {
   FT,
   HasFailed,
 } from 'picsur-shared/dist/types/failable';
+import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
 import { SharpOptions } from 'sharp';
 import { SysPreferenceDbService } from '../../collections/preference-db/sys-preference-db.service.js';
 import { SharpWrapper } from '../../workers/sharp.wrapper.js';
@@ -57,6 +60,21 @@ export class ImageConverterService {
     } else {
       return Fail(FT.SysValidation, 'Unsupported mime type');
     }
+  }
+
+  // Makes sure an image can be read, by making a tiny version of it
+  public async check(image: Buffer, filetype: FileType): AsyncFailable<true> {
+    const target = ParseFileType(
+      filetype.category === SupportedFileTypeCategory.Animation
+        ? AnimFileType.WEBP
+        : ImageFileType.WEBP,
+    );
+    if (HasFailed(target)) return target;
+
+    const result = await this.convertImage(image, filetype, target, {
+      width: 16,
+    });
+    return HasFailed(result) ? result : true;
   }
 
   // Only a limited amount of conversions run at the same time, each one runs

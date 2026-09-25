@@ -113,7 +113,7 @@ export class ImageController {
     ]);
 
     const fileTypes = ThrowIfFailed(fileMimesRes);
-    // Images stay when the user who uploaded them is deleted
+    // Picsur 0.5 kept the images of users it deleted
     let user: ImageMetaResponse['user'] = null;
     if (HasSuccess(imageUserRes)) {
       user = { id: imageUserRes.id, username: imageUserRes.username };

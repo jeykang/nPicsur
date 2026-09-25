@@ -45,10 +45,12 @@ const SystemRoleDefaultsTyped: {
     Permission.UserLogin,
     Permission.ImageView,
     Permission.ImageDeleteKey,
+    Permission.GalleryView,
   ],
   user: [
     Permission.ImageView,
     Permission.ImageDeleteKey,
+    Permission.GalleryView,
     Permission.ImageManage,
     Permission.ImageUpload,
     Permission.UserKeepLogin,

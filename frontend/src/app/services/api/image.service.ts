@@ -1,5 +1,9 @@
 import { Injectable } from '@angular/core';
 import {
+  GalleryListRequest,
+  GalleryListResponse,
+} from 'picsur-shared/dist/dto/api/gallery.dto';
+import {
   ImageDeleteRequest,
   ImageDeleteResponse,
   ImageDeleteWithKeyRequest,
@@ -98,9 +102,21 @@ export class ImageService {
     return await this.ListAllImages(count, page, userID);
   }
 
+  public async ListGallery(
+    count: number,
+    page: number,
+  ): AsyncFailable<GalleryListResponse> {
+    return await this.api.post(
+      GalleryListRequest,
+      GalleryListResponse,
+      '/api/gallery/list',
+      { count, page },
+    ).result;
+  }
+
   public async UpdateImage(
     id: string,
-    settings: Partial<Pick<EImage, 'file_name' | 'expires_at'>>,
+    settings: Partial<Pick<EImage, 'file_name' | 'expires_at' | 'listed'>>,
   ): AsyncFailable<EImage> {
     return await this.api.post(
       ImageUpdateRequest,

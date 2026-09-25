@@ -34,6 +34,7 @@ export class EditDialogComponent {
   ];
 
   public expiresAfter?: number = undefined;
+  public listed = false;
   public image: EImage;
 
   constructor(
@@ -47,6 +48,7 @@ export class EditDialogComponent {
     }
 
     this.image = data.image;
+    this.listed = data.image.listed;
   }
 
   close() {
@@ -57,6 +59,7 @@ export class EditDialogComponent {
     const result = await this.imageService.UpdateImage(this.image.id, {
       file_name: this.image.file_name,
       expires_at: this.getExpiresDate(),
+      listed: this.listed,
     });
 
     if (HasFailed(result)) {

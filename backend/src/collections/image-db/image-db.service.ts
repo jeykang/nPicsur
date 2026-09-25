@@ -28,6 +28,7 @@ export class ImageDBService {
     imageEntity.user_id = userid;
     imageEntity.created = new Date();
     imageEntity.file_name = filename;
+    imageEntity.listed = false;
     if (withDeleteKey) imageEntity.delete_key = generateRandomString(32);
 
     try {
@@ -89,6 +90,60 @@ export class ImageDBService {
     }
   }
 
+  // The images shown in the public gallery, newest first, with who uploaded
+  // them
+  public async findGallery(
+    count: number,
+    page: number,
+  ): AsyncFailable<
+    FindResult<
+      EImageBackend & { user: { id: string; username: string } | null }
+    >
+  > {
+    if (count < 1 || page < 0) return Fail(FT.UsrValidation, 'Invalid page');
+    if (count > 100) return Fail(FT.UsrValidation, 'Too many results');
+
+    try {
+      const [found, amount] = await this.imageRepo
+        .createQueryBuilder('image')
+        .where('image.listed = true')
+        .andWhere('(image.expires_at IS NULL OR image.expires_at > :now)', {
+          now: new Date(),
+        })
+        .orderBy('image.created', 'DESC')
+        .skip(count * page)
+        .take(count)
+        .getManyAndCount();
+
+      const userIds = [...new Set(found.map((image) => image.user_id))];
+      const users =
+        userIds.length === 0
+          ? []
+          : await this.imageRepo.manager.getRepository(EUserBackend).find({
+              where: { id: In(userIds) },
+              select: ['id', 'username'],
+            });
+      const byId = new Map(
+        users.map((user) => [
+          user.id,
+          { id: user.id, username: user.username },
+        ]),
+      );
+
+      return {
+        results: found.map((image) => ({
+          ...image,
+          user: byId.get(image.user_id) ?? null,
+        })),
+        total: amount,
+        page,
+        pages: Math.ceil(amount / count),
+      };
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
+  }
+
   public async count(): AsyncFailable<number> {
     try {
       return await this.imageRepo.count();
@@ -100,7 +155,9 @@ export class ImageDBService {
   public async update(
     id: string,
     userid: string | undefined,
-    options: Partial<Pick<EImageBackend, 'file_name' | 'expires_at'>>,
+    options: Partial<
+      Pick<EImageBackend, 'file_name' | 'expires_at' | 'listed'>
+    >,
   ): AsyncFailable<EImageBackend> {
     try {
       const found = await this.imageRepo.findOne({
@@ -113,6 +170,8 @@ export class ImageDBService {
 
       if (options.expires_at !== undefined)
         found.expires_at = options.expires_at;
+
+      if (options.listed !== undefined) found.listed = options.listed;
 
       await this.imageRepo.save(found);
 

@@ -35,8 +35,9 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
 - A ShareX configuration builder, and api keys
 - Images stored in the database or in S3 compatible object storage
 - A dark and a light theme
+- A public gallery of the images their owners chose to show there
 
-Not there yet: a public gallery, albums.
+Not there yet: albums.
 
 ## Running your own instance
 
@@ -150,6 +151,7 @@ Things that behave differently:
   ```
 
 - Deletion links open a page that asks for confirmation. Links saved by ShareX keep working.
+- There is a public gallery, which only shows the images their owners chose to show there, so it starts out empty. The guest and user roles get the new "View Gallery" permission for it.
 - The token from `/api/user/me` is empty when authenticated with an api key. Api keys are used directly instead.
 - Api keys are only shown once, when they are created. Existing keys keep working, also in ShareX configs. The ShareX config builder creates a new key for every config.
 - The image metadata (`/i/meta/:id`) only shows the uploader's id and username.
@@ -187,6 +189,12 @@ Postgres 14 [stops getting fixes](https://www.postgresql.org/support/versioning/
 By default, users can't register their own accounts. This is to prevent users from accidentally allowing anyone to upload to their instance.
 
 If you want to allow this you can though. To change this you go to `settings -> roles -> guest -> edit`, and then give the guest role the `Register` permission. Upon saving the role, the register button will appear on the login page.
+
+### How do I show images in the gallery, or close it?
+
+Open the image, edit it, and turn on "Show in the public gallery". Everyone with the "View Gallery" permission can then find it in the gallery, by default that includes visitors who are not logged in. Other images can only be seen by whoever has their link.
+
+To close the gallery to visitors, go to `settings -> roles -> guest -> edit` and remove the "View Gallery" permission. Remove it from the user role as well to turn the gallery off completely.
 
 ### I want to keep my original image files, how?
 

@@ -71,7 +71,9 @@ export class ImageManagerService {
   public async update(
     id: string,
     userid: string | undefined,
-    options: Partial<Pick<EImageBackend, 'file_name' | 'expires_at'>>,
+    options: Partial<
+      Pick<EImageBackend, 'file_name' | 'expires_at' | 'listed'>
+    >,
   ): AsyncFailable<EImageBackend> {
     if (options.expires_at !== undefined && options.expires_at !== null) {
       if (options.expires_at < new Date()) {

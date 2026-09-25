@@ -30,6 +30,16 @@
           </mat-select>
         </mat-form-field>
       </div>
+      <div class="col-12 pb-3">
+        <mat-slide-toggle
+          name="listed"
+          [ngModelOptions]="{ standalone: true }"
+          [(ngModel)]="listed"
+        >
+          Show in the public gallery
+        </mat-slide-toggle>
+        <p class="hint">Otherwise only whoever has the link can see it.</p>
+      </div>
     </div>
     <div class="dialog-buttons">
       <button type="button" mat-flat-button (click)="close()" color="accent">

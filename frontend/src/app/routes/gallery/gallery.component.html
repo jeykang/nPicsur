@@ -1,0 +1,50 @@
+<h1>Gallery</h1>
+
+@if (images === null) {
+  <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+}
+
+@if (images !== null && images.length === 0) {
+  <p>
+    Nothing is shown here yet. Images show up here when whoever uploaded them
+    turns on "Show in the public gallery" while editing them.
+  </p>
+}
+
+@if (images !== null && images.length > 0) {
+  <masonry [columns]="columns">
+    @for (image of images; track image.id) {
+      <ng-template masonry-item>
+        <div class="m-2">
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>{{ image.file_name | truncate }}</mat-card-title>
+              <mat-card-subtitle>
+                By {{ image.user?.username ?? 'a deleted user' }},
+                {{ image.created | amTimeAgo }}
+              </mat-card-subtitle>
+            </mat-card-header>
+            <picsur-img
+              mat-card-image
+              class="clickable"
+              [src]="getThumbnailUrl(image)"
+              alt="Image in the gallery"
+              (click)="viewImage(image)"
+            >
+            </picsur-img>
+            <mat-card-actions>
+              <button mat-stroked-button (click)="viewImage(image)">
+                VIEW
+              </button>
+            </mat-card-actions>
+          </mat-card>
+        </div>
+      </ng-template>
+    }
+  </masonry>
+  <paginator
+    [total-pages]="pages"
+    [page]="page"
+    (page)="gotoPage($event)"
+  ></paginator>
+}

@@ -154,6 +154,31 @@ Things that behave differently:
 - The image metadata (`/i/meta/:id`) only shows the uploader's id and username.
 - The statistics proxy (`/api/usage/report`) only accepts JSON.
 
+## Upgrading Postgres
+
+Postgres 14 [stops getting fixes](https://www.postgresql.org/support/versioning/) on 12 November 2026. A new major version of Postgres can't use the data of an older one, so the database has to be copied over ([Postgres documentation](https://www.postgresql.org/docs/current/upgrading.html)). With images in S3 this is quick, the images themselves stay in the bucket.
+
+1. Stop Picsur and export the database:
+
+   ```sh
+   docker compose stop picsur
+   docker exec picsur_postgres pg_dump -U picsur picsur > picsur.sql
+   ```
+
+2. Change the Postgres image to `postgres:17-alpine`, and give it a new volume, like `picsur-data17:/var/lib/postgresql/data` (also add it under `volumes:`). Keep `POSTGRES_PASSWORD` as it is, and the old volume until everything works.
+3. Start the new Postgres, and wait until `docker logs picsur_postgres` says `PostgreSQL init process complete`.
+
+   ```sh
+   docker compose up -d picsur_postgres
+   ```
+
+4. Import the database, and start Picsur again:
+
+   ```sh
+   docker exec -i picsur_postgres psql -U picsur -d picsur < picsur.sql
+   docker compose up -d
+   ```
+
 ## FAQ
 
 ### How do I allow users to register their own accounts?

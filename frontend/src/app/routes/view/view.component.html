@@ -8,7 +8,8 @@
 
     <div class="col-12" *ngIf="image !== null">
       <h3>
-        Uploaded {{ image.created | amTimeAgo }} by {{ user?.username }}
+        Uploaded {{ image.created | amTimeAgo }} by
+        {{ user?.username ?? 'a deleted user' }}
         {{
           image.expires_at === null
             ? ''

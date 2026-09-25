@@ -597,6 +597,18 @@ describe('image management', () => {
     expect(gone.headers.get('content-type')).toBe('image/png');
   });
 
+  it('keeps showing images of deleted users', async () => {
+    const carol = await createUser(admin);
+    const { id } = await carol.client.uploadOk(png);
+    expectSuccess(await admin.post('/api/user/delete', { id: carol.id }));
+
+    const guest = Client.guest();
+    const meta = expectSuccess(await guest.get(`/i/meta/${id}`));
+    expect(meta.image.id).toBe(id);
+    expect(meta.user).toBeNull();
+    expect((await guest.get(`/i/${id}.png`)).status).toBe(200);
+  });
+
   it("lets admins delete anyone's images", async () => {
     const { id } = await bob.client.uploadOk(png);
     expectSuccess(await admin.post('/api/image/delete', { ids: [id] }));

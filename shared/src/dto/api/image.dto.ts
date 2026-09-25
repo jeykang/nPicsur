@@ -29,7 +29,8 @@ export class ImageRequestParams extends createZodDto(
 
 export const ImageMetaResponseSchema = z.object({
   image: EImageSchema,
-  user: EPublicUserSchema,
+  // Null when the user who uploaded it was deleted
+  user: EPublicUserSchema.nullable(),
   fileTypes: z.object({
     [ImageEntryVariant.MASTER]: z.string(),
     [ImageEntryVariant.ORIGINAL]: z.union([z.string(), z.undefined()]),

@@ -9,6 +9,7 @@ import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.en
 import { FileType2Mime } from 'picsur-shared/dist/dto/mimes.dto';
 import {
   FT,
+  HasSuccess,
   IsFailure,
   ThrowIfFailed,
 } from 'picsur-shared/dist/types/failable';
@@ -112,12 +113,14 @@ export class ImageController {
     ]);
 
     const fileTypes = ThrowIfFailed(fileMimesRes);
-    const imageUser = ThrowIfFailed(imageUserRes);
+    // Images stay when the user who uploaded them is deleted
+    let user: ImageMetaResponse['user'] = null;
+    if (HasSuccess(imageUserRes)) {
+      user = { id: imageUserRes.id, username: imageUserRes.username };
+    } else if (imageUserRes.getType() !== FT.NotFound) {
+      throw imageUserRes;
+    }
 
-    return {
-      image,
-      user: { id: imageUser.id, username: imageUser.username },
-      fileTypes,
-    };
+    return { image, user, fileTypes };
   }
 }

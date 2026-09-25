@@ -1,0 +1,235 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Images are only published for master and for release tags like v0.6.0
+  PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) }}
+  E2E_DB_HOST: 127.0.0.1
+  # Object storage for the tests, a local S3 imitation
+  S3_TEST_ENV: >-
+    {"PICSUR_STORAGE_DRIVER": "s3",
+    "PICSUR_S3_ENDPOINT": "http://127.0.0.1:5000",
+    "PICSUR_S3_FORCE_PATH_STYLE": "true",
+    "PICSUR_S3_ACCESS_KEY_ID": "test",
+    "PICSUR_S3_SECRET_ACCESS_KEY": "test",
+    "PICSUR_S3_PREFIX": "picsur/"}
+
+jobs:
+  test:
+    name: Test (${{ matrix.storage }})
+    # Branches of this repository are tested when pushed, so only pull
+    # requests from forks need a run of their own
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        storage: [database, s3]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: picsur
+          POSTGRES_PASSWORD: picsur
+          POSTGRES_DB: picsur
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U picsur"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      moto:
+        image: motoserver/moto:5.2.3
+        ports: ['5000:5000']
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prettier --check .
+      - run: pnpm --filter picsur-shared build
+      - run: pnpm --filter picsur-backend build
+      - run: pnpm --filter picsur-backend typecheck:test
+      - run: pnpm --filter picsur-backend test:unit
+      - name: End-to-end tests
+        run: pnpm --filter picsur-backend test:e2e
+        env:
+          E2E_SERVER_ENV: ${{ matrix.storage == 's3' && env.S3_TEST_ENV || '{}' }}
+      - name: Upload the server log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-log-${{ matrix.storage }}
+          path: backend/test/e2e/.output/server.log
+          if-no-files-found: ignore
+
+  # Every platform is built on a machine of its own, which is a lot faster
+  # than emulating one. The image is tested before anything is published.
+  docker:
+    name: Docker image (${{ matrix.platform }})
+    # Branches of this repository are tested when pushed, so only pull
+    # requests from forks need a run of their own
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: picsur
+          POSTGRES_PASSWORD: picsur
+          POSTGRES_DB: picsur
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U picsur"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      moto:
+        image: motoserver/moto:5.2.3
+        ports: ['5000:5000']
+    steps:
+      - uses: actions/checkout@v5
+      - name: Prepare
+        run: |
+          # Image names have to be lower case
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          platform='${{ matrix.platform }}'
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+      - name: Image labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          load: true
+          tags: picsur:test
+          cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ env.PLATFORM_PAIR }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile --filter picsur-backend...
+      - name: End-to-end tests against the image
+        run: pnpm --filter picsur-backend test:e2e
+        env:
+          E2E_DOCKER_IMAGE: picsur:test
+          E2E_SERVER_ENV: ${{ env.S3_TEST_ENV }}
+      - name: Upload the server log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-log-${{ env.PLATFORM_PAIR }}
+          path: backend/test/e2e/.output/server.log
+          if-no-files-found: ignore
+
+      - name: Log in to the container registry
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push by digest
+        if: env.PUBLISH == 'true'
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Everything is cached from the build above
+          cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+      - name: Export the digest
+        if: env.PUBLISH == 'true'
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest='${{ steps.push.outputs.digest }}'
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+      - name: Upload the digest
+        if: env.PUBLISH == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Combines the images of all platforms under the published tags
+  publish:
+    name: Publish the image
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+    needs: [test, docker]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Prepare
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          # master is published as "edge", releases (tags like v0.6.0) as
+          # "0.6.0", "0.6" and "latest"
+          tags: |
+            type=edge,branch=master
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+      - name: Create the manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "$IMAGE@sha256:%s " *)
+      - name: Inspect the image
+        run: docker buildx imagetools inspect "$IMAGE:${{ steps.meta.outputs.version }}"

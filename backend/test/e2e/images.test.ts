@@ -10,6 +10,7 @@ import {
 import {
   convertTo,
   makeAnimatedGif,
+  makeHevcHeic,
   makeJpeg,
   makePng,
   metadata,
@@ -114,6 +115,45 @@ describe('image upload and retrieval', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe(mime);
     expect(res.body.subarray(0, magic.length).toString('latin1')).toBe(magic);
+  });
+
+  // These need a libvips with every codec, which the Docker image has
+  describe.runIf(inject('fullCodecs'))('with every codec', () => {
+    it.each([
+      ['heif', 'image/heic'],
+      ['jxl', 'image/jxl'],
+      ['jp2', 'image/jp2'],
+    ])('converts to %s', async (ext, mime) => {
+      const res = await Client.guest().get(`/i/${imageId}.${ext}`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toBe(mime);
+
+      // Sharp's own builds can not read these, so the server checks them
+      const copy = await user.client.uploadOk(res.body, `copy.${ext}`);
+      const png = await Client.guest().get(`/i/${copy.id}.png`);
+      expect(png.status).toBe(200);
+      const meta = await metadata(png.body);
+      expect(meta.width).toBe(64);
+      expect(meta.height).toBe(48);
+    });
+
+    it('reads HEIC photos', async () => {
+      const heic = await user.client.uploadOk(makeHevcHeic(), 'photo.heic');
+      const res = await Client.guest().get(`/i/${heic.id}.png`);
+      expect(res.status).toBe(200);
+
+      const { data, info } = await sharp(res.body)
+        .removeAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      expect([info.width, info.height]).toEqual([64, 48]);
+      // The pixel at (32, 24) was (128, 120, 128) before compression
+      const i = (24 * 64 + 32) * info.channels;
+      const pixel = [data[i], data[i + 1], data[i + 2]];
+      [128, 120, 128].forEach((expected, channel) =>
+        expect(Math.abs(pixel[channel] - expected)).toBeLessThan(12),
+      );
+    });
   });
 
   it('keeps the pixels intact in lossless formats', async () => {

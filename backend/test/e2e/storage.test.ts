@@ -5,20 +5,17 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { spawnBackend } from './helpers/backend.js';
 import { Client, expectSuccess } from './helpers/client.js';
 import { makeJpeg, makePng } from './helpers/images.js';
 
 const env = inject('serverEnv');
 const s3Configured = env['PICSUR_S3_BUCKET'] !== undefined;
 const s3IsTarget = env['PICSUR_STORAGE_DRIVER'] === 's3';
-const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 function s3Client() {
   return new S3Client({
@@ -43,10 +40,11 @@ const prefix = (env['PICSUR_S3_PREFIX'] ?? '')
 // Runs the command line tool against the test database and bucket
 function cli(args: string[], envOverrides: Record<string, string> = {}) {
   return new Promise<{ code: number; output: string }>((done) => {
-    const child = spawn(
-      process.env['E2E_NODE'] ?? process.execPath,
-      ['dist/cli.js', ...args],
-      { cwd: backendRoot, env: { ...env, ...envOverrides } },
+    const child = spawnBackend(
+      'cli',
+      args,
+      { ...env, ...envOverrides },
+      inject('dockerImage'),
     );
     let output = '';
     child.stdout.on('data', (d) => (output += d));

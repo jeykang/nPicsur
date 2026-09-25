@@ -1,7 +1,8 @@
+import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
 
-// Test images are generated on the fly, so there are no binary fixtures to
-// keep in the repository.
+// Test images are generated on the fly where possible, instead of being kept
+// in the repository.
 
 export async function makePng(width = 64, height = 48): Promise<Buffer> {
   // A gradient-ish image with some transparency, so conversions have
@@ -102,4 +103,13 @@ export function makeAnimatedGif(frames = 3, width = 32, height = 32): Buffer {
 
 export async function metadata(image: Buffer) {
   return sharp(image, { animated: true }).metadata();
+}
+
+// A 64x48 HEIC compressed with HEVC, the format phones take photos in. Sharp's
+// own builds can neither write nor read these, so this one is kept in the
+// repository. It was made with pillow-heif 1.8.0 (libheif 1.23.4 and x265),
+// from an RGB image where the pixel at (x, y) is (x * 4, y * 5, 128), saved
+// with quality 90.
+export function makeHevcHeic(): Buffer {
+  return readFileSync(new URL('../fixtures/hevc.heic', import.meta.url));
 }

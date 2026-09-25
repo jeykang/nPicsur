@@ -37,7 +37,7 @@ describe('info', () => {
   it('serves the frontend', async () => {
     const res = await guest.get('/');
     expect(res.status).toBe(200);
-    expect(res.body.toString()).toContain('picsur-e2e');
+    expect(res.body.toString()).toContain('<app-root');
   });
 
   it('wraps unknown api routes in an error envelope', async () => {
@@ -57,7 +57,7 @@ describe('info', () => {
       const res = await guest.get(path);
       expect(res.status, path).toBe(200);
       expect(res.headers.get('content-type')).toContain('text/html');
-      expect(res.body.toString()).toContain('picsur-e2e');
+      expect(res.body.toString()).toContain('<app-root');
     }
   });
 });

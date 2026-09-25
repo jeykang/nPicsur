@@ -30,6 +30,7 @@ import { ZodValidationPipe } from './layers/validate/zod-validator.pipe.js';
 import { PicsurLoggerService } from './logger/logger.service.js';
 import { MainAuthGuard } from './managers/auth/guards/main.guard.js';
 import { HelmetOptions } from './security.js';
+import { CollectGarbageWhenIdle, NoteActivity } from './util/idle-gc.js';
 import {
   MarkStarted,
   SetRestartError,
@@ -89,6 +90,15 @@ async function bootstrap(
     app.useGlobalGuards(app.get(PicsurThrottlerGuard), app.get(MainAuthGuard));
 
     const fastify = app.getHttpAdapter().getInstance();
+    // Memory is only given back while no requests come in
+    fastify.addHook('onRequest', (_request, _reply, done) => {
+      NoteActivity();
+      done();
+    });
+    fastify.addHook('onResponse', (_request, _reply, done) => {
+      NoteActivity();
+      done();
+    });
     registerImageHeaders(fastify);
     await registerFrontend(
       fastify,
@@ -122,6 +132,7 @@ async function shutdown(app: NestFastifyApplication) {
 // is asked for on the settings page
 async function main() {
   const logger = new Logger('Picsur');
+  CollectGarbageWhenIdle();
 
   let settings = await LoadStoredServerSettings();
   let app = await bootstrap(settings);

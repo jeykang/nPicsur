@@ -15,6 +15,10 @@
 - JPEG, PNG, WebP and GIF uploads are kept as they were uploaded, only without their metadata, instead of being converted to QOI. A lossless copy of a photo is many times larger than the photo itself while holding nothing more: a 12 megapixel JPEG used to take up 9 times its size. Uploading it is about 9 times faster now, and making a smaller version of it about 5 times. Other formats are still converted to QOI. Images uploaded before stay as they are.
 - The processes that convert images are used for more than one conversion, instead of starting a new one every time, which took longer than converting most images. A small image that was not converted to the requested size and format before is ready in about 20 ms instead of 120 ms. A process is replaced after 50 conversions, when a conversion fails, or when it holds on to a lot of memory afterwards, and stops after 30 seconds without work.
 
+### Lighter
+
+- Picsur gives back the memory it took while it was busy once it is idle again, instead of keeping it until it restarts, and takes less of it while busy. Measured with the Docker image: 120 MB when idle instead of 160 MB, about 250 MB instead of 390 MB while handling a lot of requests, and back to about 140 MB within half a minute after. Outside the Docker image, this needs Node to be started with `--expose-gc`, see the `start:prod` script.
+
 ### Fixed
 
 - Photos were shown sideways when their EXIF orientation said to turn them, like phones do for photos taken upright. Images uploaded before stay as they are.

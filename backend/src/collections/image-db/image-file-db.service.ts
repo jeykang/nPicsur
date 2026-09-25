@@ -178,7 +178,11 @@ export class ImageFileDBService {
     }
     if (!derivative) return null;
 
-    const loaded = await this.load(derivative);
+    // Also when it is in object storage, but no bucket is configured anymore
+    const loaded =
+      derivative.data === null && !this.objectStorage.isConfigured
+        ? Fail(FT.NotFound, 'Cached image is in storage that is not used')
+        : await this.load(derivative);
     if (HasFailed(loaded)) {
       // The object is gone, e.g. the bucket was cleaned up. Forget about it
       // so it gets generated again.

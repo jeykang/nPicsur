@@ -70,6 +70,8 @@ jobs:
         run: pnpm --filter picsur-backend test:e2e
         env:
           E2E_SERVER_ENV: ${{ matrix.storage == 's3' && env.S3_TEST_ENV || '{}' }}
+          # For setting up object storage on the settings page
+          E2E_S3_ENV: ${{ env.S3_TEST_ENV }}
       - name: Upload the server log
         if: failure()
         uses: actions/upload-artifact@v4

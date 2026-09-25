@@ -106,6 +106,19 @@ const SettingsRoutes: PRoutes = [
           },
         },
       },
+      {
+        path: 'server',
+        loadChildren: () =>
+          import('./server/settings-server.module').then((m) => m.default),
+        data: {
+          permissions: [Permission.SysPrefAdmin],
+          page: {
+            title: 'Server',
+            icon: 'dns',
+            category: 'system',
+          },
+        },
+      },
     ],
     canActivate: [PermissionGuard],
     canActivateChild: [PermissionGuard],

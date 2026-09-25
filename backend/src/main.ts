@@ -1,16 +1,26 @@
 import fastifyHelmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import fastifyReplyFrom from '@fastify/reply-from';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
+import { ServerSetting } from 'picsur-shared/dist/dto/server-settings.dto';
 import { ParseBool } from 'picsur-shared/dist/util/parse-simple';
 import { AppModule } from './app.module.js';
 import { EnvPrefix } from './config/config.static.js';
 import { HostConfigService } from './config/early/host.config.service.js';
 import { ServeStaticConfigService } from './config/early/serve-static.config.service.js';
+import {
+  DefaultTrustProxy,
+  GetServerSetting,
+  LoadStoredServerSettings,
+  SaveStoredServerSettings,
+  StoredServerSettings,
+  UseStoredServerSettings,
+} from './config/server-settings.js';
 import { MainExceptionFilter } from './layers/exception/exception.filter.js';
 import { registerFrontend } from './layers/http/frontend.js';
 import { registerImageHeaders } from './layers/http/image-headers.js';
@@ -20,22 +30,27 @@ import { ZodValidationPipe } from './layers/validate/zod-validator.pipe.js';
 import { PicsurLoggerService } from './logger/logger.service.js';
 import { MainAuthGuard } from './managers/auth/guards/main.guard.js';
 import { HelmetOptions } from './security.js';
+import {
+  MarkStarted,
+  SetRestartError,
+  WaitForRestart,
+} from './util/restart.js';
 
 // Which proxies may tell us the real client address (X-Forwarded-For), this
-// matters for rate limiting. By default any address in a private range, which
-// covers a reverse proxy in the same docker network. PICSUR_TRUST_PROXY can
-// be "false", "true" or a comma separated list of addresses and ranges.
+// matters for rate limiting. Can be "false", "true" or a comma separated list
+// of addresses and ranges.
 function getTrustProxy(): boolean | string[] {
-  const value = process.env[`${EnvPrefix}TRUST_PROXY`]?.trim();
-  if (!value) {
-    return ['127.0.0.0/8', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
-  }
+  const value = GetServerSetting(ServerSetting.TrustProxy);
+  if (!value) return [...DefaultTrustProxy];
   const asBool = ParseBool(value, null);
   if (asBool !== null) return asBool;
   return value.split(',').map((entry) => entry.trim());
 }
 
-async function bootstrap() {
+async function bootstrap(
+  settings: StoredServerSettings,
+): Promise<NestFastifyApplication> {
+  UseStoredServerSettings(settings);
   const isProduction = ParseBool(process.env[`${EnvPrefix}PRODUCTION`], false);
 
   // Create fasify
@@ -53,35 +68,90 @@ async function bootstrap() {
     {
       bufferLogs: isProduction,
       autoFlushLogs: true,
+      // Throw instead of exiting, so a restart with new settings that do not
+      // work can go back to the previous ones
+      abortOnError: false,
     },
   );
 
-  // Configure logger
-  app.useLogger(app.get(PicsurLoggerService));
-  app.flushLogs();
+  try {
+    // Configure logger
+    app.useLogger(app.get(PicsurLoggerService));
+    app.flushLogs();
 
-  // Close database connections and the like when stopped
-  app.enableShutdownHooks();
+    // Close database connections and the like when stopped
+    app.enableShutdownHooks();
 
-  app.useGlobalFilters(app.get(MainExceptionFilter));
-  app.useGlobalInterceptors(app.get(SuccessInterceptor));
-  app.useGlobalPipes(app.get(ZodValidationPipe));
+    app.useGlobalFilters(app.get(MainExceptionFilter));
+    app.useGlobalInterceptors(app.get(SuccessInterceptor));
+    app.useGlobalPipes(app.get(ZodValidationPipe));
 
-  app.useGlobalGuards(app.get(PicsurThrottlerGuard), app.get(MainAuthGuard));
+    app.useGlobalGuards(app.get(PicsurThrottlerGuard), app.get(MainAuthGuard));
 
-  const fastify = app.getHttpAdapter().getInstance();
-  registerImageHeaders(fastify);
-  await registerFrontend(
-    fastify,
-    app.get(ServeStaticConfigService).getStaticDirectory(),
-  );
+    const fastify = app.getHttpAdapter().getInstance();
+    registerImageHeaders(fastify);
+    await registerFrontend(
+      fastify,
+      app.get(ServeStaticConfigService).getStaticDirectory(),
+    );
 
-  // Start app
-  const hostConfigService = app.get(HostConfigService);
-  await app.listen(hostConfigService.getPort(), hostConfigService.getHost());
+    // Start app
+    const hostConfigService = app.get(HostConfigService);
+    await app.listen(hostConfigService.getPort(), hostConfigService.getHost());
+  } catch (e) {
+    await app.close().catch(() => undefined);
+    throw e;
+  }
+
+  MarkStarted();
+  return app;
 }
 
-bootstrap().catch((e) => {
+// Lets requests in progress finish, but not forever
+async function shutdown(app: NestFastifyApplication) {
+  const server = app.getHttpServer();
+  const force = setTimeout(() => server.closeAllConnections(), 10_000);
+  try {
+    await app.close();
+  } finally {
+    clearTimeout(force);
+  }
+}
+
+// Starts Picsur, and starts it again with the stored settings whenever that
+// is asked for on the settings page
+async function main() {
+  const logger = new Logger('Picsur');
+
+  let settings = await LoadStoredServerSettings();
+  let app = await bootstrap(settings);
+
+  for (;;) {
+    await WaitForRestart();
+    logger.log('Restarting to apply the server settings');
+    await shutdown(app);
+
+    const previous = settings;
+    try {
+      settings = await LoadStoredServerSettings();
+      app = await bootstrap(settings);
+      SetRestartError(null);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      logger.error(
+        `Could not start with the new server settings, going back to the previous ones: ${message}`,
+      );
+      settings = previous;
+      await SaveStoredServerSettings(previous).catch((saveError) =>
+        logger.error(`Could not store the previous settings: ${saveError}`),
+      );
+      app = await bootstrap(previous);
+      SetRestartError(message);
+    }
+  }
+}
+
+main().catch((e) => {
   console.error(e);
   process.exit(1);
 });

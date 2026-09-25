@@ -10,7 +10,7 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
 
 ## What changed in this fork
 
-- **S3 compatible object storage** for image data, as an alternative to the database. Existing images can be moved in either direction with a command, see [Storing images in S3](#storing-images-in-s3).
+- **S3 compatible object storage** for image data, as an alternative to the database. It can be set up on the settings page, and existing images can be moved in either direction from there, see [Storing images in S3](#storing-images-in-s3).
 - **Security fixes**, among others:
   - Users allowed to manage users, roles or api keys could make themselves administrator. They can now only hand out permissions they have themselves.
   - Rate limiting did not work, and anonymous visitors could make the server convert images without limit.
@@ -18,7 +18,7 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
   - Deletion links ask for confirmation, so link previews in chat apps no longer delete images.
   - Without `PICSUR_ADMIN_PASSWORD`, new instances got the admin password `picsur`. A random password is now generated instead.
   - Api keys are stored hashed and only shown once, when they are created. They can no longer be turned into login tokens.
-- **New features**: albums, a public gallery, a light theme, and changing your own password.
+- **New features**: albums, a public gallery, a light theme, changing your own password, and a settings page for the server itself, which restarts Picsur to apply them.
 - **Telemetry removed**: every instance of the original reported its hostname, user and image counts to the original author's server every hour.
 - **Current versions**: Node.js 24, NestJS 11 and Fastify 5 for the server, Angular 22 for the frontend. No dependency has a known vulnerability.
 - **Docker image** for amd64 and arm64 with HEIC (iPhone photos), JPEG XL and JPEG 2000 support. It is tested in CI before it is published.
@@ -82,31 +82,52 @@ The `latest` tag is the latest release, `edge` follows the master branch.
 
 ### Configuration
 
-| Variable                            | Default                    | Description                                                                                                                                                     |
-| ----------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PICSUR_DB_HOST`                    | `localhost`                | Postgres server                                                                                                                                                 |
-| `PICSUR_DB_PORT`                    | `5432`                     |                                                                                                                                                                 |
-| `PICSUR_DB_USERNAME`                | `picsur`                   |                                                                                                                                                                 |
-| `PICSUR_DB_PASSWORD`                | `picsur`                   |                                                                                                                                                                 |
-| `PICSUR_DB_DATABASE`                | `picsur`                   |                                                                                                                                                                 |
-| `PICSUR_ADMIN_PASSWORD`             | random, printed in the log | Password of the `admin` account when it is first created. Change it later in the settings                                                                       |
-| `PICSUR_JWT_SECRET`                 | random, stored in the db   | Secret for signing login tokens                                                                                                                                 |
-| `PICSUR_JWT_EXPIRY`                 | `7d`                       | How long a login lasts                                                                                                                                          |
-| `PICSUR_MAX_FILE_SIZE`              | `128000000`                | Largest accepted upload, in bytes                                                                                                                               |
-| `PICSUR_TRUST_PROXY`                | private addresses          | Which proxies may pass on the visitor's address (`X-Forwarded-For`), used for rate limiting. `true`, `false`, or a comma separated list of addresses and ranges |
-| `PICSUR_MAX_CONCURRENT_CONVERSIONS` | number of CPUs             | How many images are converted at once, more wait in line                                                                                                        |
-| `PICSUR_CONVERSION_RATE_LIMIT`      | `120`                      | New conversions a single visitor may start per minute, `0` for no limit                                                                                         |
-| `PICSUR_STORAGE_DRIVER`             | `database`                 | Where new images are stored, `database` or `s3`                                                                                                                 |
-| `PICSUR_S3_*`                       |                            | See [Storing images in S3](#storing-images-in-s3)                                                                                                               |
-| `PICSUR_HOST` / `PICSUR_PORT`       | `0.0.0.0` / `8080`         | Where the server listens                                                                                                                                        |
-| `PICSUR_STATIC_FRONTEND_ROOT`       | the built in frontend      | Only needed for a custom frontend                                                                                                                               |
-| `PICSUR_VERBOSE`                    | `false`                    | More logging, which might include sensitive data                                                                                                                |
+| Variable                            | Default                     | Description                                                                                                                                                     |
+| ----------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PICSUR_DB_HOST`                    | `localhost`                 | Postgres server                                                                                                                                                 |
+| `PICSUR_DB_PORT`                    | `5432`                      |                                                                                                                                                                 |
+| `PICSUR_DB_USERNAME`                | `picsur`                    |                                                                                                                                                                 |
+| `PICSUR_DB_PASSWORD`                | `picsur`                    |                                                                                                                                                                 |
+| `PICSUR_DB_DATABASE`                | `picsur`                    |                                                                                                                                                                 |
+| `PICSUR_ADMIN_PASSWORD`             | random, printed in the log  | Password of the `admin` account when it is first created. Change it later in the settings                                                                       |
+| `PICSUR_JWT_SECRET`                 | random, stored in the db    | Secret for signing login tokens                                                                                                                                 |
+| `PICSUR_JWT_EXPIRY`                 | `7d`                        | How long a login lasts                                                                                                                                          |
+| `PICSUR_ENCRYPTION_KEY`             | generated, stored in the db | Encrypts secrets saved on the settings page. Set it to protect them from copies of the database as well, see below                                              |
+| `PICSUR_MAX_FILE_SIZE`              | `128000000`                 | Largest accepted upload, in bytes                                                                                                                               |
+| `PICSUR_TRUST_PROXY`                | private addresses           | Which proxies may pass on the visitor's address (`X-Forwarded-For`), used for rate limiting. `true`, `false`, or a comma separated list of addresses and ranges |
+| `PICSUR_MAX_CONCURRENT_CONVERSIONS` | number of CPUs              | How many images are converted at once, more wait in line                                                                                                        |
+| `PICSUR_CONVERSION_RATE_LIMIT`      | `120`                       | New conversions a single visitor may start per minute, `0` for no limit                                                                                         |
+| `PICSUR_STORAGE_DRIVER`             | `database`                  | Where new images are stored, `database` or `s3`                                                                                                                 |
+| `PICSUR_S3_*`                       |                             | See [Storing images in S3](#storing-images-in-s3)                                                                                                               |
+| `PICSUR_HOST` / `PICSUR_PORT`       | `0.0.0.0` / `8080`          | Where the server listens                                                                                                                                        |
+| `PICSUR_STATIC_FRONTEND_ROOT`       | the built in frontend       | Only needed for a custom frontend                                                                                                                               |
+| `PICSUR_VERBOSE`                    | `false`                     | More logging, which might include sensitive data                                                                                                                |
+
+The storage, the upload size, the conversion limits and the trusted proxies can also be set in the web interface, under Settings → Server. Picsur restarts itself to apply them, and goes back to the settings it had before when it can not start with the new ones. An environment variable takes precedence over what is set there, the page shows such settings but can not change them.
+
+Values of these environment variables are saved in the settings as well, every time Picsur starts. So to manage a setting on the page instead, remove its variable and restart the container: Picsur keeps using the last value, which can then be changed on the page. The page lists the variables that can be removed.
+
+Secrets saved on the settings page, like the S3 secret access key, are always encrypted. By default Picsur generates the key for that and keeps it in the database, which keeps the secrets out of sight, but someone with a copy of the database can still decrypt them. To prevent that, set `PICSUR_ENCRYPTION_KEY` to a long random value, like the output of `openssl rand -base64 32`. It is not stored anywhere, and secrets saved with the generated key are encrypted with it the next time Picsur starts, after which the generated key is removed. Keep it safe along with your backups: secrets saved with it can not be read without it, and would have to be entered again.
+
+Encrypted secrets are stored as `enc:v1:env:...` or `enc:v1:db:...`, [`settings-encryption.ts`](backend/src/config/settings-encryption.ts) describes the format, for decrypting them by hand.
 
 Everything else is set in the web interface, under settings.
 
 ## Storing images in S3
 
 Image data can be stored in any S3 compatible object storage instead of the database, like AWS S3, Garage, MinIO or RustFS. The database still holds everything else.
+
+The easiest way to set it up is on the settings page, under Settings → Server:
+
+1. Choose to store new images in S3 compatible object storage, and fill in where the bucket is. For MinIO and most other self hosted services, turn on path style addressing.
+2. Test the storage, which also creates the bucket when it does not exist yet.
+3. Save, and restart Picsur when asked. It offers to move the images stored so far into the bucket after restarting. Picsur keeps working while they are moved, and the page shows how far along it is.
+
+Moving back to the database works the same way. A bucket can only be changed or removed once no images are stored in it anymore, so they do not become unreachable.
+
+The secret access key is saved encrypted, see [Configuration](#configuration) for how to keep it safe from copies of the database as well.
+
+Everything can also be set with environment variables, which then can not be changed on the page until they are removed:
 
 | Variable                      | Description                                                                                    |
 | ----------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -119,14 +140,14 @@ Image data can be stored in any S3 compatible object storage instead of the data
 | `PICSUR_S3_SECRET_ACCESS_KEY` |                                                                                                |
 | `PICSUR_S3_PREFIX`            | Keep Picsur's objects under this path in the bucket, like `picsur/`                            |
 
-Images already in the database stay readable after switching to `s3`, and images in the bucket stay readable after switching back, as long as the bucket is configured. To move existing images over, run:
+Images already in the database stay readable after switching to `s3`, and images in the bucket stay readable after switching back, as long as the bucket is configured. Existing images can be moved over on the settings page, or with the command line tool, which uses the same settings:
 
 ```sh
 # Where image data is stored right now
 docker exec picsur node backend/dist/cli.js storage status
 
-# Move everything to the storage PICSUR_STORAGE_DRIVER points to. Can run
-# while Picsur is running, and can be run again if it was interrupted.
+# Move everything to where new images are stored. Can run while Picsur is
+# running, and can be run again if it was interrupted.
 docker exec picsur node backend/dist/cli.js storage migrate
 
 # Delete objects in the bucket that no image uses anymore, for example after

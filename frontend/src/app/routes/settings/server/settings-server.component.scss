@@ -1,0 +1,53 @@
+mat-form-field {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.notice {
+  margin-bottom: 16px;
+}
+
+.notice-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.grow {
+  flex: 1 1 240px;
+}
+
+mat-progress-bar {
+  margin-top: 12px;
+}
+
+.secret button {
+  margin-bottom: 8px;
+}
+
+.toggle {
+  margin: 8px 0 16px;
+}
+
+.hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+h2 {
+  margin-top: 24px;
+}
+
+.remove-bucket {
+  margin-bottom: 16px;
+}
+
+.env-notice p {
+  margin: 0;
+
+  & + p {
+    margin-top: 8px;
+  }
+}

@@ -1,10 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions, TypeOrmOptionsFactory } from '@nestjs/typeorm';
-import { ParseInt, ParseString } from 'picsur-shared/dist/util/parse-simple';
 import { EntityList } from '../../database/entities/index.js';
 import { MigrationList } from '../../database/migrations/index.js';
-import { DefaultName, EnvPrefix } from '../config.static.js';
+import { GetDbConnectionOptions } from '../db-connection.js';
 import { HostConfigService } from './host.config.service.js';
 
 @Injectable()
@@ -25,26 +24,7 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
   }
 
   public getTypeOrmServerOptions() {
-    const varOptions = {
-      host: ParseString(
-        this.configService.get(`${EnvPrefix}DB_HOST`),
-        'localhost',
-      ),
-      port: ParseInt(this.configService.get(`${EnvPrefix}DB_PORT`), 5432),
-      username: ParseString(
-        this.configService.get(`${EnvPrefix}DB_USERNAME`),
-        DefaultName,
-      ),
-      password: ParseString(
-        this.configService.get(`${EnvPrefix}DB_PASSWORD`),
-        DefaultName,
-      ),
-      database: ParseString(
-        this.configService.get(`${EnvPrefix}DB_DATABASE`),
-        DefaultName,
-      ),
-    };
-    return varOptions;
+    return GetDbConnectionOptions((name) => this.configService.get(name));
   }
 
   public createTypeOrmOptions() {

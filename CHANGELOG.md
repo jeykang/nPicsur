@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### New
+
+- A settings page for the server itself, under Settings → Server: where images are stored, including the S3 connection and a way to test it, the upload size, the conversion limits and the trusted proxies. Picsur restarts itself to apply them, and goes back to the settings it had before when it can not start with the new ones. Environment variables still work and take precedence, the page shows those settings but can not change them.
+- Settings made with environment variables are saved on that page as well, so the variables can be removed to manage the settings there instead, without anything changing. The page lists the variables that can go.
+- Secrets saved on that page are encrypted. By default with a generated key that is kept in the database. The new `PICSUR_ENCRYPTION_KEY` keeps the key out of the database, which protects secrets from copies of it as well. Secrets saved before it was set are encrypted with it when Picsur starts.
+- Images can be moved between the database and S3 from that page, which shows how far along it is. Picsur keeps working in the meantime.
+- The command line tool uses the settings from the page as well.
+
 ## 0.6.0
 
 The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0.5](README.md#upgrading-from-picsur-05) before updating.

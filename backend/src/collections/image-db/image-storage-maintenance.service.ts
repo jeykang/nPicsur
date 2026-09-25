@@ -2,7 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import { FileType2Mime } from 'picsur-shared/dist/dto/mimes.dto';
-import { HasFailed } from 'picsur-shared/dist/types/failable';
+import {
+  AsyncFailable,
+  Fail,
+  FT,
+  HasFailed,
+} from 'picsur-shared/dist/types/failable';
 import { UUIDRegex } from 'picsur-shared/dist/util/common-regex';
 import { In, Repository } from 'typeorm';
 import { EImageDerivativeBackend } from '../../database/entities/images/image-derivative.entity.js';
@@ -20,6 +25,16 @@ export interface MigrationResult {
   movedBytes: number;
   failed: number;
   droppedDerivatives: number;
+  // Whether it was stopped before everything was moved
+  stopped: boolean;
+}
+
+export interface MigrationOptions {
+  batchSize?: number;
+  // Called after every file
+  onProgress?: (result: MigrationResult) => void;
+  // Checked before every file, stops moving files when it returns true
+  shouldStop?: () => boolean;
 }
 
 export interface GcResult {
@@ -81,17 +96,21 @@ export class ImageStorageMaintenanceService {
   // the other location are simply dropped, they are generated again when
   // needed. Safe to run while Picsur is running, and to run again after it
   // was interrupted.
-  public async migrate(batchSize = 50): Promise<MigrationResult> {
+  public async migrate(
+    options: MigrationOptions = {},
+  ): Promise<MigrationResult> {
+    const { batchSize = 50, onProgress, shouldStop = () => false } = options;
     const toObjectStorage = this.objectStorage.isWriteTarget;
     const result: MigrationResult = {
       moved: 0,
       movedBytes: 0,
       failed: 0,
       droppedDerivatives: 0,
+      stopped: false,
     };
 
     let lastId = '00000000-0000-0000-0000-000000000000';
-    for (;;) {
+    while (!result.stopped) {
       const rows: FileRow[] = await this.fileRepo
         .createQueryBuilder('file')
         .select('file._id', 'id')
@@ -108,6 +127,10 @@ export class ImageStorageMaintenanceService {
       lastId = rows[rows.length - 1].id;
 
       for (const row of rows) {
+        if (shouldStop()) {
+          result.stopped = true;
+          break;
+        }
         const moved = toObjectStorage
           ? await this.moveToObjectStorage(row)
           : await this.moveToDatabase(row);
@@ -117,6 +140,7 @@ export class ImageStorageMaintenanceService {
           result.moved++;
           result.movedBytes += moved;
         }
+        onProgress?.(result);
       }
 
       this.logger.log(
@@ -125,9 +149,23 @@ export class ImageStorageMaintenanceService {
       );
     }
 
+    if (result.stopped) {
+      this.logger.log('Stopped moving files');
+      return result;
+    }
+
     // Cached conversions stored in the old location are dropped
     result.droppedDerivatives = await this.dropDerivatives(toObjectStorage);
     return result;
+  }
+
+  // Drops the cached conversions stored in object storage
+  public async dropObjectStorageDerivatives(): AsyncFailable<number> {
+    try {
+      return await this.dropDerivatives(false);
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
   }
 
   // Deletes objects that no image refers to anymore. These are left behind
@@ -261,7 +299,7 @@ export class ImageStorageMaintenanceService {
     const keys = rows
       .map((row) => row.storage_key)
       .filter((key) => key !== null);
-    if (keys.length > 0) {
+    if (keys.length > 0 && this.objectStorage.isConfigured) {
       const deleted = await this.objectStorage.delete(keys);
       if (HasFailed(deleted)) {
         deleted.print(this.logger, { prefix: 'Dropping derivatives:' });

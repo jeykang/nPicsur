@@ -1,14 +1,16 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-@Entity()
+export const SystemStateTable = 'e_system_state_backend';
+
+@Entity({ name: SystemStateTable })
 export class ESystemStateBackend {
   @PrimaryGeneratedColumn('uuid')
   id?: string;
 
   @Index()
-  @Column({ nullable: false, unique: true })
+  @Column({ type: 'varchar', nullable: false, unique: true })
   key: string;
 
-  @Column({ nullable: false })
+  @Column({ type: 'varchar', nullable: false })
   value: string;
 }

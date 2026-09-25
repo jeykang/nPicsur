@@ -36,6 +36,17 @@ export class JwtStrategy extends PassportStrategy(JwtPassportStrategy, 'jwt') {
       await this.usersService.findOne(result.data.uid),
     );
 
+    // Tokens from before the password last changed are no longer valid. The
+    // token only has the time in seconds, so a token from the same second as
+    // the change is still accepted, like the one from logging in again.
+    const validAfter = backendUser.tokens_valid_after;
+    if (
+      validAfter &&
+      (result.data.iat ?? 0) < Math.floor(validAfter.getTime() / 1000)
+    ) {
+      return false;
+    }
+
     // And return the user
     return EUserBackend2EUser(backendUser);
   }

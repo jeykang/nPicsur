@@ -33,6 +33,11 @@ export class EUserBackend implements OverriddenEUser {
   @Column({ nullable: false, select: false })
   hashed_password?: string;
 
+  // Login tokens issued before this are no longer accepted. It is set when
+  // the password changes, so whoever had the old one is logged out.
+  @Column({ type: 'timestamptz', nullable: true })
+  tokens_valid_after?: Date | null;
+
   // This will never be populated, it is only here to auto delete apikeys when a user is deleted
   @OneToMany(() => EApiKeyBackend, (apikey) => apikey.user)
   apikeys?: EApiKeyBackend[];

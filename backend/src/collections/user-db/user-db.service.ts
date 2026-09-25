@@ -154,6 +154,7 @@ export class UserDbService {
 
     const strength = await this.getBCryptStrength();
     userToModify.hashed_password = await bcrypt.hash(password, strength);
+    userToModify.tokens_valid_after = new Date();
 
     try {
       userToModify = await this.usersRepository.save(userToModify);

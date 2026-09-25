@@ -80,6 +80,33 @@ describe('authentication', () => {
     expect(me.user.username).toBe('admin');
   });
 
+  it('logs out everywhere when the password changes', async () => {
+    const admin = await Client.admin();
+    const user = await createUser(admin);
+    const stolen = user.client.jwt;
+    expectSuccess(await user.client.get('/api/user/me'));
+
+    // Tokens only record the second they were made in, tokens from the same
+    // second as the change stay valid
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    expectSuccess(
+      await admin.post('/api/user/update', {
+        id: user.id,
+        password: 'a-new-password',
+      }),
+    );
+
+    const old = Client.guest();
+    old.jwt = stolen;
+    expectFailure(await old.get('/api/user/me'), 403, 'permission');
+
+    // Logging in again works right away
+    const again = await Client.user(user.username, 'a-new-password');
+    const me = expectSuccess(await again.get('/api/user/me'));
+    expect(me.user.id).toBe(user.id);
+    expect(me.user).not.toHaveProperty('tokens_valid_after');
+  });
+
   it('gives new users the default user role', async () => {
     const admin = await Client.admin();
     const { client } = await createUser(admin);

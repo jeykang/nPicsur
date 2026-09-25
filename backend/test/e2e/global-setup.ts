@@ -218,6 +218,8 @@ export default async function setup(project: TestProject) {
     // Short on purpose, like the example value many instances use. A short
     // secret used to break the settings page.
     PICSUR_JWT_SECRET: 'CHANGE_ME',
+    // For saving secrets on the settings page
+    PICSUR_ENCRYPTION_KEY: 'e2e-encryption-key-for-the-tests',
     // The Docker image serves the frontend that was built into it
     ...(dockerImage === null
       ? { PICSUR_STATIC_FRONTEND_ROOT: frontendRoot }

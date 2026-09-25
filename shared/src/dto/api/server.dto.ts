@@ -14,6 +14,9 @@ export const ServerSettingStateSchema = z.object({
   default: z.string().nullable(),
   // Settings from the environment can not be changed here
   source: z.enum(['environment', 'settings', 'default']),
+  // Whether the value is saved in the settings. Values from the environment
+  // are saved as well, so the variable can be removed later.
+  saved: z.boolean(),
   env: z.string(),
 });
 export type ServerSettingState = z.infer<typeof ServerSettingStateSchema>;
@@ -25,6 +28,8 @@ export const ServerSettingsResponseSchema = z.object({
   // Why the last restart went back to the settings before it, if it did
   restart_error: z.string().nullable(),
   started_at: z.preprocess((data: any) => new Date(data), z.date()),
+  // Secrets are only saved encrypted, which needs PICSUR_ENCRYPTION_KEY
+  can_save_secrets: z.boolean(),
 });
 export class ServerSettingsResponse extends createZodDto(
   ServerSettingsResponseSchema,

@@ -43,3 +43,11 @@ h2 {
 .remove-bucket {
   margin-bottom: 16px;
 }
+
+.env-notice p {
+  margin: 0;
+
+  & + p {
+    margin-top: 8px;
+  }
+}

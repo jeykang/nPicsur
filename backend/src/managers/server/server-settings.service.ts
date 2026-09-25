@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import {
   ServerSettingsResponse,
   StorageStatusResponse,
@@ -35,6 +35,11 @@ import {
   ServerSettingResolver,
   StoredServerSettings,
 } from '../../config/server-settings.js';
+import {
+  CanEncryptSettings,
+  EncryptionKeyEnv,
+  EncryptionKeyIsShort,
+} from '../../config/settings-encryption.js';
 import { RequestRestart, RestartError, StartedAt } from '../../util/restart.js';
 import { StorageMigrationService } from './storage-migration.service.js';
 
@@ -46,7 +51,7 @@ interface PlannedChange {
 
 // The server settings as the settings page shows and changes them
 @Injectable()
-export class ServerSettingsService {
+export class ServerSettingsService implements OnApplicationBootstrap {
   private readonly logger = new Logger(ServerSettingsService.name);
 
   constructor(
@@ -55,6 +60,52 @@ export class ServerSettingsService {
     private readonly migration: StorageMigrationService,
     private readonly storageConfig: StorageConfigService,
   ) {}
+
+  async onApplicationBootstrap() {
+    if (EncryptionKeyIsShort()) {
+      this.logger.warn(
+        `${EncryptionKeyEnv} is shorter than 16 characters, which makes the secrets it protects easier to reveal. Use a long random value, and save the secrets again after changing it.`,
+      );
+    }
+    await this.saveEnvironment();
+  }
+
+  // Settings from environment variables are saved as well, so the variables
+  // can be removed later without changing anything, and the settings changed
+  // on the settings page from then on
+  async saveEnvironment() {
+    const stored = await this.settingsDb.getAll();
+    if (HasFailed(stored)) {
+      stored.print(this.logger, { prefix: 'Saving environment settings:' });
+      return;
+    }
+
+    const changes = new Map<ServerSetting, string>();
+    for (const key of ServerSettingList) {
+      const value = EnvServerSetting(key);
+      if (value === undefined || stored.get(key) === value) continue;
+      if (!ServerSettingValidators[key].safeParse(value).success) {
+        this.logger.warn(
+          `${ServerSettingEnvName(key)} is not saved in the settings, the settings page does not accept its value`,
+        );
+        continue;
+      }
+      if (SecretServerSettings.includes(key) && !CanEncryptSettings()) {
+        continue;
+      }
+      changes.set(key, value);
+    }
+    if (changes.size === 0) return;
+
+    const updated = await this.settingsDb.update(changes);
+    if (HasFailed(updated)) {
+      updated.print(this.logger, { prefix: 'Saving environment settings:' });
+      return;
+    }
+    this.logger.log(
+      `Saved ${[...changes.keys()].map(ServerSettingEnvName).join(', ')} in the settings as well`,
+    );
+  }
 
   async describe(): AsyncFailable<ServerSettingsResponse> {
     const stored = await this.settingsDb.getAll();
@@ -67,7 +118,7 @@ export class ServerSettingsService {
   async update(
     values: Record<string, string | null>,
   ): AsyncFailable<ServerSettingsResponse> {
-    const plan = await this.plan(values);
+    const plan = await this.plan(values, true);
     if (HasFailed(plan)) return plan;
     if (plan.changes.size === 0) return this.describeStored(plan.stored);
 
@@ -175,6 +226,7 @@ export class ServerSettingsService {
   // Works out what the given changes result in, and whether they are valid
   private async plan(
     values: Record<string, string | null>,
+    saving = false,
   ): AsyncFailable<PlannedChange> {
     const current = await this.settingsDb.getAll();
     if (HasFailed(current)) return current;
@@ -203,6 +255,16 @@ export class ServerSettingsService {
           return Fail(
             FT.UsrValidation,
             `${ServerSettingEnvName(setting)}: ${valid.error.issues[0]?.message ?? 'Invalid value'}`,
+          );
+        }
+        if (
+          saving &&
+          SecretServerSettings.includes(setting) &&
+          !CanEncryptSettings()
+        ) {
+          return Fail(
+            FT.UsrValidation,
+            `Secrets are only saved encrypted, set ${EncryptionKeyEnv} to save ${ServerSettingEnvName(setting)} here`,
           );
         }
       }
@@ -247,6 +309,7 @@ export class ServerSettingsService {
               : stored.has(key)
                 ? 'settings'
                 : 'default',
+          saved: stored.has(key) && stored.get(key) === value,
           env: ServerSettingEnvName(key),
         };
       }),
@@ -258,6 +321,7 @@ export class ServerSettingsService {
       ),
       restart_error: RestartError(),
       started_at: StartedAt(),
+      can_save_secrets: CanEncryptSettings(),
     };
   }
 

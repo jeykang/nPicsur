@@ -76,6 +76,34 @@
     </mat-card>
   }
 
+  @if (removableEnv.length > 0 || keptEnv.length > 0) {
+    <mat-card appearance="outlined" class="notice env-notice">
+      <mat-card-content class="notice-content">
+        <mat-icon>settings_suggest</mat-icon>
+        <div class="grow">
+          @if (removableEnv.length > 0) {
+            <p>
+              Settings from environment variables are saved here as well, so
+              these variables can be removed from Picsur's configuration:
+              @for (env of removableEnv; track env; let last = $last) {
+                <code>{{ env }}</code
+                >{{ last ? '.' : ', ' }}
+              }
+              Once they are removed and the container is restarted, these
+              settings can be changed on this page.
+            </p>
+          }
+          @for (kept of keptEnv; track kept.env) {
+            <p>
+              Keep <code>{{ kept.env }}</code
+              >, {{ kept.reason }}.
+            </p>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+
   <form (ngSubmit)="save()">
     <h2>Image storage</h2>
     <p>

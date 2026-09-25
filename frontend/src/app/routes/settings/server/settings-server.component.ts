@@ -124,7 +124,41 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
   // Settings from the environment say where they come from instead
   public hint(key: ServerSetting): string {
     if (this.locked(key)) return `Set with ${this.state(key)?.env}`;
+    if (this.needsEncryptionKey(key)) {
+      return 'Secrets are saved encrypted, which needs PICSUR_ENCRYPTION_KEY to be set. See the README.';
+    }
     return ServerSettingUI[key].helpText;
+  }
+
+  // Secrets can only be saved when they can be encrypted
+  public needsEncryptionKey(key: ServerSetting): boolean {
+    return (
+      SecretServerSettings.includes(key) &&
+      !this.locked(key) &&
+      this.settings?.can_save_secrets === false
+    );
+  }
+
+  // Environment variables whose values are saved as well, so they can be
+  // removed from Picsur's configuration
+  public get removableEnv(): string[] {
+    return (this.settings?.settings ?? [])
+      .filter((s) => s.source === 'environment' && s.saved)
+      .map((s) => s.env);
+  }
+
+  // Environment variables that have to stay, with why
+  public get keptEnv(): { env: string; reason: string }[] {
+    return (this.settings?.settings ?? [])
+      .filter((s) => s.source === 'environment' && !s.saved)
+      .map((s) => ({
+        env: s.env,
+        reason:
+          SecretServerSettings.includes(s.key as ServerSetting) &&
+          !this.settings?.can_save_secrets
+            ? 'secrets are only saved encrypted, which needs PICSUR_ENCRYPTION_KEY'
+            : 'this page does not accept its value',
+      }));
   }
 
   public state(key: ServerSetting): ServerSettingState | null {
@@ -347,8 +381,14 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
       const value = this.formValue(key, state);
       this.initial[key] = value;
       control.setValue(value);
-      if (state.source === 'environment') control.disable();
-      else control.enable();
+      if (
+        state.source === 'environment' ||
+        (SecretServerSettings.includes(key) && !settings.can_save_secrets)
+      ) {
+        control.disable();
+      } else {
+        control.enable();
+      }
     }
     this.form.markAsPristine();
     this.form.markAsUntouched();

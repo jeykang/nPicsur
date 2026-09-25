@@ -2,13 +2,20 @@ import { Logger } from '@nestjs/common';
 import { availableParallelism } from 'node:os';
 import pg from 'pg';
 import {
+  SecretServerSettings,
   ServerSetting,
   ServerSettingEnvName,
   ServerSettingList,
   ServerSettingValidators,
 } from 'picsur-shared/dist/dto/server-settings.dto';
+import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { ServerSettingsTable } from '../database/entities/system/server-setting.entity.js';
 import { GetDbConnectionOptions } from './db-connection.js';
+import {
+  DecryptSetting,
+  EncryptionKeyEnv,
+  EncryptSetting,
+} from './settings-encryption.js';
 
 // Server settings come from the environment first, and otherwise from what is
 // stored in the database, which the settings page changes. Either way they
@@ -78,22 +85,45 @@ export function GetServerSetting(key: ServerSetting): string | undefined {
   return ServerSettingResolver(running)(key);
 }
 
-// Only valid values can be saved, but the database can be edited by hand
-export function ParseStoredServerSettings(
+// Reads stored settings, decrypting secrets. Only valid values can be saved,
+// but the database can be edited by hand, and secrets can only be read with
+// the key they were saved with.
+export async function ParseStoredServerSettings(
   rows: { key: string; value: string }[],
-  onInvalid?: (key: ServerSetting) => void,
-): StoredServerSettings {
+  onIgnored?: (key: ServerSetting, reason: string) => void,
+): Promise<StoredServerSettings> {
   const settings = new Map<ServerSetting, string>();
   for (const row of rows) {
     const key = row.key as ServerSetting;
     if (!ServerSettingList.includes(key)) continue;
-    if (!ServerSettingValidators[key].safeParse(row.value).success) {
-      onInvalid?.(key);
+
+    let value = row.value;
+    if (SecretServerSettings.includes(key)) {
+      const decrypted = await DecryptSetting(key, value);
+      if (HasFailed(decrypted)) {
+        onIgnored?.(key, decrypted.getReason());
+        continue;
+      }
+      value = decrypted;
+    }
+
+    if (!ServerSettingValidators[key].safeParse(value).success) {
+      onIgnored?.(key, 'it is not a valid value');
       continue;
     }
-    settings.set(key, row.value);
+    settings.set(key, value);
   }
   return settings;
+}
+
+// How a setting is stored, secrets are encrypted
+export async function StoredServerSettingValue(
+  key: ServerSetting,
+  value: string,
+): Promise<string> {
+  return SecretServerSettings.includes(key)
+    ? EncryptSetting(key, value)
+    : value;
 }
 
 function createClient() {
@@ -122,9 +152,15 @@ export async function LoadStoredServerSettings(
       const { rows } = await client.query<{ key: string; value: string }>(
         `SELECT "key", "value" FROM "${ServerSettingsTable}"`,
       );
-      return ParseStoredServerSettings(rows, (key) =>
-        logger.warn(`Ignoring the invalid stored value of ${key}`),
-      );
+      return await ParseStoredServerSettings(rows, (key, reason) => {
+        if (SecretServerSettings.includes(key)) {
+          logger.error(
+            `The saved ${ServerSettingEnvName(key)} can not be used, ${reason}. Set ${EncryptionKeyEnv} to the key it was saved with, or set ${ServerSettingEnvName(key)} itself.`,
+          );
+        } else {
+          logger.warn(`Ignoring the saved value of ${key}, ${reason}`);
+        }
+      });
     } catch (e: any) {
       // The table is created on the first start of a version that has it
       if (e?.code === '42P01') return new Map();
@@ -146,12 +182,17 @@ export async function SaveStoredServerSettings(
   const client = createClient();
   await client.connect();
   try {
+    const rows: [ServerSetting, string][] = [];
+    for (const [key, value] of settings) {
+      rows.push([key, await StoredServerSettingValue(key, value)]);
+    }
+
     await client.query('BEGIN');
     await client.query(`DELETE FROM "${ServerSettingsTable}"`);
-    for (const [key, value] of settings) {
+    for (const row of rows) {
       await client.query(
         `INSERT INTO "${ServerSettingsTable}" ("key", "value") VALUES ($1, $2)`,
-        [key, value],
+        row,
       );
     }
     await client.query('COMMIT');

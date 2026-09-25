@@ -6,9 +6,9 @@ export const ServerSettingsTable = 'e_server_setting_backend';
 // before Picsur starts, see config/server-settings.ts.
 @Entity({ name: ServerSettingsTable })
 export class EServerSettingBackend {
-  @PrimaryColumn()
+  @PrimaryColumn({ type: 'varchar' })
   key: string;
 
-  @Column({ nullable: false })
+  @Column({ type: 'varchar', nullable: false })
   value: string;
 }

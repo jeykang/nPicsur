@@ -30,6 +30,7 @@ interface SettingState {
   set: boolean;
   default: string | null;
   source: 'environment' | 'settings' | 'default';
+  saved: boolean;
   env: string;
 }
 
@@ -38,6 +39,7 @@ interface SettingsResponse {
   restart_needed: boolean;
   restart_error: string | null;
   started_at: string;
+  can_save_secrets: boolean;
 }
 
 interface StorageResponse {
@@ -118,10 +120,31 @@ function cli(args: string[]) {
 
 describe('server settings', () => {
   let admin: Client;
+  let db: pg.Client;
 
   beforeAll(async () => {
     admin = await Client.admin();
+    db = new pg.Client({
+      host: env['PICSUR_DB_HOST'],
+      port: Number(env['PICSUR_DB_PORT']),
+      user: env['PICSUR_DB_USERNAME'],
+      password: env['PICSUR_DB_PASSWORD'],
+      database: env['PICSUR_DB_DATABASE'],
+    });
+    await db.connect();
   });
+
+  afterAll(async () => {
+    await db.end();
+  });
+
+  async function storedValue(key: string): Promise<string | null> {
+    const result = await db.query(
+      'SELECT "value" FROM e_server_setting_backend WHERE "key" = $1',
+      [key],
+    );
+    return result.rows[0]?.value ?? null;
+  }
 
   it('are only for admins', async () => {
     const { client } = await createUser(admin);
@@ -152,20 +175,40 @@ describe('server settings', () => {
       value: env['PICSUR_MAX_FILE_SIZE'],
       set: true,
       source: 'environment',
+      saved: true,
       env: 'PICSUR_MAX_FILE_SIZE',
     });
     expect(setting(settings, 'max_concurrent_conversions')).toMatchObject({
       value: null,
       set: false,
       source: 'default',
+      saved: false,
     });
     expect(setting(settings, 's3_region').default).toBe('us-east-1');
+    expect(settings.can_save_secrets).toBe(true);
   });
 
-  it('never shows secrets', async () => {
+  it('saves settings from the environment, to take them over later', async () => {
+    expect(await storedValue('max_file_size')).toBe(
+      env['PICSUR_MAX_FILE_SIZE'],
+    );
+    expect(await storedValue('conversion_rate_limit')).toBe(
+      env['PICSUR_CONVERSION_RATE_LIMIT'],
+    );
+    expect(await storedValue('max_concurrent_conversions')).toBeNull();
+  });
+
+  it('never shows secrets, and only saves them encrypted', async () => {
     const secret = setting(await getSettings(admin), 's3_secret_access_key');
     expect(secret.value).toBeNull();
-    expect(secret.set).toBe(env['PICSUR_S3_SECRET_ACCESS_KEY'] !== undefined);
+
+    const fromEnv = env['PICSUR_S3_SECRET_ACCESS_KEY'];
+    expect(secret.set).toBe(fromEnv !== undefined);
+    if (fromEnv !== undefined) {
+      const stored = await storedValue('s3_secret_access_key');
+      expect(stored).toMatch(/^enc:v1:/);
+      expect(stored).not.toContain(fromEnv);
+    }
   });
 
   it('can not change settings from the environment', async () => {
@@ -242,23 +285,6 @@ describe('server settings', () => {
   });
 
   describe.skipIf(storageFromEnv)('with storage set here', () => {
-    let db: pg.Client;
-
-    beforeAll(async () => {
-      db = new pg.Client({
-        host: env['PICSUR_DB_HOST'],
-        port: Number(env['PICSUR_DB_PORT']),
-        user: env['PICSUR_DB_USERNAME'],
-        password: env['PICSUR_DB_PASSWORD'],
-        database: env['PICSUR_DB_DATABASE'],
-      });
-      await db.connect();
-    });
-
-    afterAll(async () => {
-      await db.end();
-    });
-
     it('needs a bucket to store images in S3', async () => {
       const res = await update(admin, { storage_driver: 's3' });
       expectFailure(res, 400, 'usrvalidation');
@@ -273,6 +299,34 @@ describe('server settings', () => {
       s3_access_key_id: 'key',
       s3_secret_access_key: 'secret',
     };
+
+    it('saves secrets encrypted', async () => {
+      // Without a bucket nothing is tried out
+      const saved = expectSuccess(
+        await update(admin, {
+          s3_access_key_id: 'e2e-key-id',
+          s3_secret_access_key: 'e2e-secret-value',
+        }),
+      );
+      expect(setting(saved, 's3_secret_access_key')).toMatchObject({
+        value: null,
+        set: true,
+        source: 'settings',
+        saved: true,
+      });
+      const stored = await storedValue('s3_secret_access_key');
+      expect(stored).toMatch(/^enc:v1:/);
+      expect(stored).not.toContain('e2e-secret-value');
+
+      const removed = expectSuccess(
+        await update(admin, {
+          s3_access_key_id: null,
+          s3_secret_access_key: null,
+        }),
+      );
+      expect(setting(removed, 's3_secret_access_key').set).toBe(false);
+      expect(removed.restart_needed).toBe(false);
+    });
 
     it('only stores storage that works', async () => {
       const tested = await admin.post('/api/server/settings/test-storage', {
@@ -290,8 +344,13 @@ describe('server settings', () => {
     });
 
     it('goes back to the previous settings when the new ones fail', async () => {
-      // Settings that could not be saved through the api
-      for (const [key, value] of Object.entries(unreachable)) {
+      // Settings that could not be saved through the api, except for the
+      // credentials, which are saved encrypted
+      const { s3_access_key_id, s3_secret_access_key, ...rest } = unreachable;
+      expectSuccess(
+        await update(admin, { s3_access_key_id, s3_secret_access_key }),
+      );
+      for (const [key, value] of Object.entries(rest)) {
         await db.query(
           'INSERT INTO e_server_setting_backend ("key", "value") VALUES ($1, $2)',
           [key, value],
@@ -305,9 +364,12 @@ describe('server settings', () => {
       );
       expect(restarted.restart_needed).toBe(false);
       expect(setting(restarted, 'storage_driver').source).toBe('default');
-      expect(
-        (await db.query('SELECT * FROM e_server_setting_backend')).rows,
-      ).toEqual([]);
+      const keys = (
+        await db.query('SELECT "key" FROM e_server_setting_backend')
+      ).rows.map((row) => row.key);
+      for (const key of Object.keys(unreachable)) {
+        expect(keys).not.toContain(key);
+      }
       expect((await getStorage(admin)).driver).toBe('database');
 
       // A restart that works clears the error

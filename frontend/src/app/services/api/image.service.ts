@@ -19,7 +19,7 @@ import {
   ImageRequestParams,
 } from 'picsur-shared/dist/dto/api/image.dto';
 import { ImageLinks } from 'picsur-shared/dist/dto/image-links.class';
-import { FileType2Ext } from 'picsur-shared/dist/dto/mimes.dto';
+import { FileType2Ext, ImageFileType } from 'picsur-shared/dist/dto/mimes.dto';
 import { EImage } from 'picsur-shared/dist/entities/image.entity';
 import { AsyncFailable } from 'picsur-shared/dist/types/failable';
 import {
@@ -193,6 +193,14 @@ export class ImageService {
       rst: `.. image:: ${imageURL}`,
       bbcode: `[img]${imageURL}[/img]`,
     };
+  }
+
+  // For lists of images. WebP, a photo's thumbnail is about 30 times smaller
+  // than as QOI, which they used to be. Animations stay animated.
+  public GetThumbnailURL(image: string): string {
+    return (
+      this.GetImageURL(image, ImageFileType.WEBP) + '?height=480&shrinkonly=yes'
+    );
   }
 
   public GetImageURLCustomized(

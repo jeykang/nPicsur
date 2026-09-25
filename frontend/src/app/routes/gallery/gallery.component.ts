@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { EGalleryImage } from 'picsur-shared/dist/dto/api/gallery.dto';
-import { ImageFileType } from 'picsur-shared/dist/dto/mimes.dto';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { ImageService } from '../../services/api/image.service';
 import { Logger } from '../../services/logger/logger.service';
@@ -66,10 +65,7 @@ export class GalleryComponent implements OnInit {
   }
 
   getThumbnailUrl(image: EGalleryImage) {
-    return (
-      this.imageService.GetImageURL(image.id, ImageFileType.QOI) +
-      '?height=480&shrinkonly=yes'
-    );
+    return this.imageService.GetThumbnailURL(image.id);
   }
 
   viewImage(image: EGalleryImage) {

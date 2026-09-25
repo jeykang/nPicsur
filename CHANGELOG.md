@@ -14,6 +14,7 @@
 ### Faster
 
 - JPEG, PNG, WebP and GIF uploads are kept as they were uploaded, only without their metadata, instead of being converted to QOI. A lossless copy of a photo is many times larger than the photo itself while holding nothing more: a 12 megapixel JPEG used to take up 9 times its size. Uploading it is about 9 times faster now, and making a smaller version of it about 5 times. Other formats are still converted to QOI. Images uploaded before stay as they are.
+- Lists of images, the gallery and albums load WebP thumbnails instead of QOI ones. The thumbnail of a photo is about 30 times smaller, 26 KB instead of 823 KB, and browsers show them without decoding them in a script first. Thumbnails of animations are animated.
 - The processes that convert images are used for more than one conversion, instead of starting a new one every time, which took longer than converting most images. A small image that was not converted to the requested size and format before is ready in about 20 ms instead of 120 ms. A process is replaced after 50 conversions, when a conversion fails, or when it holds on to a lot of memory afterwards, and stops after 30 seconds without work.
 
 ### Lighter

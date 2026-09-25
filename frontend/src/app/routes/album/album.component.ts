@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { EAlbumSummary } from 'picsur-shared/dist/dto/api/album.dto';
-import { ImageFileType } from 'picsur-shared/dist/dto/mimes.dto';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { EImage } from 'picsur-shared/dist/entities/image.entity';
 import { EPublicUser } from 'picsur-shared/dist/entities/user.entity';
@@ -122,10 +121,7 @@ export class AlbumComponent implements OnInit {
   }
 
   getThumbnailUrl(image: EImage) {
-    return (
-      this.imageService.GetImageURL(image.id, ImageFileType.QOI) +
-      '?height=480&shrinkonly=yes'
-    );
+    return this.imageService.GetThumbnailURL(image.id);
   }
 
   viewImage(image: EImage) {

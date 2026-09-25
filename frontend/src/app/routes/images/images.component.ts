@@ -1,7 +1,6 @@
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
-import { ImageFileType } from 'picsur-shared/dist/dto/mimes.dto';
 import { EImage } from 'picsur-shared/dist/entities/image.entity';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import {
@@ -129,10 +128,7 @@ export class ImagesComponent implements OnInit {
   }
 
   getThumbnailUrl(image: EImage) {
-    return (
-      this.imageService.GetImageURL(image.id, ImageFileType.QOI) +
-      '?height=480&shrinkonly=yes'
-    );
+    return this.imageService.GetThumbnailURL(image.id);
   }
 
   viewImage(image: EImage) {

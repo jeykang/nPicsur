@@ -20,7 +20,7 @@ The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0
 - Image metadata showed the uploader's roles to anyone who could view the image.
 - Image workers could reach any libvips loader installed, like those for PDF or SVG, and inherited the server's environment and its secrets.
 - The secret, the database password and attempted api keys were written to the logs.
-- All known vulnerabilities in the server's dependencies are resolved, there were 94, 4 of them critical.
+- No dependency has a known vulnerability anymore. The server's had 94, 4 of them critical. The frontend used Angular 18, which no longer gets security fixes, with 17 advisories against it that were never fixed for 18, it now uses Angular 22.
 
 ### New
 
@@ -32,7 +32,8 @@ The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0
 ### Changed
 
 - Telemetry is removed. Every instance reported its hostname, user and image counts, CPU and RAM to the original author's server every hour, and `PICSUR_TELEMETRY=false` did not turn it off.
-- Requires Node.js 22.12 or newer, 24 is recommended. The backend runs on NestJS 11 and Fastify 5.
+- Requires Node.js 22.12 or newer, 24 is recommended. The backend runs on NestJS 11 and Fastify 5, the frontend on Angular 22.
+- Rate limits are 300 requests a minute per address, with lower limits for logging in, registering, uploading and making changes.
 - Unknown `/api` routes answer with a JSON 404 instead of the frontend.
 - Image metadata is no longer cached for a month, and the placeholder for missing images is not cached at all.
 - The "Source Code" link in the footer points to this fork.
@@ -52,4 +53,5 @@ The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0
 - `PICSUR_JWT_SECRET` and `PICSUR_JWT_EXPIRY` needed two restarts to take effect.
 - The version was shown as 0.0.0 when not started through npm.
 - The pages of images whose uploader was deleted failed to load.
+- Deleting an image while a converted version of it was being made gave an error, and could leave a file behind in the bucket.
 - Converting greyscale images with transparency to QOI or BMP failed, and the BMP decoder rejected some valid files.

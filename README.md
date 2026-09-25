@@ -19,7 +19,7 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
   - Without `PICSUR_ADMIN_PASSWORD`, new instances got the admin password `picsur`. A random password is now generated instead.
   - Api keys can no longer be turned into login tokens, and are only ever shown to their owner.
 - **Telemetry removed**: every instance of the original reported its hostname, user and image counts to the original author's server every hour.
-- **Node.js 24**, NestJS 11 and Fastify 5, with all known vulnerabilities in the server's dependencies resolved.
+- **Current versions**: Node.js 24, NestJS 11 and Fastify 5 for the server, Angular 22 for the frontend. No dependency has a known vulnerability.
 - **Docker image** for amd64 and arm64 with HEIC (iPhone photos), JPEG XL and JPEG 2000 support. It is tested in CI before it is published.
 - An end-to-end test suite, run in CI against both storage drivers and against the Docker image.
 

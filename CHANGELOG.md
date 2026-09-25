@@ -34,6 +34,7 @@ The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0
 - Telemetry is removed. Every instance reported its hostname, user and image counts, CPU and RAM to the original author's server every hour, and `PICSUR_TELEMETRY=false` did not turn it off.
 - Requires Node.js 22.12 or newer, 24 is recommended. The backend runs on NestJS 11 and Fastify 5, the frontend on Angular 22.
 - Rate limits are 300 requests a minute per address, with lower limits for logging in, registering, uploading and making changes.
+- Deleting a user deletes their images as well. `node dist/cli.js images delete-orphaned` deletes the images of users deleted before.
 - Unknown `/api` routes answer with a JSON 404 instead of the frontend.
 - Image metadata is no longer cached for a month, and the placeholder for missing images is not cached at all.
 - The "Source Code" link in the footer points to this fork.

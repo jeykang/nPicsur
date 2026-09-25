@@ -3,7 +3,9 @@
 
 import { Logger, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { ImageDBModule } from './collections/image-db/image-db.module.js';
+import { ImageDBService } from './collections/image-db/image-db.service.js';
 import {
   formatBytes,
   ImageStorageMaintenanceService,
@@ -25,7 +27,16 @@ Commands:
                           Delete objects in the bucket that no image uses.
                           Objects younger than an hour are skipped, they
                           might belong to an upload that is in progress.
+  images delete-orphaned [--dry-run]
+                          Delete the images of users that no longer exist.
+                          Deleting a user deletes their images, but Picsur
+                          0.5 kept them.
 `;
+
+const commands: Record<string, string[]> = {
+  storage: ['status', 'migrate', 'gc'],
+  images: ['delete-orphaned'],
+};
 
 @Module({
   imports: [EarlyConfigModule, DatabaseModule, ImageDBModule],
@@ -34,7 +45,10 @@ class CliModule {}
 
 async function main(args: string[]): Promise<number> {
   const [group, command, ...flags] = args;
-  if (group !== 'storage' || !['status', 'migrate', 'gc'].includes(command)) {
+  if (
+    !Object.hasOwn(commands, group ?? '') ||
+    !commands[group].includes(command)
+  ) {
     console.log(usage);
     return group === undefined || group === '--help' ? 0 : 1;
   }
@@ -42,7 +56,7 @@ async function main(args: string[]): Promise<number> {
   const app = await NestFactory.createApplicationContext(CliModule, {
     logger: ['error', 'warn', 'log'],
   });
-  const logger = new Logger('Storage');
+  const logger = new Logger(group === 'images' ? 'Images' : 'Storage');
 
   try {
     const maintenance = app.get(ImageStorageMaintenanceService);
@@ -102,6 +116,26 @@ async function main(args: string[]): Promise<number> {
             ? `, including everything of ${result.orphanedImages} deleted images`
             : ''),
       );
+    } else if (command === 'delete-orphaned') {
+      const images = app.get(ImageDBService);
+      if (flags.includes('--dry-run')) {
+        const orphaned = await images.countOrphaned();
+        if (HasFailed(orphaned)) {
+          logger.error(orphaned.getReason(), orphaned.getDebugMessage());
+          return 1;
+        }
+        const total = [...orphaned.values()].reduce((a, b) => a + b, 0);
+        logger.log(
+          `Would delete ${total} images of ${orphaned.size} users that no longer exist`,
+        );
+      } else {
+        const deleted = await images.deleteOrphaned();
+        if (HasFailed(deleted)) {
+          logger.error(deleted.getReason(), deleted.getDebugMessage());
+          return 1;
+        }
+        logger.log(`Deleted ${deleted} images of users that no longer exist`);
+      }
     }
     return 0;
   } finally {

@@ -70,7 +70,8 @@ export class SettingsUsersComponent implements OnInit {
   public async deleteUser(user: EUser) {
     const pressedButton = await this.dialogService.showDialog({
       title: `Are you sure you want to delete ${user.username}?`,
-      description: 'This action cannot be undone.',
+      description:
+        'All of their images are deleted as well. This action cannot be undone.',
       buttons: [
         {
           name: 'cancel',

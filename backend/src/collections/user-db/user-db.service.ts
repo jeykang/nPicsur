@@ -25,6 +25,8 @@ import {
   UndeletableUsersList,
 } from '../../models/constants/special-users.const.js';
 import { GetCols } from '../../util/collection.js';
+import { ImageDBService } from '../image-db/image-db.service.js';
+import { ImageFileDBService } from '../image-db/image-file-db.service.js';
 import { SysPreferenceDbService } from '../preference-db/sys-preference-db.service.js';
 import { RoleDbService } from '../role-db/role-db.service.js';
 
@@ -37,6 +39,8 @@ export class UserDbService {
     private readonly usersRepository: Repository<EUserBackend>,
     private readonly rolesService: RoleDbService,
     private readonly prefService: SysPreferenceDbService,
+    private readonly imageDB: ImageDBService,
+    private readonly imageFiles: ImageFileDBService,
   ) {}
 
   // Creation and deletion
@@ -71,6 +75,8 @@ export class UserDbService {
     }
   }
 
+  // Deletes the user together with their images. Their api keys and
+  // preferences are deleted by the database.
   public async delete(uuid: string): AsyncFailable<EUserBackend> {
     const userToDelete = await this.findOne(uuid);
     if (HasFailed(userToDelete)) return userToDelete;
@@ -79,11 +85,29 @@ export class UserDbService {
       return Fail(FT.Permission, 'Cannot delete system user');
     }
 
+    let deletedUser: EUserBackend;
+    let deletedImages: string[];
     try {
-      return await this.usersRepository.remove(userToDelete);
+      [deletedUser, deletedImages] =
+        await this.usersRepository.manager.transaction(async (manager) => {
+          const images = await this.imageDB.deleteRowsOfUser(uuid, manager);
+          const user = await manager.remove(userToDelete);
+          return [user, images] as const;
+        });
     } catch (e) {
       return Fail(FT.Database, e);
     }
+
+    // With object storage this takes a request or two per image, which does
+    // not have to hold up the response. What fails is logged, and removed by
+    // the storage gc command.
+    this.imageFiles.deleteStoredData(deletedImages).catch((e) => {
+      this.logger.error(
+        `Deleting the images of ${userToDelete.username}: ${e}`,
+      );
+    });
+
+    return deletedUser;
   }
 
   // Updating

@@ -3,8 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { AsyncFailable, Fail, FT } from 'picsur-shared/dist/types/failable';
 import { FindResult } from 'picsur-shared/dist/types/find-result';
 import { generateRandomString } from 'picsur-shared/dist/util/random';
-import { In, LessThan, Repository } from 'typeorm';
+import { EntityManager, In, LessThan, Repository } from 'typeorm';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
+import { EUserBackend } from '../../database/entities/users/user.entity.js';
 import { ImageFileDBService } from './image-file-db.service.js';
 
 // Deleting an image deletes its rows first, and only then the data in object
@@ -189,6 +190,66 @@ export class ImageDBService {
 
     await this.imageFiles.deleteStoredData('all');
     return true;
+  }
+
+  // Deletes the rows of every image of a user, as part of the transaction
+  // the entity manager belongs to, and returns their ids. Their data in
+  // object storage still has to be deleted with deleteStoredData once the
+  // transaction is committed. Errors are thrown, to roll the transaction
+  // back.
+  public async deleteRowsOfUser(
+    userid: string,
+    manager: EntityManager,
+  ): Promise<string[]> {
+    const result = await manager
+      .createQueryBuilder()
+      .delete()
+      .from(EImageBackend)
+      .where({ user_id: userid })
+      .returning(['id'])
+      .execute();
+    return (result.raw as { id: string }[]).map((image) => image.id);
+  }
+
+  // Counts the images of users that no longer exist, per user. Picsur 0.5
+  // kept the images of deleted users.
+  public async countOrphaned(): AsyncFailable<Map<string, number>> {
+    try {
+      const rows: { user_id: string; count: string }[] = await this.imageRepo
+        .createQueryBuilder('image')
+        .select('image.user_id', 'user_id')
+        .addSelect('COUNT(*)', 'count')
+        .where(this.orphanedCondition('image'))
+        .groupBy('image.user_id')
+        .getRawMany();
+      return new Map(rows.map((row) => [row.user_id, Number(row.count)]));
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
+  }
+
+  // Deletes the images of users that no longer exist
+  public async deleteOrphaned(): AsyncFailable<number> {
+    let deleted: { id: string }[];
+    try {
+      const result = await this.imageRepo
+        .createQueryBuilder()
+        .delete()
+        .where(this.orphanedCondition(this.imageRepo.metadata.tableName))
+        .returning(['id'])
+        .execute();
+      deleted = result.raw;
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
+
+    await this.imageFiles.deleteStoredData(deleted.map((image) => image.id));
+    return deleted.length;
+  }
+
+  private orphanedCondition(imageAlias: string): string {
+    const users = this.imageRepo.manager.connection.getMetadata(EUserBackend);
+    return `NOT EXISTS (SELECT 1 FROM "${users.tableName}" "owner" WHERE "owner"."id" = "${imageAlias}"."user_id")`;
   }
 
   public async cleanupExpired(): AsyncFailable<number> {

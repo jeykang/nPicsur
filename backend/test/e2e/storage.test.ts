@@ -10,7 +10,12 @@ import pg from 'pg';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { spawnBackend } from './helpers/backend.js';
-import { Client, expectSuccess } from './helpers/client.js';
+import {
+  Client,
+  createUser,
+  expectFailure,
+  expectSuccess,
+} from './helpers/client.js';
 import { makeJpeg, makePng } from './helpers/images.js';
 
 const env = inject('serverEnv');
@@ -214,6 +219,54 @@ describe('image storage', () => {
     if (s3Configured) expect(await objectKeys(id)).toEqual([]);
   });
 
+  it('deletes the stored data of deleted users', async () => {
+    const user = await createUser(client);
+    const { id } = await user.client.uploadOk(await makePng());
+    await Client.guest().get(`/i/${id}.jpg`);
+    const kept = await client.uploadOk(await makePng());
+
+    expectSuccess(await client.post('/api/user/delete', { id: user.id }));
+
+    expect(await fileRows(id)).toEqual([]);
+    expect(await derivativeRows(id)).toEqual([]);
+    // The bucket is cleaned up after the response
+    if (s3Configured) await expect.poll(() => objectKeys(id)).toEqual([]);
+    expect(await fileRows(kept.id)).toHaveLength(1);
+  });
+
+  it('deletes the images of users that were deleted by Picsur 0.5', async () => {
+    const { id } = await client.uploadOk(await makePng());
+    await Client.guest().get(`/i/${id}.webp`);
+    const kept = await client.uploadOk(await makePng());
+    // Picsur 0.5 deleted users without their images
+    await db.query('UPDATE e_image_backend SET user_id = $1 WHERE id = $2', [
+      randomUUID(),
+      id,
+    ]);
+
+    const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));
+    expect(meta.user).toBeNull();
+
+    const dryRun = await cli(['images', 'delete-orphaned', '--dry-run']);
+    expect(dryRun.code, dryRun.output).toBe(0);
+    expect(dryRun.output).toContain(
+      'Would delete 1 images of 1 users that no longer exist',
+    );
+    expect((await Client.guest().get(`/i/${id}.png`)).status).toBe(200);
+
+    const run = await cli(['images', 'delete-orphaned']);
+    expect(run.code, run.output).toBe(0);
+    expect(run.output).toContain('Deleted 1 images');
+    expectFailure(await Client.guest().get(`/i/meta/${id}`), 404, 'notfound');
+    expect(await fileRows(id)).toEqual([]);
+    expect(await derivativeRows(id)).toEqual([]);
+    if (s3Configured) expect(await objectKeys(id)).toEqual([]);
+    expectSuccess(await Client.guest().get(`/i/meta/${kept.id}`));
+
+    const again = await cli(['images', 'delete-orphaned']);
+    expect(again.output).toContain('Deleted 0 images');
+  });
+
   it('handles images deleted while they are being converted', async () => {
     const { id } = await client.uploadOk(await makeJpeg(1200, 900), 'gone.jpg');
     // Converting takes long enough for the delete to happen in between
@@ -386,6 +439,7 @@ describe('image storage', () => {
       const help = await cli(['--help']);
       expect(help.code).toBe(0);
       expect(help.output).toContain('storage migrate');
+      expect(help.output).toContain('images delete-orphaned');
       const wrong = await cli(['nonsense']);
       expect(wrong.code).toBe(1);
     });

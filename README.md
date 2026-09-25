@@ -141,6 +141,13 @@ docker exec picsur node backend/dist/cli.js storage gc
 
 Things that behave differently:
 
+- Deleting a user deletes their images as well. Picsur 0.5 kept them, to delete the images of users you deleted before:
+
+  ```sh
+  docker exec picsur node backend/dist/cli.js images delete-orphaned --dry-run
+  docker exec picsur node backend/dist/cli.js images delete-orphaned
+  ```
+
 - Deletion links open a page that asks for confirmation. Links saved by ShareX keep working.
 - The token from `/api/user/me` is empty when authenticated with an api key. Api keys are used directly instead.
 - Api key administrators see other users' keys without the key itself.

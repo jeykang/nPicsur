@@ -10,11 +10,13 @@ import {
 } from 'picsur-shared/dist/dto/server-settings.dto';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { ServerSettingsTable } from '../database/entities/system/server-setting.entity.js';
+import { SystemStateTable } from '../database/entities/system/system-state.entity.js';
 import { GetDbConnectionOptions } from './db-connection.js';
 import {
   DecryptSetting,
-  EncryptionKeyEnv,
   EncryptSetting,
+  GeneratedKeyState,
+  UseGeneratedEncryptionKey,
 } from './settings-encryption.js';
 
 // Server settings come from the environment first, and otherwise from what is
@@ -104,7 +106,7 @@ export async function ParseStoredServerSettings(
         onIgnored?.(key, decrypted.getReason());
         continue;
       }
-      value = decrypted;
+      value = decrypted.value;
     }
 
     if (!ServerSettingValidators[key].safeParse(value).success) {
@@ -124,6 +126,21 @@ export async function StoredServerSettingValue(
   return SecretServerSettings.includes(key)
     ? EncryptSetting(key, value)
     : value;
+}
+
+// The key secrets are encrypted with when PICSUR_ENCRYPTION_KEY is not set
+async function readGeneratedKey(client: pg.Client): Promise<string | null> {
+  try {
+    const { rows } = await client.query<{ value: string }>(
+      `SELECT "value" FROM "${SystemStateTable}" WHERE "key" = $1`,
+      [GeneratedKeyState],
+    );
+    return rows[0]?.value ?? null;
+  } catch (e: any) {
+    // Created on the first start
+    if (e?.code === '42P01') return null;
+    throw e;
+  }
 }
 
 function createClient() {
@@ -149,13 +166,14 @@ export async function LoadStoredServerSettings(
     const client = createClient();
     try {
       await client.connect();
+      UseGeneratedEncryptionKey(await readGeneratedKey(client));
       const { rows } = await client.query<{ key: string; value: string }>(
         `SELECT "key", "value" FROM "${ServerSettingsTable}"`,
       );
       return await ParseStoredServerSettings(rows, (key, reason) => {
         if (SecretServerSettings.includes(key)) {
           logger.error(
-            `The saved ${ServerSettingEnvName(key)} can not be used, ${reason}. Set ${EncryptionKeyEnv} to the key it was saved with, or set ${ServerSettingEnvName(key)} itself.`,
+            `The saved ${ServerSettingEnvName(key)} can not be used, ${reason}. Set ${ServerSettingEnvName(key)} instead, or save it again on the settings page.`,
           );
         } else {
           logger.warn(`Ignoring the saved value of ${key}, ${reason}`);

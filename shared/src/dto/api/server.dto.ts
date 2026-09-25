@@ -28,8 +28,10 @@ export const ServerSettingsResponseSchema = z.object({
   // Why the last restart went back to the settings before it, if it did
   restart_error: z.string().nullable(),
   started_at: z.preprocess((data: any) => new Date(data), z.date()),
-  // Secrets are only saved encrypted, which needs PICSUR_ENCRYPTION_KEY
-  can_save_secrets: z.boolean(),
+  // Where the key that encrypts saved secrets is kept: in the environment
+  // (PICSUR_ENCRYPTION_KEY), or generated and kept in the database. Null when
+  // there is none, and secrets can not be saved.
+  encryption_key: z.enum(['environment', 'database']).nullable(),
 });
 export class ServerSettingsResponse extends createZodDto(
   ServerSettingsResponseSchema,

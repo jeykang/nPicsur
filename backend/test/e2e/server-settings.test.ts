@@ -39,7 +39,7 @@ interface SettingsResponse {
   restart_needed: boolean;
   restart_error: string | null;
   started_at: string;
-  can_save_secrets: boolean;
+  encryption_key: 'environment' | 'database' | null;
 }
 
 interface StorageResponse {
@@ -185,7 +185,8 @@ describe('server settings', () => {
       saved: false,
     });
     expect(setting(settings, 's3_region').default).toBe('us-east-1');
-    expect(settings.can_save_secrets).toBe(true);
+    // Generated, since the tests do not set PICSUR_ENCRYPTION_KEY
+    expect(settings.encryption_key).toBe('database');
   });
 
   it('saves settings from the environment, to take them over later', async () => {
@@ -206,9 +207,15 @@ describe('server settings', () => {
     expect(secret.set).toBe(fromEnv !== undefined);
     if (fromEnv !== undefined) {
       const stored = await storedValue('s3_secret_access_key');
-      expect(stored).toMatch(/^enc:v1:/);
+      expect(stored).toMatch(/^enc:v1:db:/);
       expect(stored).not.toContain(fromEnv);
     }
+
+    // The generated key they are encrypted with
+    const key = await db.query(
+      `SELECT "value" FROM e_system_state_backend WHERE "key" = 'settings_encryption_key'`,
+    );
+    expect(key.rows).toHaveLength(1);
   });
 
   it('can not change settings from the environment', async () => {
@@ -315,7 +322,7 @@ describe('server settings', () => {
         saved: true,
       });
       const stored = await storedValue('s3_secret_access_key');
-      expect(stored).toMatch(/^enc:v1:/);
+      expect(stored).toMatch(/^enc:v1:db:/);
       expect(stored).not.toContain('e2e-secret-value');
 
       const removed = expectSuccess(

@@ -121,22 +121,21 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     return ServerSettingUI[key].name;
   }
 
-  // Settings from the environment say where they come from instead
+  // Settings from the environment say where they come from instead, and
+  // secrets how they are protected
   public hint(key: ServerSetting): string {
     if (this.locked(key)) return `Set with ${this.state(key)?.env}`;
-    if (this.needsEncryptionKey(key)) {
-      return 'Secrets are saved encrypted, which needs PICSUR_ENCRYPTION_KEY to be set. See the README.';
-    }
-    return ServerSettingUI[key].helpText;
-  }
+    const help = ServerSettingUI[key].helpText;
+    if (!SecretServerSettings.includes(key)) return help;
 
-  // Secrets can only be saved when they can be encrypted
-  public needsEncryptionKey(key: ServerSetting): boolean {
-    return (
-      SecretServerSettings.includes(key) &&
-      !this.locked(key) &&
-      this.settings?.can_save_secrets === false
-    );
+    switch (this.settings?.encryption_key) {
+      case 'environment':
+        return `${help} It is saved encrypted with PICSUR_ENCRYPTION_KEY, which is not stored in the database.`;
+      case 'database':
+        return `${help} It is saved encrypted, but with a key kept in the database as well, so a copy of the database reveals it. Setting PICSUR_ENCRYPTION_KEY prevents that, see the README.`;
+      default:
+        return 'Secrets can not be saved right now, there is no key to encrypt them with. The server log says why.';
+    }
   }
 
   // Environment variables whose values are saved as well, so they can be
@@ -155,8 +154,8 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
         env: s.env,
         reason:
           SecretServerSettings.includes(s.key as ServerSetting) &&
-          !this.settings?.can_save_secrets
-            ? 'secrets are only saved encrypted, which needs PICSUR_ENCRYPTION_KEY'
+          this.settings?.encryption_key === null
+            ? 'there is no key to encrypt secrets with right now'
             : 'this page does not accept its value',
       }));
   }
@@ -383,7 +382,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
       control.setValue(value);
       if (
         state.source === 'environment' ||
-        (SecretServerSettings.includes(key) && !settings.can_save_secrets)
+        (SecretServerSettings.includes(key) && settings.encryption_key === null)
       ) {
         control.disable();
       } else {

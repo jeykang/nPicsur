@@ -21,6 +21,7 @@ import {
 import { ImageStorageMaintenanceService } from '../../collections/image-db/image-storage-maintenance.service.js';
 import { TestS3Storage } from '../../collections/object-storage/object-storage.service.js';
 import { ServerSettingsDbService } from '../../collections/server-settings-db/server-settings-db.service.js';
+import { SystemStateDbService } from '../../collections/system-state-db/system-state-db.service.js';
 import {
   BuildStorageConfig,
   SameStorageLocation,
@@ -36,9 +37,12 @@ import {
   StoredServerSettings,
 } from '../../config/server-settings.js';
 import {
-  CanEncryptSettings,
   EncryptionKeyEnv,
   EncryptionKeyIsShort,
+  EncryptionKeySource,
+  GeneratedKeyState,
+  NewEncryptionKey,
+  UseGeneratedEncryptionKey,
 } from '../../config/settings-encryption.js';
 import { RequestRestart, RestartError, StartedAt } from '../../util/restart.js';
 import { StorageMigrationService } from './storage-migration.service.js';
@@ -56,6 +60,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
 
   constructor(
     private readonly settingsDb: ServerSettingsDbService,
+    private readonly stateDb: SystemStateDbService,
     private readonly maintenance: ImageStorageMaintenanceService,
     private readonly migration: StorageMigrationService,
     private readonly storageConfig: StorageConfigService,
@@ -67,7 +72,60 @@ export class ServerSettingsService implements OnApplicationBootstrap {
         `${EncryptionKeyEnv} is shorter than 16 characters, which makes the secrets it protects easier to reveal. Use a long random value, and save the secrets again after changing it.`,
       );
     }
+    await this.prepareEncryption();
     await this.saveEnvironment();
+  }
+
+  // Makes sure there is a key to encrypt secrets with. Without
+  // PICSUR_ENCRYPTION_KEY, one is generated and kept in the database. When it
+  // is set, secrets saved with the generated key are moved over to it, and the
+  // generated key is removed once nothing needs it anymore.
+  async prepareEncryption() {
+    if (EncryptionKeySource() === null) {
+      let key = await this.stateDb.get(GeneratedKeyState);
+      if (!HasFailed(key) && key === null) {
+        // Fails when another instance created one at the same time
+        await this.stateDb.set(GeneratedKeyState, NewEncryptionKey());
+        key = await this.stateDb.get(GeneratedKeyState);
+        if (!HasFailed(key) && key !== null) {
+          this.logger.log(
+            `Generated a key to encrypt secrets with, it is kept in the database. Set ${EncryptionKeyEnv} to protect secrets from copies of the database as well.`,
+          );
+        }
+      }
+      if (HasFailed(key) || key === null) {
+        this.logger.error(
+          `There is no key to encrypt secrets with, they can not be saved on the settings page. Set ${EncryptionKeyEnv}.`,
+        );
+        return;
+      }
+      UseGeneratedEncryptionKey(key);
+    }
+
+    if (EncryptionKeySource() !== 'environment') return;
+    const result = await this.settingsDb.reencryptSecrets();
+    if (HasFailed(result)) {
+      result.print(this.logger, { prefix: 'Encrypting secrets:' });
+      return;
+    }
+    if (result.reencrypted.length > 0) {
+      this.logger.log(
+        `Encrypted ${result.reencrypted.map(ServerSettingEnvName).join(', ')} with ${EncryptionKeyEnv}`,
+      );
+    }
+    if (result.usesGeneratedKey) return;
+
+    const generated = await this.stateDb.get(GeneratedKeyState);
+    if (HasFailed(generated) || generated === null) return;
+    const cleared = await this.stateDb.clear(GeneratedKeyState);
+    if (HasFailed(cleared)) {
+      cleared.print(this.logger);
+      return;
+    }
+    UseGeneratedEncryptionKey(null);
+    this.logger.log(
+      `Removed the generated encryption key from the database, ${EncryptionKeyEnv} is used instead`,
+    );
   }
 
   // Settings from environment variables are saved as well, so the variables
@@ -90,7 +148,10 @@ export class ServerSettingsService implements OnApplicationBootstrap {
         );
         continue;
       }
-      if (SecretServerSettings.includes(key) && !CanEncryptSettings()) {
+      if (
+        SecretServerSettings.includes(key) &&
+        EncryptionKeySource() === null
+      ) {
         continue;
       }
       changes.set(key, value);
@@ -260,11 +321,11 @@ export class ServerSettingsService implements OnApplicationBootstrap {
         if (
           saving &&
           SecretServerSettings.includes(setting) &&
-          !CanEncryptSettings()
+          EncryptionKeySource() === null
         ) {
           return Fail(
-            FT.UsrValidation,
-            `Secrets are only saved encrypted, set ${EncryptionKeyEnv} to save ${ServerSettingEnvName(setting)} here`,
+            FT.Internal,
+            'There is no key to encrypt secrets with, the server log says why',
           );
         }
       }
@@ -321,7 +382,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       ),
       restart_error: RestartError(),
       started_at: StartedAt(),
-      can_save_secrets: CanEncryptSettings(),
+      encryption_key: EncryptionKeySource(),
     };
   }
 

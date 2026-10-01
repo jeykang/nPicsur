@@ -34,6 +34,11 @@
 
 ### Fixed
 
+- Images set to expire after 6 hours expired after 2.
+- Role names that were not accepted were refused with the messages for usernames, like "Username is too short".
+- The upload page asked users who were logged in, but not allowed to upload, to log in.
+- Images had no alt text for screen readers. They now have their title as alt text, and album covers say which album they are the cover of.
+- In the customize dialog, a width, height or quality the server does not accept left every option out of the address, instead of only that one.
 - Link previews of the pages of an instance said they were picsur.org, with the logo from there.
 - Photos were shown sideways when their EXIF orientation said to turn them, like phones do for photos taken upright. Animations are turned as well, each frame by itself. Images uploaded before stay as they are.
 - Conversion memory limits above about 1.5 GB were not applied as set: depending on the value, conversions had no memory limit at all, a much lower one, or could not run at all.

@@ -25,6 +25,9 @@ export class LoginComponent implements OnInit {
   // How users can log in, as the server says
   public passwordLogin = true;
   public oidcName: string | null = null;
+  private canRegister = false;
+  // Whether the login page went to the provider right away already
+  private launched = false;
 
   public readonly model = new LoginControl();
 
@@ -55,9 +58,6 @@ export class LoginComponent implements OnInit {
       this.showRegister = this.canRegister && this.passwordLogin;
     });
   }
-
-  private canRegister = false;
-  private launched = false;
 
   @AutoUnsubscribe()
   onInfo() {

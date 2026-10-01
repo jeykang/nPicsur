@@ -240,7 +240,24 @@ Under Settings → Server → Logging in, enter the issuer of the provider (like
 
 Users with an account link their login at the provider under Settings → Account, after which they can log in with it. Logins are linked by the id the provider gives them, never by username or email address, so a user of the provider named like an account here can not take it over. A login is linked to one account, and an account to one login.
 
-Without an account, logging in at the provider does not get you in, unless **Create accounts for new users** is on. Then everyone who can log in at the provider gets an account the first time, with the default roles. Only turn that on when the provider only lets in people who should have an account, like with an Authelia access control rule for the client. New accounts are named after the `preferred_username` claim, or another one that is set, without characters other than letters and digits, and with a number after it when that name is taken. They have no password, users can set one under Settings → Account.
+Without an account, logging in at the provider does not get you in, unless **Create accounts for new users** is on. Then everyone who can log in at the provider gets an account the first time, with the default roles. Only turn that on when the provider only lets in people who should have an account. In Authelia, that takes an authorization policy for the client, as its access control rules do not apply to OpenID Connect clients ([why](https://www.authelia.com/integration/openid-connect/frequently-asked-questions/#why-doesnt-the-access-control-configuration-work-with-openid-connect-10)). This one only lets in the users in the `picsur` group:
+
+```yaml
+identity_providers:
+  oidc:
+    authorization_policies:
+      picsur:
+        default_policy: 'deny'
+        rules:
+          - policy: 'two_factor'
+            subject: 'group:picsur'
+    clients:
+      - client_id: 'picsur'
+        authorization_policy: 'picsur'
+        # And the rest as above
+```
+
+New accounts are named after the `preferred_username` claim, or another one that is set, without characters other than letters and digits, and with a number after it when that name is taken. They have no password, users can set one under Settings → Account.
 
 Once your own account is linked, **Password login** can be turned off, so only logins at the provider work, and nobody can register with a password. Should the provider be unreachable then, set `PICSUR_PASSWORD_LOGIN=true` and restart to turn password login on again. With **Go to the provider right away**, the login page goes straight to the provider, `/user/login?local` still shows it.
 

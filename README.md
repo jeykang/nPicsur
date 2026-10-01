@@ -258,7 +258,7 @@ The same can be set with environment variables:
 | `PICSUR_OIDC_AUTO_LAUNCH`    | `true` to go to the provider right away                                               |
 | `PICSUR_PASSWORD_LOGIN`      | `false` to turn off password login, which only works with a provider set up           |
 
-Linked logins belong to the provider they were made with. While password login is off, the provider can not be changed, as nobody could log in with the new one yet.
+Linked logins belong to the provider they were made with. While password login is off, the provider can not be changed, as nobody could log in with the new one yet, and logins can not be unlinked, as that would leave their users no way to log in.
 
 ## Upgrading from Picsur 0.5
 

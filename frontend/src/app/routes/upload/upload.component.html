@@ -4,7 +4,7 @@
       <input type="file" fileInput [formControl]="fileControl" />
       <div class="centered">
         <h1>Upload an image</h1>
-        <p>Drag and drop / paste an image here, or click to select an image</p>
+        <p>Drop, paste or click to select an image</p>
       </div>
     </my-dropzone>
   }
@@ -13,7 +13,7 @@
     <div class="centered">
       @if (loggedIn) {
         <h1>Uploading is not allowed</h1>
-        <p>Your account does not have permission to upload images.</p>
+        <p>Your account cannot upload images.</p>
       } @else {
         <h1><a routerLink="/user/login">Please log in</a></h1>
         <p>You do not yet have permission to upload</p>

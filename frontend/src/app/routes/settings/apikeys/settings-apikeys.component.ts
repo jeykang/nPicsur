@@ -83,8 +83,8 @@ export class SettingsApiKeysComponent implements OnInit {
 
   public async deleteApiKey(apikeyId: string) {
     const pressedButton = await this.dialogService.showDialog({
-      title: `Are you sure you want to delete this api key?`,
-      description: 'This action cannot be undone.',
+      title: 'Delete this API key?',
+      description: 'Whatever uses it stops working.',
       buttons: [
         {
           name: 'cancel',

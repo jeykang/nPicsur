@@ -22,13 +22,7 @@
   </div>
 
   @if (images !== null && images.length === 0) {
-    <p>
-      There are no images in this album yet.
-      @if (canManage) {
-        Add them with the album button on the page of an image, or on your
-        images.
-      }
-    </p>
+    <p>No images in this album yet.</p>
   }
 
   @if (images !== null && images.length > 0) {

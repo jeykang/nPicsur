@@ -8,15 +8,13 @@
   <h2>Logging in with {{ oidc.provider }}</h2>
   @if (oidc.linked) {
     <p>
-      Your {{ oidc.provider }} account{{
+      Linked to your {{ oidc.provider }} account{{
         oidc.name ? ' (' + oidc.name + ')' : ''
-      }}
-      is linked, so you can log in with it.
+      }}.
       @if (!passwordLogin) {
-        Logging in with a password is turned off on this server, so this is how
-        you log in.
+        Password login is off, so it cannot be unlinked.
       } @else if (!hasPassword) {
-        Set a password before unlinking it, or you could not log in anymore.
+        Set a password before unlinking it.
       }
     </p>
     <div class="pb-4">
@@ -30,7 +28,6 @@
       </button>
     </div>
   } @else {
-    <p>Link your {{ oidc.provider }} account to log in with it.</p>
     <div class="pb-4">
       <button
         mat-raised-button
@@ -50,7 +47,6 @@
   <p>This logs you out everywhere else.</p>
 } @else {
   <h2>Set a password</h2>
-  <p>Your account has no password yet, you log in at the provider.</p>
 }
 
 <form (ngSubmit)="changePassword()">

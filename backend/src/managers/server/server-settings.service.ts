@@ -239,7 +239,11 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       if (HasFailed(tested)) return tested;
     }
     if (!plan.login.password && loginChanged) {
-      const safe = await this.checkPasswordLoginCanBeOff(plan.login, userId);
+      const safe = await this.checkPasswordLoginCanBeOff(
+        plan.login,
+        userId,
+        changed.includes(ServerSetting.PasswordLogin),
+      );
       if (HasFailed(safe)) return safe;
     }
 
@@ -314,7 +318,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     if (this.migration.isRunning) {
       return Fail(
         FT.Conflict,
-        'Images are being moved to other storage, stop that or wait until it is done first',
+        'Images are being moved, wait for that or stop it first',
       );
     }
 
@@ -425,6 +429,8 @@ export class ServerSettingsService implements OnApplicationBootstrap {
   private async checkPasswordLoginCanBeOff(
     login: LoginConfig,
     userId: string,
+    // Whether it is being turned off now, or already was
+    turningOff: boolean,
   ): AsyncFailable<true> {
     const running = this.oidc.config;
     if (
@@ -435,7 +441,9 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     ) {
       return Fail(
         FT.Conflict,
-        'Password login can only be turned off once logging in with this OpenID Connect provider works: save it, restart, and link your own account first. To change the provider, turn password login on first.',
+        turningOff
+          ? 'Save the provider, restart, and link your account before turning password login off'
+          : 'Turn password login on before changing the provider',
       );
     }
 
@@ -444,7 +452,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     if (linked === null) {
       return Fail(
         FT.Conflict,
-        `Link your own account to ${running.name} in your account settings first, or you could not log in anymore`,
+        `Link your own account to ${running.name} first`,
       );
     }
     return true;
@@ -541,10 +549,9 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       location === StorageDriver.S3
         ? `The bucket "${running.s3?.bucket}"`
         : `The directory "${running.filesystem?.path}"`;
-    const what = location === StorageDriver.S3 ? 'bucket' : 'directory';
     return Fail(
       FT.Conflict,
-      `${where} still holds ${files} image ${files === 1 ? 'file' : 'files'}. Move them elsewhere first: store new images somewhere else, restart, and move the existing images there. Then the ${what} can be changed.`,
+      `${where} still holds ${files} ${files === 1 ? 'image file, move it' : 'image files, move them'} elsewhere first`,
     );
   }
 }

@@ -1,10 +1,4 @@
 <h1>Server</h1>
-<p>
-  Where images are stored, and the other settings of the server itself. Most
-  changes take effect when Picsur restarts, which can be done from here, the
-  others right away. What is saved here comes before environment variables,
-  which set what is not saved here.
-</p>
 
 <!-- A text field for a setting -->
 <ng-template #field let-key let-type="type" let-mode="inputmode">
@@ -28,7 +22,9 @@
     @if (locked(key)) {
       <mat-icon matSuffix>lock</mat-icon>
     }
-    <mat-hint>{{ hint(key) }}</mat-hint>
+    @if (hint(key); as text) {
+      <mat-hint>{{ text }}</mat-hint>
+    }
     @if (control(key).invalid) {
       <mat-error>{{ error(key) }}</mat-error>
     }
@@ -44,7 +40,9 @@
   >
     {{ name(key) }}
   </mat-slide-toggle>
-  <p class="hint">{{ hint(key) }}</p>
+  @if (hint(key); as text) {
+    <p class="hint">{{ text }}</p>
+  }
 </ng-template>
 
 @if (loadFailure) {
@@ -62,9 +60,7 @@
     <mat-card appearance="outlined" class="notice">
       <mat-card-content class="notice-content">
         <mat-icon>restart_alt</mat-icon>
-        <span class="grow">
-          Some changes take effect when Picsur restarts.
-        </span>
+        <span class="grow">Restart Picsur to apply the changes.</span>
         <button
           mat-raised-button
           color="primary"
@@ -82,29 +78,24 @@
       <mat-card-content class="notice-content">
         <mat-icon color="warn">error_outline</mat-icon>
         <span class="grow">
-          Picsur could not start with the last changes, so it went back to the
-          settings it had before: {{ settings.restart_error }}
+          The last restart failed, the previous settings are in use:
+          {{ settings.restart_error }}
         </span>
       </mat-card-content>
     </mat-card>
   }
 
   @if (overriddenEnv.length > 0) {
-    <mat-card appearance="outlined" class="notice env-notice">
+    <mat-card appearance="outlined" class="notice">
       <mat-card-content class="notice-content">
         <mat-icon>settings_suggest</mat-icon>
-        <div class="grow">
-          <p>
-            These environment variables are not used, as what is saved here
-            comes first:
-            @for (env of overriddenEnv; track env; let last = $last) {
-              <code>{{ env }}</code
-              >{{ last ? '.' : ', ' }}
-            }
-            They can be removed from Picsur's configuration, or what is saved
-            here removed to use them again.
-          </p>
-        </div>
+        <span class="grow">
+          Saved here instead of the environment:
+          @for (env of overriddenEnv; track env; let last = $last) {
+            <code>{{ env }}</code
+            >{{ last ? '' : ', ' }}
+          }
+        </span>
         <button
           mat-stroked-button
           type="button"
@@ -119,21 +110,7 @@
 
   <form (ngSubmit)="save()">
     <h2>Image storage</h2>
-    <p>
-      New images are stored in
-      @switch (storage.driver) {
-        @case ('s3') {
-          the bucket "{{ storage.bucket }}".
-        }
-        @case ('filesystem') {
-          the directory "{{ storage.path }}".
-        }
-        @default {
-          the database.
-        }
-      }
-      {{ fileCounts }}
-    </p>
+    <p>{{ fileCounts }}</p>
 
     @if (storage.warning) {
       <mat-card appearance="outlined" class="notice">
@@ -181,9 +158,8 @@
             <mat-icon>drive_file_move</mat-icon>
             <span class="grow">
               {{ filesElsewhere }} image
-              {{ filesElsewhere === 1 ? 'file is' : 'files are' }} still stored
-              elsewhere. They can be moved to {{ storageName(storage.driver) }},
-              Picsur keeps working in the meantime.
+              {{ filesElsewhere === 1 ? 'file is' : 'files are' }} stored
+              elsewhere.
             </span>
             <button
               mat-raised-button
@@ -192,7 +168,7 @@
               [disabled]="busy !== null"
               (click)="startMigration()"
             >
-              MOVE THEM
+              MOVE TO {{ storageName(storage.driver) | uppercase }}
             </button>
           </mat-card-content>
         </mat-card>
@@ -208,17 +184,13 @@
             <mat-option value="s3">S3 compatible object storage</mat-option>
             <mat-option value="filesystem">A directory on disk</mat-option>
           </mat-select>
-          <mat-hint>{{ hint(S.StorageDriver) }}</mat-hint>
         </mat-form-field>
       </div>
     </div>
 
     @if (showBucket) {
       @if (driver !== 's3' && bucketIsSet) {
-        <p>
-          Images stored in this bucket before can still be viewed. Once they are
-          moved elsewhere, the bucket can be removed.
-        </p>
+        <p>Still used for the images stored there.</p>
         @if (saved(S.S3Bucket)) {
           <button
             mat-stroked-button
@@ -299,10 +271,7 @@
 
     @if (showPath) {
       @if (driver !== 'filesystem' && pathIsSet) {
-        <p>
-          Images stored in this directory before can still be viewed. Once they
-          are moved elsewhere, Picsur can stop using the directory.
-        </p>
+        <p>Still used for the images stored there.</p>
         @if (saved(S.StoragePath)) {
           <button
             mat-stroked-button
@@ -433,14 +402,9 @@
         ></ng-container>
       </div>
     </div>
+    <h3>OpenID Connect</h3>
     <p>
-      Users can log in with an OpenID Connect provider, like Authelia, Authentik
-      or Keycloak, once an issuer and a client id are set. Picsur is a
-      confidential client that uses the authorization code flow. Register
-      exactly this address with the provider to send users back to:
-    </p>
-    <p>
-      <code>{{ oidcRedirectUri }}</code>
+      Redirect URI for the provider: <code>{{ oidcRedirectUri }}</code>
     </p>
     <div class="row">
       <div class="col-12">
@@ -517,16 +481,6 @@
     </div>
 
     <h2>Counting visits</h2>
-    <p>
-      Picsur can count visits with an
-      <a
-        href="https://github.com/electerious/Ackee"
-        target="_blank"
-        rel="noopener"
-        >Ackee</a
-      >
-      server.
-    </p>
     <div class="row">
       <div class="col-lg-6 col-12">
         <ng-container
@@ -564,11 +518,6 @@
   </form>
 
   <h2>Set with environment variables</h2>
-  <p>
-    These can only be set with environment variables, as Picsur needs them
-    before it can read the settings above, or as they are secrets kept out of
-    the database.
-  </p>
   <table class="environment">
     @for (option of environment; track option.env) {
       <tr>

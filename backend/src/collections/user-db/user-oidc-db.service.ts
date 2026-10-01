@@ -59,10 +59,7 @@ export class UserOidcDbService {
       return await this.repository.save(link);
     } catch (e: any) {
       if (e?.code === UniqueViolation) {
-        return Fail(
-          FT.Conflict,
-          'This login is linked to an account already, or this account to another login',
-        );
+        return Fail(FT.Conflict, 'One of these accounts is linked already');
       }
       return Fail(FT.Database, e);
     }

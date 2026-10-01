@@ -154,35 +154,22 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     return ServerSettingUI[key].name;
   }
 
-  // What a setting is for, how secrets are protected, and whether an
-  // environment variable sets it when nothing is saved here
+  // The hint under a setting, with the variable that sets it when nothing is
+  // saved here, or will be once the form is saved
   public hint(key: ServerSetting): string {
-    let hint = ServerSettingUI[key].helpText;
-    if (SecretServerSettings.includes(key)) {
-      switch (this.settings?.encryption_key) {
-        case 'environment':
-          hint +=
-            ' It is saved encrypted with PICSUR_ENCRYPTION_KEY, which is not stored in the database.';
-          break;
-        case 'database':
-          hint +=
-            ' It is saved encrypted, but with a key kept in the database as well, so a copy of the database reveals it. Setting PICSUR_ENCRYPTION_KEY prevents that, see the README.';
-          break;
-        default:
-          hint =
-            'Secrets cannot be saved right now, there is no key to encrypt them with. The server log says why.';
-      }
+    if (this.locked(key)) {
+      return 'Cannot be saved without an encryption key, see the server log';
     }
-
-    if (LiveServerSettings.includes(key)) hint += ' Takes effect right away.';
-
     const state = this.state(key);
-    if (state?.env_set) {
-      hint += state.saved
-        ? ` Saved here, which comes before ${state.env} in the environment.`
-        : ` Set with ${state.env}, unless something is saved here.`;
-    }
-    return hint;
+    const fromEnv =
+      state?.env_set &&
+      (!state.saved || this.useEnv.has(key) || this.removeSecrets.has(key));
+    return [
+      ServerSettingUI[key].helpText,
+      fromEnv ? `Set with ${state.env}` : undefined,
+    ]
+      .filter((part) => part !== undefined)
+      .join('. ');
   }
 
   // What can only be set with environment variables, as shown on the page
@@ -228,10 +215,9 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     const state = this.state(key);
     if (state === null) return '';
     if (SecretServerSettings.includes(key)) {
-      if (state.saved && !this.removeSecrets.has(key)) {
-        return 'Saved, leave empty to keep it';
-      }
-      return state.env_set ? `Set with ${state.env}` : '';
+      return state.saved && !this.removeSecrets.has(key)
+        ? 'Saved, leave empty to keep it'
+        : '';
     }
     const fallback = this.fallback(key);
     if (fallback === null) return '';
@@ -286,18 +272,14 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     const storage = this.storage;
     if (storage === null) return '';
 
-    const count = storage.files.database;
-    let text = `There ${count === 1 ? 'is' : 'are'} ${count} image ${count === 1 ? 'file' : 'files'} in the database`;
-    const others: string[] = [];
+    const counts = [`${storage.files.database} in the database`];
     if (storage.bucket !== null || storage.files.s3 > 0) {
-      others.push(`${storage.files.s3} in the bucket`);
+      counts.push(`${storage.files.s3} in the bucket`);
     }
     if (storage.path !== null || storage.files.filesystem > 0) {
-      others.push(`${storage.files.filesystem} in the directory`);
+      counts.push(`${storage.files.filesystem} in the directory`);
     }
-    if (others.length === 1) text += `, and ${others[0]}`;
-    if (others.length === 2) text += `, ${others[0]} and ${others[1]}`;
-    return text + '.';
+    return `Image files: ${counts.join(', ')}.`;
   }
 
   // Files that are not where new ones go
@@ -433,7 +415,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     if (result.driver === 'filesystem') this.pathWarning = result.warning;
     if (result.warning !== null) {
       this.errorService.warn(
-        `Images can be stored in ${where}, but look into the warning`,
+        `Images can be stored in ${where}, see the warning`,
         this.logger,
       );
       return;
@@ -472,10 +454,9 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     );
     const toMove = next === this.storage.driver ? 0 : this.filesNotIn(next);
 
-    let description =
-      'Picsur is unavailable for a moment while it restarts, uploads in progress fail.';
+    let description = 'Picsur is unavailable for a moment while it restarts.';
     if (toMove > 0) {
-      description += ` There ${toMove === 1 ? 'is 1 image file' : `are ${toMove} image files`} stored elsewhere, which can be moved to ${StorageName(next)} after the restart.`;
+      description += ` ${toMove} image ${toMove === 1 ? 'file' : 'files'} can then be moved to ${StorageName(next)}.`;
     }
 
     const pressed = await this.dialogService.showDialog({
@@ -512,7 +493,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
     if (result.restart_error !== null) {
       this.errorService.warn(
-        'Picsur could not start with the new settings, it uses the previous ones',
+        'The restart failed, the previous settings are in use',
         this.logger,
       );
       return;

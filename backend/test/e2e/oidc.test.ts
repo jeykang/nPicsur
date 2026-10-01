@@ -364,7 +364,7 @@ describe.skipIf(loginFromEnv)('logging in with OpenID Connect', () => {
       // way to log in now
       const unlink = await admin.request('DELETE', '/api/user/me/oidc');
       expectFailure(unlink, 409);
-      expect(unlink.json.data.message).toContain('turned off');
+      expect(unlink.json.data.message).toContain('Password login is off');
       expect((await loginMethods(admin)).oidc?.linked).toBe(true);
 
       // The way back in when the provider is gone: removing the saved

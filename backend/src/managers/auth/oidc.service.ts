@@ -217,7 +217,7 @@ export class OidcService {
     if (!this.loginConfig.password) {
       return Fail(
         FT.Conflict,
-        'Logging in with a password is turned off, so you could not log in anymore',
+        'Password login is off, so it cannot be unlinked',
       );
     }
     const hasPassword = await this.usersService.hasPassword(userId);
@@ -257,7 +257,7 @@ export class OidcService {
       if (existing.user_id === userId) return { linked: true, user: null };
       return Fail(
         FT.Conflict,
-        'This account at the provider is linked to another account here already',
+        'This provider account is linked to another account',
       );
     }
 
@@ -287,7 +287,7 @@ export class OidcService {
       if (!config.autoRegister) {
         return Fail(
           FT.Permission,
-          `Your ${config.name} account is not linked to an account here. Log in with your password and link it under Settings → Account, or ask an administrator.`,
+          `Your ${config.name} account is not linked to an account here. Log in with your password to link it.`,
         );
       }
       const created = await this.register(

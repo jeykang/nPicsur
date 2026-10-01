@@ -237,8 +237,12 @@ describe('server settings', () => {
       ),
     );
     expect(listed.output).toMatch(/s3_region\s+us-east-1, the default/);
-    const secret = env['PICSUR_S3_SECRET_ACCESS_KEY'];
-    if (secret !== undefined) expect(listed.output).not.toContain(secret);
+    // Secrets are never shown
+    if (env['PICSUR_S3_SECRET_ACCESS_KEY'] !== undefined) {
+      expect(listed.output).toMatch(
+        /s3_secret_access_key\s+\(secret\), from PICSUR_S3_SECRET_ACCESS_KEY/,
+      );
+    }
 
     // Takes environment variable names as well
     const reset = await cli([

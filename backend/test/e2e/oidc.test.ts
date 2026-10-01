@@ -358,6 +358,13 @@ describe.skipIf(loginFromEnv)('logging in with OpenID Connect', () => {
         oidc_issuer: provider.issuer + '/.well-known/openid-configuration',
       });
       expectFailure(res, 409);
+
+      // Nor can a login be unlinked, even with a password, as it is the only
+      // way to log in now
+      const unlink = await admin.request('DELETE', '/api/user/me/oidc');
+      expectFailure(unlink, 409);
+      expect(unlink.json.data.message).toContain('turned off');
+      expect((await loginMethods(admin)).oidc?.linked).toBe(true);
     });
   });
 });

@@ -212,7 +212,14 @@ export class OidcService {
     const configuration = await this.configuration();
     if (HasFailed(configuration)) return configuration;
 
-    // Without a password, there would be no way to log in anymore
+    // Without logging in with a password, there would be no way to log in
+    // anymore
+    if (!this.loginConfig.password) {
+      return Fail(
+        FT.Conflict,
+        'Logging in with a password is turned off, so you could not log in anymore',
+      );
+    }
     const hasPassword = await this.usersService.hasPassword(userId);
     if (HasFailed(hasPassword)) return hasPassword;
     if (!hasPassword) {

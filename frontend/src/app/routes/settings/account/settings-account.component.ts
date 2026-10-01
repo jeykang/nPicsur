@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { UserLoginMethodsResponse } from 'picsur-shared/dist/dto/api/user.dto';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { ChangePasswordControl } from '../../../models/forms/change-password.control';
+import { InfoService } from '../../../services/api/info.service';
 import { UserService } from '../../../services/api/user.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
@@ -24,8 +25,14 @@ export class SettingsAccountComponent implements OnInit {
     return this.methods?.password ?? true;
   }
 
+  // Whether this server lets anyone log in with a password
+  public get passwordLogin(): boolean {
+    return this.infoService.snapshot.login?.password ?? true;
+  }
+
   constructor(
     public readonly userService: UserService,
+    private readonly infoService: InfoService,
     private readonly errorService: ErrorService,
   ) {}
 
@@ -79,7 +86,9 @@ export class SettingsAccountComponent implements OnInit {
     this.errorService.success(
       hadPassword
         ? 'Password changed, you were logged out everywhere else'
-        : 'Password set, you can log in with it now',
+        : this.passwordLogin
+          ? 'Password set, you can log in with it now'
+          : 'Password set',
     );
   }
 }

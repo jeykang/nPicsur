@@ -11,7 +11,10 @@
       Your account is linked to your login at {{ oidc.provider
       }}{{ oidc.name ? ' (' + oidc.name + ')' : '' }}, so you can log in with
       it.
-      @if (!hasPassword) {
+      @if (!passwordLogin) {
+        Logging in with a password is turned off on this server, so this is how
+        you log in.
+      } @else if (!hasPassword) {
         Set a password before unlinking it, or you could not log in anymore.
       }
     </p>
@@ -20,7 +23,7 @@
         mat-stroked-button
         type="button"
         (click)="unlinkOidc()"
-        [disabled]="loading || !hasPassword"
+        [disabled]="loading || !hasPassword || !passwordLogin"
       >
         UNLINK
       </button>

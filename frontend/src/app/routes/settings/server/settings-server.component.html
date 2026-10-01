@@ -291,7 +291,7 @@
         mat-stroked-button
         type="button"
         [disabled]="busy !== null"
-        (click)="testStorage('s3')"
+        (click)="testStorage(Driver.S3)"
       >
         {{ testing === 's3' ? 'TESTING...' : 'TEST THE BUCKET' }}
       </button>
@@ -334,7 +334,7 @@
         mat-stroked-button
         type="button"
         [disabled]="busy !== null"
-        (click)="testStorage('filesystem')"
+        (click)="testStorage(Driver.Filesystem)"
       >
         {{ testing === 'filesystem' ? 'TESTING...' : 'TEST THE DIRECTORY' }}
       </button>

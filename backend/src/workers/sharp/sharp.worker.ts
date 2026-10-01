@@ -6,7 +6,7 @@ import {
   SharpWorkerFinishOptions,
   SharpWorkerInitMessage,
   SharpWorkerOperationMessage,
-  SharpWorkerRecieveMessage,
+  SharpWorkerReceiveMessage,
   SharpWorkerSendMessage,
 } from './sharp.message.js';
 import {
@@ -234,7 +234,7 @@ export class SharpWorker {
     setImmediate(() => collectGarbage?.());
   }
 
-  private sendMessage(message: SharpWorkerRecieveMessage): void {
+  private sendMessage(message: SharpWorkerReceiveMessage): void {
     if (process.send === undefined) {
       return this.purge('This is not a worker process');
     }

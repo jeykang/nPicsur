@@ -6,7 +6,6 @@ export enum UsrPreference {
   KeepOriginal = 'keep_original',
 }
 
-export type UsrPreferences = UsrPreference[];
 export const UsrPreferenceList: string[] = Object.values(UsrPreference);
 
 // Syspref Value types

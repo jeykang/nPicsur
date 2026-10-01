@@ -21,6 +21,11 @@ import {
   ServerSettingValidators,
   StorageSettings,
 } from 'picsur-shared/dist/dto/server-settings.dto';
+import {
+  ExternalStorageDriver,
+  StorageDriver,
+  StorageDriverList,
+} from 'picsur-shared/dist/dto/storage-driver.enum';
 import { Failure, HasFailed } from 'picsur-shared/dist/types/failable';
 import {
   EnvironmentOptionUI,
@@ -33,8 +38,6 @@ import { DialogService } from '../../../util/dialog-manager/dialog.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
 
 type SettingControls = { [key in ServerSetting]: FormControl<string> };
-type StorageDriver = 'database' | 's3' | 'filesystem';
-const StorageDrivers: StorageDriver[] = ['database', 's3', 'filesystem'];
 
 // The maximum upload size is shown in MB instead of bytes
 const BYTES_PER_MB = 1000 * 1000;
@@ -62,7 +65,10 @@ export function StorageName(driver: StorageDriver | null): string {
 }
 
 function AsDriver(value: string | null | undefined): StorageDriver {
-  return StorageDrivers.find((driver) => driver === value) ?? 'database';
+  return (
+    StorageDriverList.find((driver) => driver === value) ??
+    StorageDriver.Database
+  );
 }
 
 @Component({
@@ -75,6 +81,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
   private readonly logger = new Logger(SettingsServerComponent.name);
 
   public readonly S = ServerSetting;
+  public readonly Driver = StorageDriver;
   public readonly storageName = StorageName;
 
   public settings: ServerSettingsResponse | null = null;
@@ -92,7 +99,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
   public pathWarning: string | null = null;
 
   public busy: 'saving' | 'testing' | 'restarting' | 'migrating' | null = null;
-  public testing: 's3' | 'filesystem' | 'oidc' | null = null;
+  public testing: ExternalStorageDriver | 'oidc' | null = null;
   private migrationTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -403,7 +410,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     await this.promptRestart();
   }
 
-  async testStorage(storage: 's3' | 'filesystem') {
+  async testStorage(storage: ExternalStorageDriver) {
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
 
@@ -554,7 +561,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
   private filesNotIn(driver: StorageDriver): number {
     if (this.storage === null) return 0;
-    return StorageDrivers.filter((other) => other !== driver).reduce(
+    return StorageDriverList.filter((other) => other !== driver).reduce(
       (total, other) => total + this.storage!.files[other],
       0,
     );

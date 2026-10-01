@@ -7,7 +7,7 @@ import { UIFriendlyPermissions } from '../../../../i18n/permissions.i18n';
 import { UpdateUserControl } from '../../../../models/forms/update-user.control';
 import { RolesService } from '../../../../services/api/roles.service';
 import { StaticInfoService } from '../../../../services/api/static-info.service';
-import { UserAdminService } from '../../../../services/api/user-manage.service';
+import { UserAdminService } from '../../../../services/api/user-admin.service';
 import { Logger } from '../../../../services/logger/logger.service';
 import { ErrorService } from '../../../../util/error-manager/error.service';
 

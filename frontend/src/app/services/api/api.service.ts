@@ -23,7 +23,6 @@ import { ParseMime2FileType } from 'picsur-shared/dist/util/parse-mime';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { z } from 'zod';
 import { ApiBuffer } from '../../models/dto/api-buffer.dto';
-import { ApiError } from '../../models/dto/api-error.dto';
 import { MultiPartRequest } from '../../models/dto/multi-part-request.dto';
 import { Logger } from '../logger/logger.service';
 import { KeyStorageService } from '../storage/key-storage.service';
@@ -83,12 +82,6 @@ function CreateFailedRunningRequest<R>(failure: Failure) {
 })
 export class ApiService {
   private readonly logger = new Logger(ApiService.name);
-
-  private errorSubject = new Subject<ApiError>();
-
-  public get networkErrors() {
-    return this.errorSubject.asObservable();
-  }
 
   constructor(
     private readonly keyService: KeyStorageService,

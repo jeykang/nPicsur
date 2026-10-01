@@ -86,7 +86,7 @@ export const ServerSettingUI: {
   [ServerSetting.TrustProxy]: {
     name: 'Trusted proxies',
     helpText:
-      'Which reverse proxies may pass on the address of visitors, for rate limiting. Addresses and ranges separated by commas, or true for any and false for none.',
+      'Which reverse proxies may pass on the address of visitors, for rate limiting. Addresses, ranges and the names loopback, linklocal and uniquelocal, separated by commas, or true for any and false for none.',
   },
   [ServerSetting.HostOverride]: {
     name: 'Public address',

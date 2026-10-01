@@ -9,6 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
+import { StorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import { FT, HasFailed } from 'picsur-shared/dist/types/failable';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -16,10 +17,7 @@ import {
   MountOf,
   TestDiskStorage,
 } from '../../src/collections/disk-storage/disk-storage.service.js';
-import {
-  StorageConfigService,
-  StorageDriver,
-} from '../../src/config/early/storage.config.service.js';
+import { StorageConfigService } from '../../src/config/early/storage.config.service.js';
 
 const ImageId = '0b6f0bb5-3b3f-4a6e-9f55-8a4b1d0c1e2f';
 const OtherId = '6f1c2b7e-0a1d-4c1e-8b2a-3d4e5f6a7b8c';

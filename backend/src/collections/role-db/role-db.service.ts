@@ -185,23 +185,6 @@ export class RoleDbService {
     return HasSuccess(await this.findOne(name));
   }
 
-  public async nukeSystemRoles(IAmSure = false): AsyncFailable<true> {
-    if (!IAmSure)
-      return Fail(
-        FT.SysValidation,
-        'You must confirm that you want to delete all roles',
-      );
-
-    try {
-      await this.rolesRepository.delete({
-        name: In(UndeletableRolesList),
-      });
-    } catch (e) {
-      return Fail(FT.Database, e);
-    }
-    return true;
-  }
-
   private async resolve(
     role: string | ERoleBackend,
   ): AsyncFailable<ERoleBackend> {

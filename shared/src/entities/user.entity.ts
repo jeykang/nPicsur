@@ -8,13 +8,11 @@ export const SimpleUserSchema = z.object({
   password: IsPlainTextPwd(),
   roles: IsStringList(),
 });
-export type SimpleUser = z.infer<typeof SimpleUserSchema>;
 
 export const EUserSchema = z.object({
   id: IsEntityID(),
   username: IsUsername(),
   roles: IsStringList(),
-  hashedPassword: z.undefined(),
 });
 export type EUser = z.infer<typeof EUserSchema>;
 

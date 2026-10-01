@@ -1,21 +1,8 @@
 import { EUser } from 'picsur-shared/dist/entities/user.entity';
-import {
-  Column,
-  Entity,
-  Index,
-  OneToMany,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
-import { EApiKeyBackend } from '../apikey.entity.js';
-import { EUsrPreferenceBackend } from '../system/usr-preference.entity.js';
-
-// Different data for public and private
-type OverriddenEUser = Omit<EUser, 'hashedPassword'> & {
-  hashedPassword?: string;
-};
+import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
-export class EUserBackend implements OverriddenEUser {
+export class EUserBackend implements EUser {
   @PrimaryGeneratedColumn('uuid', {})
   id: string;
 
@@ -34,11 +21,4 @@ export class EUserBackend implements OverriddenEUser {
   // the password changes, so whoever had the old one is logged out.
   @Column({ type: 'timestamptz', nullable: true })
   tokens_valid_after?: Date | null;
-
-  // This will never be populated, it is only here to auto delete apikeys when a user is deleted
-  @OneToMany(() => EApiKeyBackend, (apikey) => apikey.user)
-  apikeys?: EApiKeyBackend[];
-
-  @OneToMany(() => EUsrPreferenceBackend, (pref) => pref.user_id)
-  preferences?: EUsrPreferenceBackend[];
 }

@@ -26,7 +26,7 @@ export class EApiKeyBackend<
   @Column({ nullable: false })
   key_hint: string;
 
-  @ManyToOne(() => EUserBackend, (user) => user.apikeys, {
+  @ManyToOne(() => EUserBackend, {
     nullable: false,
     onDelete: 'CASCADE',
   })

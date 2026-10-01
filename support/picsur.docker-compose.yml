@@ -19,7 +19,8 @@ services:
       # PICSUR_ADMIN_PASSWORD: CHANGE_ME
 
       ## Signs logins, whoever knows it can log in as anyone. When not set, a
-      ## random secret is generated and kept in the database.
+      ## random secret is generated and kept in the database. At least 32
+      ## random characters, like: openssl rand -base64 32
       # PICSUR_JWT_SECRET: CHANGE_ME
 
       ## No need to touch this, unless you use a custom frontend
@@ -40,9 +41,10 @@ services:
       # PICSUR_MAX_FILE_SIZE: 128000000
 
       ## Proxies allowed to pass on the visitor's address, used for rate
-      ## limiting. By default any private address, like a reverse proxy in
-      ## the same docker network. Can be "true", "false", or a comma separated
-      ## list of addresses and ranges.
+      ## limiting. By default loopback and private IPv4 addresses, like a
+      ## reverse proxy in the same docker network. Can be "true", "false", or a
+      ## comma separated list of addresses, ranges, and the names loopback,
+      ## linklocal and uniquelocal.
       # PICSUR_TRUST_PROXY: "172.16.0.0/12"
 
       ## The address Picsur is reached at, for links to images and logging in
@@ -102,8 +104,14 @@ services:
       # PICSUR_OIDC_CLIENT_SECRET: CHANGE_ME
       ## The login button says "Log in with" this
       # PICSUR_OIDC_NAME: Authelia
+      ## What Picsur asks the provider for, openid is needed
+      # PICSUR_OIDC_SCOPE: openid profile email
+      ## The claim new accounts are named after
+      # PICSUR_OIDC_USERNAME_CLAIM: preferred_username
       ## Give everyone who can log in at the provider an account here
       # PICSUR_OIDC_AUTO_REGISTER: "false"
+      ## Skip the login page and go to the provider right away
+      # PICSUR_OIDC_AUTO_LAUNCH: "true"
       ## Only allow logging in at the provider, once your own account is
       ## linked. Remove it to turn password login on again.
       # PICSUR_PASSWORD_LOGIN: "false"

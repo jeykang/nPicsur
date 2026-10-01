@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { decodeToken } from '@leteu/jwt-decoder';
 import {
   UserChangePasswordRequest,
   UserChangePasswordResponse,
@@ -15,7 +14,6 @@ import {
   UserRegisterRequest,
   UserRegisterResponse,
 } from 'picsur-shared/dist/dto/api/user.dto';
-import { JwtDataSchema } from 'picsur-shared/dist/dto/jwt.dto';
 import { EUser } from 'picsur-shared/dist/entities/user.entity';
 import {
   AsyncFailable,
@@ -209,24 +207,6 @@ export class UserService {
     } else {
       return value;
     }
-  }
-
-  // This extracts the available userdata from the jwt token
-  private async extractUserID(token: string): AsyncFailable<string> {
-    let decoded: any;
-    try {
-      decoded = decodeToken(token);
-    } catch {
-      return Fail(FT.UsrValidation, 'Invalid token');
-    }
-
-    const result = JwtDataSchema.safeParse(decoded);
-    if (!result.success) {
-      this.logger.error(result.error);
-      return Fail(FT.UsrValidation, 'Invalid token data');
-    }
-
-    return result.data.uid;
   }
 
   // This actually fetches up to date information from the server

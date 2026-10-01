@@ -233,9 +233,6 @@ importers:
       '@fontsource/roboto':
         specifier: ^5.1.0
         version: 5.1.0
-      '@leteu/jwt-decoder':
-        specifier: ^1.0.4
-        version: 1.0.4
       '@ng-web-apis/common':
         specifier: ^5.3.0
         version: 5.3.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.1)(zone.js@0.15.1))(@types/dom-speech-recognition@0.0.10)(rxjs@7.8.1)
@@ -1524,9 +1521,6 @@ packages:
 
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
-
-  '@leteu/jwt-decoder@1.0.4':
-    resolution: {integrity: sha512-oVaXy7rIT9q7tYGz9X/xRrIWWBotB4jGYRlOq6DgKbWQfk8iq+Rqoqff1fDYd2GgnqHw87v3NMi6euRjL1mNEg==}
 
   '@listr2/prompt-adapter-inquirer@4.2.7':
     resolution: {integrity: sha512-k180vxSv2KqmnDxoato6pCqEJsov4U5C0EVmldZkAdNeVBxY48A/LM6TCNPGIzDK/iZSfsZP0Mw+gbWc5hXLyA==}
@@ -6609,10 +6603,6 @@ snapshots:
       keyv: 5.6.0
 
   '@keyv/serialize@1.1.1': {}
-
-  '@leteu/jwt-decoder@1.0.4':
-    dependencies:
-      buffer: 6.0.3
 
   '@listr2/prompt-adapter-inquirer@4.2.7(@inquirer/prompts@8.7.2(@types/node@24.13.6))(@types/node@24.13.6)(listr2@11.1.0)':
     dependencies:

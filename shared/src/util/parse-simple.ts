@@ -44,7 +44,3 @@ export const ParseString = <T extends string | null = null>(
   if (typeof value === 'number') return value.toString();
   return fallback === undefined ? (null as T) : fallback;
 };
-
-export const ParseStringZ = (value: unknown): string | null => {
-  return ParseString(value, null);
-};

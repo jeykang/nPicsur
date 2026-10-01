@@ -1,6 +1,7 @@
 import ms from 'ms';
 import { z } from 'zod';
 import { IsEntityID } from '../validators/entity-id.validator.js';
+import { StorageDriverSchema } from './storage-driver.enum.js';
 import { IsHttpUrl } from '../validators/url.validator.js';
 
 // The settings of Picsur, changed on the settings page. Each can also be set
@@ -80,15 +81,6 @@ export const SecretServerSettings: ServerSetting[] = [
   ServerSetting.OidcClientSecret,
 ];
 
-// Where image data is kept, changing these makes what is stored there
-// unreachable
-export const StorageLocationSettings: ServerSetting[] = [
-  ServerSetting.StoragePath,
-  ServerSetting.S3Endpoint,
-  ServerSetting.S3Bucket,
-  ServerSetting.S3Prefix,
-];
-
 export const StorageSettings: ServerSetting[] = [
   ServerSetting.StorageDriver,
   ServerSetting.StoragePath,
@@ -165,7 +157,7 @@ const Duration = (min: number, max: number, message: string) =>
 export const ServerSettingValidators: {
   [key in ServerSetting]: z.ZodType<string>;
 } = {
-  [ServerSetting.StorageDriver]: z.enum(['database', 's3', 'filesystem']),
+  [ServerSetting.StorageDriver]: StorageDriverSchema,
   [ServerSetting.StoragePath]: z
     .string()
     .max(1024)

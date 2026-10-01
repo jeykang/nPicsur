@@ -38,7 +38,6 @@ import {
 @Component({
   selector: 'view-speeddial',
   templateUrl: './view-speeddial.component.html',
-  styleUrls: ['./view-speeddial.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
   standalone: false,
 })

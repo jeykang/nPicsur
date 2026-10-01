@@ -15,6 +15,7 @@ import {
 } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
+import { StorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import {
   AsyncFailable,
   Fail,
@@ -25,7 +26,6 @@ import {
 import {
   FilesystemStorageConfig,
   StorageConfigService,
-  StorageDriver,
 } from '../../config/early/storage.config.service.js';
 import {
   ExternalStorage,

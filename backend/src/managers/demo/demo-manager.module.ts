@@ -4,7 +4,7 @@ import { ImageDBModule } from '../../collections/image-db/image-db.module.js';
 import { RoleDbModule } from '../../collections/role-db/role-db.module.js';
 import { EarlyConfigModule } from '../../config/early/early-config.module.js';
 import { HostConfigService } from '../../config/early/host.config.service.js';
-import { DemoManagerService } from './demo.service.js';
+import { DemoManagerService } from './demo-manager.service.js';
 
 @Module({
   imports: [ImageDBModule, EarlyConfigModule, RoleDbModule],

@@ -1,6 +1,6 @@
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
+import { ExternalStorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import { AsyncFailable } from 'picsur-shared/dist/types/failable';
-import { ExternalStorageDriver } from '../../config/early/storage.config.service.js';
 
 export interface StoredObject {
   key: string;

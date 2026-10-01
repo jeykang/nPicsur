@@ -127,10 +127,6 @@ export class HeaderComponent implements OnInit {
     this.router.navigate(['/user/login']);
   }
 
-  doRegister() {
-    this.router.navigate(['/user/register']);
-  }
-
   async doLogout() {
     const user = await this.userService.logout();
     if (HasFailed(user))

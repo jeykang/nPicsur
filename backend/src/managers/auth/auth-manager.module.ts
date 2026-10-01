@@ -8,7 +8,7 @@ import {
   JwtSecretProvider,
 } from '../../config/late/jwt.config.service.js';
 import { LateConfigModule } from '../../config/late/late-config.module.js';
-import { AuthManagerService } from './auth.service.js';
+import { AuthManagerService } from './auth-manager.service.js';
 import { ApiKeyStrategy } from './guards/apikey.strategy.js';
 import { GuestStrategy } from './guards/guest.strategy.js';
 import { JwtStrategy } from './guards/jwt.strategy.js';

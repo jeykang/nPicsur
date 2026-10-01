@@ -33,8 +33,8 @@ export type StoredServerSettings = ReadonlyMap<ServerSetting, string>;
 export const DefaultMaxFileSize = 128000000;
 export const DefaultConversionRateLimit = 120;
 export const DefaultS3Region = 'us-east-1';
-// Any address in a private range, which covers a reverse proxy in the same
-// docker network
+// Loopback and private IPv4 addresses, which cover a reverse proxy in the
+// same docker network
 export const DefaultTrustProxy = [
   '127.0.0.0/8',
   '10.0.0.0/8',

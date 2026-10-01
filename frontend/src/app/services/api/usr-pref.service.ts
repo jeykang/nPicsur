@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import {
-  GetPreferenceResponse,
   MultiplePreferencesResponse,
   UpdatePreferenceRequest,
   UpdatePreferenceResponse,
@@ -75,24 +74,6 @@ export class UsrPrefService {
       this.usrprefObservable.next(pref.results);
       return pref.results;
     });
-  }
-
-  public async getPreference(
-    key: string,
-  ): AsyncFailable<GetPreferenceResponse> {
-    if (!this.hasPermission)
-      return Fail(
-        FT.Permission,
-        'You do not have permission to change preferences',
-      );
-
-    const response = await this.api.get(
-      GetPreferenceResponse,
-      `/api/pref/usr/${key}`,
-    ).result;
-
-    if (!HasFailed(response)) this.updatePrefArray(response);
-    return response;
   }
 
   public async setPreference(

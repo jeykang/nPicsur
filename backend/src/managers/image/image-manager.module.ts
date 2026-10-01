@@ -12,7 +12,7 @@ import { SharpWorkerPool } from '../../workers/sharp.pool.js';
 import { ConversionLimiterService } from './conversion-limiter.service.js';
 import { ImageConverterService } from './image-converter.service.js';
 import { ImageProcessorService } from './image-processor.service.js';
-import { ImageManagerService } from './image.service.js';
+import { ImageManagerService } from './image-manager.service.js';
 
 @Module({
   imports: [ImageDBModule, PreferenceDbModule, EarlyConfigModule],

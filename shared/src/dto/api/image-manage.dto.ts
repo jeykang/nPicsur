@@ -18,7 +18,7 @@ export class ImageUploadResponse extends createZodDto(
 export const ImageListRequestSchema = z.object({
   count: IsPosInt(),
   page: IsPosInt(),
-  user_id: z.string().uuid().optional(),
+  user_id: IsEntityID().optional(),
 });
 export class ImageListRequest extends createZodDto(ImageListRequestSchema) {}
 
@@ -53,7 +53,7 @@ export class ImageUpdateResponse extends createZodDto(
 // Image Delete
 
 export const ImageDeleteRequestSchema = z.object({
-  ids: z.array(z.string().uuid()),
+  ids: z.array(IsEntityID()),
 });
 export class ImageDeleteRequest extends createZodDto(
   ImageDeleteRequestSchema,

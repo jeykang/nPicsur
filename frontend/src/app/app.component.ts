@@ -37,7 +37,6 @@ export class AppComponent implements OnInit {
   loading = false;
   private loadingTimeout: number | null = null;
 
-  wrapContentWithContainer = true;
   sidebarPortal: Portal<any> | undefined = undefined;
 
   isDesktop = false;
@@ -114,7 +113,6 @@ export class AppComponent implements OnInit {
 
   private async onNavigationEnd() {
     const data = this.routeData;
-    this.wrapContentWithContainer = !data.noContainer;
 
     if (data._sidebar_portal !== undefined) {
       this.sidebarPortal = data._sidebar_portal;

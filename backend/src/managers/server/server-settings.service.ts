@@ -17,6 +17,10 @@ import {
   StorageSettings,
 } from 'picsur-shared/dist/dto/server-settings.dto';
 import {
+  ExternalStorageDriver,
+  StorageDriver,
+} from 'picsur-shared/dist/dto/storage-driver.enum';
+import {
   AsyncFailable,
   Fail,
   FT,
@@ -41,10 +45,8 @@ import { ServeStaticConfigService } from '../../config/early/serve-static.config
 import {
   BuildStorageConfig,
   ChangedStorageLocations,
-  ExternalStorageDriver,
   StorageConfig,
   StorageConfigService,
-  StorageDriver,
 } from '../../config/early/storage.config.service.js';
 import {
   EnvServerSetting,
@@ -264,7 +266,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
   // Tries out the bucket or directory the given changes would result in
   async testStorage(
     values: Record<string, string | null>,
-    storage: `${ExternalStorageDriver}`,
+    storage: ExternalStorageDriver,
   ): AsyncFailable<StorageTestResponse> {
     const plan = await this.plan(values);
     if (HasFailed(plan)) return plan;

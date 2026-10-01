@@ -29,11 +29,11 @@ export class PaginatorComponent implements OnInit {
   }
   @Output('page') pageChange = new EventEmitter<number>();
 
-  @Input('show-first-last') showFirstLast = true;
+  readonly showFirstLast = true;
 
-  @Input('shown-pages') shownPages = 7;
-  @Input('shown-first-pages') shownFirstPages = 1;
-  @Input('shown-last-pages') shownLastPages = 1;
+  readonly shownPages = 7;
+  readonly shownFirstPages = 1;
+  readonly shownLastPages = 1;
 
   firstPagesRange: [number, number] | null = null;
   lastPagesRange: [number, number] | null = null;

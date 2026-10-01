@@ -160,10 +160,6 @@ export class ViewComponent implements OnInit, OnDestroy {
     if (this.expires_timeout !== null) this.expires_timeout.unsubscribe();
   }
 
-  goBackHome() {
-    this.router.navigate(['/']);
-  }
-
   private updateFormatOptions() {
     let newOptions: {
       value: string;

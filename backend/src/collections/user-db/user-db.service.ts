@@ -343,14 +343,6 @@ export class UserDbService {
     }
   }
 
-  public async count(): AsyncFailable<number> {
-    try {
-      return await this.usersRepository.count();
-    } catch (e) {
-      return Fail(FT.Database, e);
-    }
-  }
-
   public async exists(username: string): Promise<boolean> {
     return HasSuccess(await this.findByUsername(username));
   }

@@ -5,5 +5,5 @@ export function errorsToError(errors: ValidationErrors | null): string {
     const error = Object.keys(errors)[0];
     return error;
   }
-  return 'unkown';
+  return 'unknown';
 }

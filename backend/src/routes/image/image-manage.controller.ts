@@ -23,14 +23,14 @@ import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { FT, Fail, ThrowIfFailed } from 'picsur-shared/dist/types/failable';
 import { EasyThrottle } from '../../decorators/easy-throttle.decorator.js';
 import { PostFiles } from '../../decorators/multipart/multipart.decorator.js';
-import type { FileIterator } from '../../decorators/multipart/postfiles.pipe.js';
+import type { FileIterator } from '../../decorators/multipart/multipart.pipe.js';
 import {
   HasPermission,
   RequiredPermissions,
 } from '../../decorators/permissions.decorator.js';
 import { ReqUserID } from '../../decorators/request-user.decorator.js';
 import { Returns } from '../../decorators/returns.decorator.js';
-import { ImageManagerService } from '../../managers/image/image.service.js';
+import { ImageManagerService } from '../../managers/image/image-manager.service.js';
 import { GetNextAsync } from '../../util/iterator.js';
 
 @Controller('api/image')

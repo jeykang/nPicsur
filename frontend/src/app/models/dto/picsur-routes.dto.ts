@@ -10,7 +10,6 @@ export type PRouteData = {
     category?: string;
   };
   permissions?: string[];
-  noContainer?: boolean;
   sidebar?: ComponentType<unknown>;
 
   // This is not meant to be set by the user, but by a resolver service

@@ -1,3 +1,4 @@
+import type { ExternalStorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import {
   Check,
   Column,
@@ -8,7 +9,6 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import type { ExternalStorageDriver } from '../../../config/early/storage.config.service.js';
 import { EImageBackend } from './image.entity.js';
 
 @Entity()
@@ -22,7 +22,7 @@ export class EImageDerivativeBackend {
 
   // We do a little trickery
   @Index()
-  @ManyToOne(() => EImageBackend, (image) => image.derivatives, {
+  @ManyToOne(() => EImageBackend, {
     nullable: false,
     onDelete: 'CASCADE',
   })

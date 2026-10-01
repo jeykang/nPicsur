@@ -12,6 +12,7 @@ import {
 import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
+import { StorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import {
   AsyncFailable,
   Fail,
@@ -21,7 +22,6 @@ import {
 import {
   S3StorageConfig,
   StorageConfigService,
-  StorageDriver,
 } from '../../config/early/storage.config.service.js';
 import {
   ExternalStorage,

@@ -76,13 +76,12 @@ export class UsrPreferenceDbService {
 
     // See the comment in 'mutex-fallback.ts' for why we are using a mutex here
     return MutexFallBack(
-      'fetchUsrPrefrence',
+      'fetchUsrPreference',
       async () => {
         let existing: EUsrPreferenceBackend | null;
         try {
           existing = await this.usrPreferenceRepository.findOne({
             where: { key: validatedKey as UsrPreference, user_id: userid },
-            cache: 60000,
           });
           if (!existing) return null;
         } catch (e) {

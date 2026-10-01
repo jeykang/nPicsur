@@ -284,16 +284,6 @@ export class ImageManagerService {
     return this.imageFilesService.getFile(imageId, ImageEntryVariant.MASTER);
   }
 
-  public async getMasterFileType(imageId: string): AsyncFailable<FileType> {
-    const mime = await this.imageFilesService.getFileTypes(imageId);
-    if (HasFailed(mime)) return mime;
-
-    if (mime['master'] === undefined)
-      return Fail(FT.NotFound, 'The image file is missing');
-
-    return ParseFileType(mime['master']);
-  }
-
   public async getOriginal(imageId: string): AsyncFailable<StoredImage> {
     return this.imageFilesService.getFile(imageId, ImageEntryVariant.ORIGINAL);
   }

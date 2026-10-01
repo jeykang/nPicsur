@@ -21,7 +21,7 @@ export class ApiKeyInfoResponse extends createZodDto(
 export const ApiKeyListRequestSchema = z.object({
   count: IsPosInt(),
   page: IsPosInt(),
-  user_id: z.string().uuid().optional(),
+  user_id: IsEntityID().optional(),
 });
 export class ApiKeyListRequest extends createZodDto(ApiKeyListRequestSchema) {}
 

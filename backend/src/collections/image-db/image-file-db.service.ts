@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import { FileType2Mime } from 'picsur-shared/dist/dto/mimes.dto';
+import { ExternalStorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import {
   AsyncFailable,
   Fail,
@@ -10,7 +11,6 @@ import {
 } from 'picsur-shared/dist/types/failable';
 import { QueryFailedError, Repository } from 'typeorm';
 import { EImageDerivativeBackend } from '../../database/entities/images/image-derivative.entity.js';
-import { ExternalStorageDriver } from '../../config/early/storage.config.service.js';
 import { EImageFileBackend } from '../../database/entities/images/image-file.entity.js';
 import { ExternalStorage } from '../external-storage/external-storage.js';
 import { ExternalStorageService } from '../external-storage/external-storage.service.js';

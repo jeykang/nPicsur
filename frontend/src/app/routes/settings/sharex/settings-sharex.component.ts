@@ -12,7 +12,6 @@ import { BuildShareX } from './sharex-builder';
 
 @Component({
   templateUrl: './settings-sharex.component.html',
-  styleUrls: ['./settings-sharex.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
   standalone: false,
 })

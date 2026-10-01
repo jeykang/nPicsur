@@ -11,7 +11,7 @@ import { EUser } from 'picsur-shared/dist/entities/user.entity';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { StaticInfoService } from '../../../services/api/static-info.service';
-import { UserAdminService } from '../../../services/api/user-manage.service';
+import { UserAdminService } from '../../../services/api/user-admin.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { BootstrapService } from '../../../util/bootstrap.service';
 import { DialogService } from '../../../util/dialog-manager/dialog.service';

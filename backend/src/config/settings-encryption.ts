@@ -46,10 +46,6 @@ export function UseGeneratedEncryptionKey(key: string | null) {
   generatedKey = key;
 }
 
-export function GeneratedEncryptionKey(): string | null {
-  return generatedKey;
-}
-
 export function NewEncryptionKey(): string {
   return randomBytes(32).toString('base64');
 }

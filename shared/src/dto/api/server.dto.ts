@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { IsPosInt } from '../../validators/positive-int.validator.js';
+import {
+  ExternalStorageDriverSchema,
+  StorageDriverSchema,
+} from '../storage-driver.enum.js';
 
 // ServerSettings
 
@@ -69,14 +73,14 @@ export class ServerSettingsUpdateRequest extends createZodDto(
 export const StorageTestRequestSchema =
   ServerSettingsUpdateRequestSchema.extend({
     // The bucket, or the directory
-    storage: z.enum(['s3', 'filesystem']),
+    storage: ExternalStorageDriverSchema,
   });
 export class StorageTestRequest extends createZodDto(
   StorageTestRequestSchema,
 ) {}
 
 export const StorageTestResponseSchema = z.object({
-  driver: z.enum(['s3', 'filesystem']),
+  driver: ExternalStorageDriverSchema,
   // The bucket, or the directory
   location: z.string(),
   // Whether it did not exist yet
@@ -98,8 +102,6 @@ export class ServerRestartResponse extends createZodDto(
 ) {}
 
 // StorageStatus
-
-const StorageDriverSchema = z.enum(['database', 's3', 'filesystem']);
 
 const LocationCountsSchema = z.object({
   database: IsPosInt(),

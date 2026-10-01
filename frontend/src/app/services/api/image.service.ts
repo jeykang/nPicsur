@@ -54,21 +54,6 @@ export class ImageService {
     return Open(result, 'id');
   }
 
-  // public async UploadImages(images: File[]): AsyncFailable<string[]> {
-  //   console.log('Uploading images', images);
-
-  //   // Split into chunks of 20
-  //   const groups = this.chunks(images, 20);
-
-  //   const result = await this.api.postForm(
-  //     ImageUploadResponse,
-  //     '/api/image/upload/bulk',
-  //     new ImagesUploadRequest(images),
-  //   );
-
-  //   return [];
-  // }
-
   public async GetImageMeta(image: string): AsyncFailable<ImageMetaResponse> {
     return await this.api.get(ImageMetaResponse, `/i/meta/${image}`).result;
   }
@@ -244,14 +229,5 @@ export class ImageService {
     name?: string,
   ): ImageLinks {
     return this.CreateImageLinks(this.GetImageURL(imageID, mime, true), name);
-  }
-
-  private chunks<T>(arr: T[], size: number): T[][] {
-    const result = [];
-    for (let i = 0; i < arr.length; i += size) {
-      result.push(arr.slice(i, size + i));
-    }
-
-    return result;
   }
 }

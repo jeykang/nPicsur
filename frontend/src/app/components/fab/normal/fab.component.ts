@@ -11,5 +11,4 @@ export class FabComponent {
   @Input() icon = 'add';
   @Input() color = 'primary';
   @Input('tooltip') tooltip: string;
-  @Input() onClick: () => void = () => {};
 }

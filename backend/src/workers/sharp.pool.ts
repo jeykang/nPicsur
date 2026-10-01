@@ -9,7 +9,7 @@ import {
   FT,
   HasFailed,
 } from 'picsur-shared/dist/types/failable';
-import { SharpWorkerRecieveMessage } from './sharp/sharp.message.js';
+import { SharpWorkerReceiveMessage } from './sharp/sharp.message.js';
 
 const moduleURL = new URL(import.meta.url);
 const __dirname = dirname(moduleURL.pathname);
@@ -206,7 +206,7 @@ function WaitForReady(
       child.off('error', onError);
       resolve(result);
     };
-    const onMessage = (message: SharpWorkerRecieveMessage) => {
+    const onMessage = (message: SharpWorkerReceiveMessage) => {
       done(
         message.type === 'ready'
           ? true

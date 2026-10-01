@@ -1,6 +1,5 @@
 @use 'sass:map';
 @use '@angular/material' as mat;
-@use './material-theme-custom.scss' as custom-mat;
 
 $theme-ignore-duplication-warnings: true;
 
@@ -177,7 +176,6 @@ $mat-theme-light: mat.m2-define-light-theme(
 
 @include mat.all-component-themes($mat-theme);
 @include mat.all-component-typographies($mat-theme);
-@include custom-mat.custom-material($mat-theme);
 @include mat.toolbar-overrides(
   (
     container-background-color: map.get(
@@ -190,7 +188,6 @@ $mat-theme-light: mat.m2-define-light-theme(
 // The light theme, when <html> has the theme-light class
 .theme-light {
   @include mat.all-component-colors($mat-theme-light);
-  @include custom-mat.custom-material($mat-theme-light);
   @include mat.toolbar-overrides(
     (
       container-background-color: map.get(

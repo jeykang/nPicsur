@@ -9,7 +9,7 @@ export class ClipboardService {
     try {
       const result = await navigator.clipboard.writeText(text);
       return result === undefined;
-    } catch (err) {
+    } catch {
       return false;
     }
   }

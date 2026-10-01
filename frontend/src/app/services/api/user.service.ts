@@ -216,7 +216,7 @@ export class UserService {
     let decoded: any;
     try {
       decoded = decodeToken(token);
-    } catch (e) {
+    } catch {
       return Fail(FT.UsrValidation, 'Invalid token');
     }
 

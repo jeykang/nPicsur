@@ -53,10 +53,9 @@ export class AppComponent implements OnInit {
     private readonly activatedRoute: ActivatedRoute,
     private readonly bootstrapService: BootstrapService,
     private readonly permissionService: PermissionService,
-    usageService: UsageService,
-  ) {
-    usageService;
-  }
+    // Not used here, injecting it is what starts it
+    private readonly usageService: UsageService,
+  ) {}
 
   public async retry() {
     this.retrying = true;

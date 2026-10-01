@@ -122,7 +122,7 @@ export class SharpWorker {
         soft: Math.min(current + this.memoryLimit, hard),
         hard,
       });
-    } catch (e) {
+    } catch {
       console.warn('Failed to set memory limit');
     }
   }

@@ -22,7 +22,6 @@ export class CompatibilityService {
     //this.checkCompatibility().catch(this.logger.error);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   nothing() {}
 
   private async checkCompatibility() {

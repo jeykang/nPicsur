@@ -7,7 +7,7 @@ export const IsValidMS = (min = 0, max = Number.MAX_SAFE_INTEGER) =>
     (v: any) => {
       try {
         return ms(v);
-      } catch (e) {
+      } catch {
         return NaN;
       }
     },

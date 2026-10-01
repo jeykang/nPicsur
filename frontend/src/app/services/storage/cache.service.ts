@@ -55,7 +55,7 @@ export class CacheService {
         return data.data;
       }
       return null;
-    } catch (e) {
+    } catch {
       return null;
     }
   }

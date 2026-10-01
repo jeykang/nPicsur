@@ -18,13 +18,7 @@ import {
   expectSuccess,
 } from './helpers/client.js';
 import { makePng } from './helpers/images.js';
-import {
-  getSettings,
-  restart,
-  setting,
-  SettingsResponse,
-  update,
-} from './helpers/settings.js';
+import { getSettings, restart, setting, update } from './helpers/settings.js';
 
 const env = inject('serverEnv');
 const s3TestEnv = inject('s3TestEnv');

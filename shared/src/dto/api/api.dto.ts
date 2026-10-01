@@ -29,11 +29,7 @@ export const ApiResponseSchema = <T extends z.AnyZodObject>(data: T) =>
 
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;
 
-const ApiAnySuccessResponseSchema = ApiSuccessResponse(z.object({}))
-  .omit({ data: true })
-  .merge(
-    z.object({
-      data: z.any(),
-    }),
-  );
-export type ApiAnySuccessResponse = z.infer<typeof ApiAnySuccessResponseSchema>;
+export type ApiAnySuccessResponse = z.infer<typeof ApiResponseBase> & {
+  success: true;
+  data?: any;
+};

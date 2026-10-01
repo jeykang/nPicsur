@@ -44,7 +44,7 @@ export class UploadComponent implements OnInit {
   onFileChange() {
     return this.fileControl.valueChanges.subscribe((file) => {
       if (!file) return;
-      let files = Array.isArray(file) ? file : [file];
+      const files = Array.isArray(file) ? file : [file];
       const metadata: ProcessingViewMeta = new ProcessingViewMeta(files);
       this.router.navigate(['/processing'], { state: metadata });
     });

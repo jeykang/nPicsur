@@ -9,6 +9,7 @@ import { ESysPreferenceBackend } from './system/sys-preference.entity.js';
 import { ESystemStateBackend } from './system/system-state.entity.js';
 import { EUsrPreferenceBackend } from './system/usr-preference.entity.js';
 import { ERoleBackend } from './users/role.entity.js';
+import { EUserOidcBackend } from './users/user-oidc.entity.js';
 import { EUserBackend } from './users/user.entity.js';
 
 export const EntityList = [
@@ -24,4 +25,5 @@ export const EntityList = [
   EAlbumBackend,
   EAlbumImageBackend,
   EServerSettingBackend,
+  EUserOidcBackend,
 ];

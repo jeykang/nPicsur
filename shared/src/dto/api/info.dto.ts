@@ -14,6 +14,18 @@ export const InfoResponseSchema = z.object({
     state: TrackingStateSchema,
     id: IsEntityID().optional(),
   }),
+  // How users can log in
+  login: z.object({
+    password: z.boolean(),
+    oidc: z
+      .object({
+        // Of the provider, the button says "Log in with" it
+        name: z.string(),
+        // Whether the login page goes to the provider right away
+        auto_launch: z.boolean(),
+      })
+      .nullable(),
+  }),
 });
 export class InfoResponse extends createZodDto(InfoResponseSchema) {}
 

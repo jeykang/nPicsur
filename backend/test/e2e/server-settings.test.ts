@@ -18,6 +18,13 @@ import {
   expectSuccess,
 } from './helpers/client.js';
 import { makePng } from './helpers/images.js';
+import {
+  getSettings,
+  restart,
+  setting,
+  SettingsResponse,
+  update,
+} from './helpers/settings.js';
 
 const env = inject('serverEnv');
 const s3TestEnv = inject('s3TestEnv');
@@ -29,24 +36,6 @@ const storageFromEnv = Object.keys(env).some(
     key.startsWith('PICSUR_S3_'),
 );
 const dockerImage = inject('dockerImage');
-
-interface SettingState {
-  key: string;
-  value: string | null;
-  set: boolean;
-  default: string | null;
-  source: 'environment' | 'settings' | 'default';
-  saved: boolean;
-  env: string;
-}
-
-interface SettingsResponse {
-  settings: SettingState[];
-  restart_needed: boolean;
-  restart_error: string | null;
-  started_at: string;
-  encryption_key: 'environment' | 'database' | null;
-}
 
 type Location = 'database' | 's3' | 'filesystem';
 
@@ -68,38 +57,8 @@ interface StorageResponse {
   };
 }
 
-function setting(settings: SettingsResponse, key: string): SettingState {
-  const state = settings.settings.find((s) => s.key === key);
-  if (state === undefined) throw new Error(`No setting ${key}`);
-  return state;
-}
-
-async function getSettings(client: Client): Promise<SettingsResponse> {
-  return expectSuccess(await client.get('/api/server/settings'));
-}
-
 async function getStorage(client: Client): Promise<StorageResponse> {
   return expectSuccess(await client.get('/api/server/storage'));
-}
-
-async function update(client: Client, values: Record<string, string | null>) {
-  return client.post('/api/server/settings', { values });
-}
-
-// Restarts the server, and waits until it is back
-async function restart(client: Client): Promise<SettingsResponse> {
-  const before = expectSuccess(await client.post('/api/server/restart'))
-    .started_at as string;
-
-  const deadline = Date.now() + 60_000;
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 250));
-    const res = await client.get('/api/server/settings').catch(() => null);
-    if (res?.json?.success && res.json.data.started_at !== before) {
-      return res.json.data;
-    }
-  }
-  throw new Error('Picsur did not come back after restarting');
 }
 
 async function migrate(client: Client): Promise<StorageResponse> {

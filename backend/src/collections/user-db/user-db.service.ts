@@ -45,9 +45,10 @@ export class UserDbService {
 
   // Creation and deletion
 
+  // Users without a password can only log in with OpenID Connect
   public async create(
     username: string,
-    password: string,
+    password: string | null,
     roles?: string[],
     // Add option to create "invalid" users, should only be used by system
     byPassRoleCheck?: boolean,
@@ -55,12 +56,12 @@ export class UserDbService {
     if (await this.exists(username))
       return Fail(FT.Conflict, 'User already exists');
 
-    const strength = await this.getBCryptStrength();
-    const hashedPassword = await bcrypt.hash(password, strength);
-
     const user = new EUserBackend();
     user.username = username;
-    user.hashed_password = hashedPassword;
+    user.hashed_password =
+      password === null
+        ? null
+        : await bcrypt.hash(password, await this.getBCryptStrength());
     if (byPassRoleCheck) {
       const rolesToAdd = roles ?? [];
       user.roles = makeUnique(rolesToAdd);
@@ -189,24 +190,45 @@ export class UserDbService {
     return userToModify;
   }
 
-  // For users changing their own password, which takes the current one
+  // For users changing their own password, which takes the current one.
+  // Users without one, who log in with OpenID Connect, can set one.
   public async changePassword(
     uuid: string,
-    currentPassword: string,
+    currentPassword: string | undefined,
     newPassword: string,
   ): AsyncFailable<EUserBackend> {
     const user = await this.findOne(uuid);
     if (HasFailed(user)) return user;
+    const hasPassword = await this.hasPassword(uuid);
+    if (HasFailed(hasPassword)) return hasPassword;
 
-    const verified = await this.authenticate(user.username, currentPassword);
-    if (HasFailed(verified)) {
-      if (verified.getType() === FT.Authentication) {
-        return Fail(FT.Authentication, 'The current password is wrong');
+    if (hasPassword) {
+      const verified = await this.authenticate(
+        user.username,
+        currentPassword ?? '',
+      );
+      if (HasFailed(verified)) {
+        if (verified.getType() === FT.Authentication) {
+          return Fail(FT.Authentication, 'The current password is wrong');
+        }
+        return verified;
       }
-      return verified;
     }
 
     return await this.updatePassword(uuid, newPassword);
+  }
+
+  public async hasPassword(uuid: string): AsyncFailable<boolean> {
+    try {
+      const found = await this.usersRepository.findOne({
+        where: { id: uuid },
+        select: ['id', 'hashed_password'],
+      });
+      if (!found) return Fail(FT.NotFound, 'User not found');
+      return !!found.hashed_password;
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
   }
 
   // Authentication
@@ -234,7 +256,13 @@ export class UserDbService {
       return Fail(FT.Authentication, 'Wrong username or password');
     }
 
-    if (!(await bcrypt.compare(password, user.hashed_password ?? '')))
+    // Users who only log in with OpenID Connect have no password, which takes
+    // as long to find out as a wrong one
+    if (!user.hashed_password) {
+      await bcrypt.compare(password, await this.getDummyHash());
+      return Fail(FT.Authentication, 'Wrong username or password');
+    }
+    if (!(await bcrypt.compare(password, user.hashed_password)))
       return Fail(FT.Authentication, 'Wrong username or password');
 
     return await this.findOne(user.id ?? '');

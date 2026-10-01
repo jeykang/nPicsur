@@ -18,7 +18,7 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
   - Deletion links ask for confirmation, so link previews in chat apps no longer delete images.
   - Without `PICSUR_ADMIN_PASSWORD`, new instances got the admin password `picsur`. A random password is now generated instead.
   - Api keys are stored hashed and only shown once, when they are created. They can no longer be turned into login tokens.
-- **New features**: albums, a public gallery, a light theme, changing your own password, and a settings page for the server itself, which restarts Picsur to apply them.
+- **New features**: albums, a public gallery, a light theme, changing your own password, logging in with an OpenID Connect provider like Authelia, and a settings page for the server itself, which restarts Picsur to apply them.
 - **Telemetry removed**: every instance of the original reported its hostname, user and image counts to the original author's server every hour.
 - **Current versions**: Node.js 24, NestJS 11 and Fastify 5 for the server, Angular 22 for the frontend. No dependency has a known vulnerability.
 - **Docker image** for amd64 and arm64 with HEIC (iPhone photos), JPEG XL and JPEG 2000 support. It is tested in CI before it is published.
@@ -28,6 +28,7 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
 
 - Uploading and viewing images, anonymously or with an account
 - User accounts, with roles and permissions
+- Logging in with an OpenID Connect provider, like Authelia, Authentik or Keycloak, next to passwords or instead of them
 - Many formats: QOI, JPEG, PNG, APNG (animated), WebP (animated), GIF (animated), TIFF, AVIF, HEIF/HEIC, BMP, ICO, TGA, JPEG XL, JPEG 2000
 - Converting and editing images through the url: resize, rotate, flip, strip transparency, negative, greyscale
 - EXIF stripping, with the option to keep the original file
@@ -100,6 +101,8 @@ The `latest` tag is the latest release, `edge` follows the master branch.
 | `PICSUR_STORAGE_DRIVER`             | `database`                  | Where new images are stored, `database`, `s3` or `filesystem`                                                                                                   |
 | `PICSUR_STORAGE_PATH`               |                             | See [Storing images on disk](#storing-images-on-disk)                                                                                                           |
 | `PICSUR_S3_*`                       |                             | See [Storing images in S3](#storing-images-in-s3)                                                                                                               |
+| `PICSUR_OIDC_*`                     |                             | See [Logging in with OpenID Connect](#logging-in-with-openid-connect)                                                                                           |
+| `PICSUR_PASSWORD_LOGIN`             | `true`                      | Whether users can log in with a password, see [Logging in with OpenID Connect](#logging-in-with-openid-connect)                                                 |
 | `PICSUR_HOST` / `PICSUR_PORT`       | `0.0.0.0` / `8080`          | Where the server listens                                                                                                                                        |
 | `PICSUR_STATIC_FRONTEND_ROOT`       | the built in frontend       | Only needed for a custom frontend                                                                                                                               |
 | `PICSUR_VERBOSE`                    | `false`                     | More logging, which might include sensitive data                                                                                                                |
@@ -186,6 +189,76 @@ docker exec picsur node backend/dist/cli.js storage migrate
 docker exec picsur node backend/dist/cli.js storage gc --dry-run
 docker exec picsur node backend/dist/cli.js storage gc
 ```
+
+## Logging in with OpenID Connect
+
+Users can log in with an OpenID Connect provider, like Authelia, Authentik, Keycloak, Pocket ID or Google, next to their password or instead of it. Picsur follows the standard, with [openid-client](https://github.com/panva/openid-client), so any provider that does should work.
+
+### At the provider
+
+Create a client for Picsur: a confidential client, also called a web application, that uses the authorization code flow. Give it these settings:
+
+- **Redirect URI**: `https://picsur.example.com/user/oidc`, with the address you open Picsur at. The settings page shows the exact address. Register exactly that one, not a pattern with wildcards. When the host override system setting is set, it is used for this address.
+- **Scopes**: `openid profile email`.
+- **PKCE**: Picsur always uses it, with `S256`, so it can be required.
+- **Client authentication**: `client_secret_basic`. Picsur only sends the secret in the request body instead (`client_secret_post`) to providers that do not support the former.
+
+For Authelia, a client in its configuration looks like this:
+
+```yaml
+identity_providers:
+  oidc:
+    clients:
+      - client_id: 'picsur'
+        client_name: 'Picsur'
+        # The digest of the secret you give Picsur
+        client_secret: '$pbkdf2-sha512$310000$...'
+        public: false
+        authorization_policy: 'two_factor'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://picsur.example.com/user/oidc'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+        response_types:
+          - 'code'
+        grant_types:
+          - 'authorization_code'
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
+```
+
+`authelia crypto hash generate pbkdf2 --variant sha512 --random --random.length 72 --random.charset rfc3986` makes a random secret for Picsur and its digest for Authelia, see [Authelia's documentation](https://www.authelia.com/integration/openid-connect/frequently-asked-questions/#client-secret).
+
+### In Picsur
+
+Under Settings → Server → Logging in, enter the issuer of the provider (like `https://auth.example.com`), the client id and secret, and the name of the provider for the login button. Testing it tells whether Picsur can reach the provider. After saving and restarting, the login page has a button to log in with the provider.
+
+Users with an account link their login at the provider under Settings → Account, after which they can log in with it. Logins are linked by the id the provider gives them, never by username or email address, so a user of the provider named like an account here can not take it over. A login is linked to one account, and an account to one login.
+
+Without an account, logging in at the provider does not get you in, unless **Create accounts for new users** is on. Then everyone who can log in at the provider gets an account the first time, with the default roles. Only turn that on when the provider only lets in people who should have an account, like with an Authelia access control rule for the client. New accounts are named after the `preferred_username` claim, or another one that is set, without characters other than letters and digits, and with a number after it when that name is taken. They have no password, users can set one under Settings → Account.
+
+Once your own account is linked, **Password login** can be turned off, so only logins at the provider work, and nobody can register with a password. Should the provider be unreachable then, set `PICSUR_PASSWORD_LOGIN=true` and restart to turn password login on again. With **Go to the provider right away**, the login page goes straight to the provider, `/user/login?local` still shows it.
+
+The same can be set with environment variables:
+
+| Variable                     | Description                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| `PICSUR_OIDC_ISSUER`         | The issuer of the provider, or the address of its discovery document                  |
+| `PICSUR_OIDC_CLIENT_ID`      |                                                                                       |
+| `PICSUR_OIDC_CLIENT_SECRET`  |                                                                                       |
+| `PICSUR_OIDC_NAME`           | Of the provider, the login button says "Log in with" it. Defaults to `single sign-on` |
+| `PICSUR_OIDC_SCOPE`          | Defaults to `openid profile email`                                                    |
+| `PICSUR_OIDC_USERNAME_CLAIM` | The claim new accounts are named after, defaults to `preferred_username`              |
+| `PICSUR_OIDC_AUTO_REGISTER`  | `true` to create accounts for new users                                               |
+| `PICSUR_OIDC_AUTO_LAUNCH`    | `true` to go to the provider right away                                               |
+| `PICSUR_PASSWORD_LOGIN`      | `false` to turn off password login, which only works with a provider set up           |
+
+Linked logins belong to the provider they were made with. While password login is off, the provider can not be changed, as nobody could log in with the new one yet.
 
 ## Upgrading from Picsur 0.5
 

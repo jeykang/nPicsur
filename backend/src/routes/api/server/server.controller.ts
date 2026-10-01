@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import {
+  OidcTestRequest,
+  OidcTestResponse,
   ServerRestartResponse,
   ServerSettingsResponse,
   ServerSettingsUpdateRequest,
@@ -10,6 +12,7 @@ import {
 import { ThrowIfFailed } from 'picsur-shared/dist/types/failable';
 import { EasyThrottle } from '../../../decorators/easy-throttle.decorator.js';
 import { RequiredPermissions } from '../../../decorators/permissions.decorator.js';
+import { ReqUserID } from '../../../decorators/request-user.decorator.js';
 import { Returns } from '../../../decorators/returns.decorator.js';
 import { ServerSettingsService } from '../../../managers/server/server-settings.service.js';
 import { StorageMigrationService } from '../../../managers/server/storage-migration.service.js';
@@ -35,9 +38,12 @@ export class ServerController {
   @Returns(ServerSettingsResponse)
   @EasyThrottle(20)
   async updateSettings(
+    @ReqUserID() userId: string,
     @Body() body: ServerSettingsUpdateRequest,
   ): Promise<ServerSettingsResponse> {
-    return ThrowIfFailed(await this.settingsService.update(body.values));
+    return ThrowIfFailed(
+      await this.settingsService.update(body.values, userId),
+    );
   }
 
   // Tries out the storage that the given changes would result in
@@ -50,6 +56,14 @@ export class ServerController {
     return ThrowIfFailed(
       await this.settingsService.testStorage(body.values, body.storage),
     );
+  }
+
+  // Tries out the OpenID Connect provider the given changes would result in
+  @Post('settings/test-oidc')
+  @Returns(OidcTestResponse)
+  @EasyThrottle(20)
+  async testOidc(@Body() body: OidcTestRequest): Promise<OidcTestResponse> {
+    return ThrowIfFailed(await this.settingsService.testOidc(body.values));
   }
 
   @Post('restart')

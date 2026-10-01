@@ -10,16 +10,27 @@ import {
   ThrowIfFailed,
 } from 'picsur-shared/dist/types/failable';
 import { UserDbService } from '../../../collections/user-db/user-db.service.js';
+import { LoginConfigService } from '../../../config/early/login.config.service.js';
 import { Permission } from '../../../models/constants/permissions.const.js';
 import { EUserBackend2EUser } from '../../../models/transformers/user.transformer.js';
 
 @Injectable()
 export class LocalAuthStrategy extends PassportStrategy(Strategy, 'local') {
-  constructor(private readonly usersService: UserDbService) {
+  constructor(
+    private readonly usersService: UserDbService,
+    private readonly loginConfig: LoginConfigService,
+  ) {
     super();
   }
 
   async validate(username: string, password: string): AsyncFailable<EUser> {
+    if (!this.loginConfig.password) {
+      throw Fail(
+        FT.Permission,
+        'Logging in with a password is turned off on this server',
+      );
+    }
+
     const start = Date.now();
     // All this does is call the usersservice authenticate for authentication
     const user = await this.usersService.authenticate(username, password);

@@ -120,3 +120,14 @@ export const StorageStatusResponseSchema = z.object({
 export class StorageStatusResponse extends createZodDto(
   StorageStatusResponseSchema,
 ) {}
+
+// OidcTest, of the provider the given changes would result in
+
+export const OidcTestRequestSchema = ServerSettingsUpdateRequestSchema;
+export class OidcTestRequest extends createZodDto(OidcTestRequestSchema) {}
+
+export const OidcTestResponseSchema = z.object({
+  // What the provider calls itself
+  issuer: z.string(),
+});
+export class OidcTestResponse extends createZodDto(OidcTestResponseSchema) {}

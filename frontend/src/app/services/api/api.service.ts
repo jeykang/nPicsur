@@ -139,6 +139,13 @@ export class ApiService {
     return this.fetchSafeJson(type, url, { method: 'POST' });
   }
 
+  public delete<T extends z.AnyZodObject>(
+    type: ZodDtoStatic<T>,
+    url: string,
+  ): RunningRequest<z.infer<T>> {
+    return this.fetchSafeJson(type, url, { method: 'DELETE' });
+  }
+
   public postForm<T extends z.AnyZodObject>(
     receiveType: ZodDtoStatic<T>,
     url: string,

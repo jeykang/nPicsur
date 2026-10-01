@@ -18,66 +18,88 @@
         <h1>Login to your account</h1>
       </div>
 
-      <div class="col-12 py-2">
-        <mat-form-field appearance="outline">
-          <mat-label>Username</mat-label>
-          <input
-            matInput
-            type="text"
-            [formControl]="model.username"
-            name="username"
-            autocorrect="off"
-            autocapitalize="none"
-            required
-          />
-          @if (model.username.errors) {
-            <mat-error>
-              {{ model.usernameError }}
-            </mat-error>
-          }
-        </mat-form-field>
-      </div>
-
-      <div class="col-12 py-2">
-        <mat-form-field appearance="outline">
-          <mat-label>Password</mat-label>
-          <input
-            matInput
-            type="password"
-            [formControl]="model.password"
-            name="password"
-            required
-          />
-          @if (model.password.errors) {
-            <mat-error>
-              {{ model.passwordError }}
-            </mat-error>
-          }
-        </mat-form-field>
-      </div>
-
-      <div class="col-12 py-2">
-        <button
-          mat-raised-button
-          color="primary"
-          class="mx-2"
-          type="submit"
-          [disabled]="loading"
-        >
-          {{ loading ? 'LOADING...' : 'LOGIN' }}
-        </button>
-        @if (showRegister) {
+      @if (oidcName !== null) {
+        <div class="col-12 py-2">
           <button
-            mat-flat-button
-            color="accent"
-            class="mx-2"
-            (click)="onRegister()"
+            mat-raised-button
+            color="primary"
             type="button"
+            (click)="loginWithOidc()"
+            [disabled]="loading"
           >
-            REGISTER
+            LOG IN WITH {{ oidcName | uppercase }}
           </button>
-        }
-      </div>
+        </div>
+      }
+
+      @if (passwordLogin) {
+        <div class="col-12 py-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Username</mat-label>
+            <input
+              matInput
+              type="text"
+              [formControl]="model.username"
+              name="username"
+              autocorrect="off"
+              autocapitalize="none"
+              required
+            />
+            @if (model.username.errors) {
+              <mat-error>
+                {{ model.usernameError }}
+              </mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <div class="col-12 py-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Password</mat-label>
+            <input
+              matInput
+              type="password"
+              [formControl]="model.password"
+              name="password"
+              required
+            />
+            @if (model.password.errors) {
+              <mat-error>
+                {{ model.passwordError }}
+              </mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <div class="col-12 py-2">
+          <button
+            mat-raised-button
+            [color]="oidcName === null ? 'primary' : undefined"
+            class="mx-2"
+            type="submit"
+            [disabled]="loading"
+          >
+            {{
+              loading
+                ? 'LOADING...'
+                : oidcName === null
+                  ? 'LOGIN'
+                  : 'LOG IN WITH PASSWORD'
+            }}
+          </button>
+          @if (showRegister) {
+            <button
+              mat-flat-button
+              color="accent"
+              class="mx-2"
+              (click)="onRegister()"
+              type="button"
+            >
+              REGISTER
+            </button>
+          }
+        </div>
+      }
     </form>
   </div>
 </div>

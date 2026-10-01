@@ -73,6 +73,19 @@ services:
       # PICSUR_S3_SECRET_ACCESS_KEY: CHANGE_ME
       ## Keep Picsur's objects under this path in the bucket
       # PICSUR_S3_PREFIX: picsur/
+
+      ## Logging in with an OpenID Connect provider, like Authelia, Authentik
+      ## or Keycloak. Register https://<your picsur>/user/oidc with it.
+      # PICSUR_OIDC_ISSUER: https://auth.example.com
+      # PICSUR_OIDC_CLIENT_ID: picsur
+      # PICSUR_OIDC_CLIENT_SECRET: CHANGE_ME
+      ## The login button says "Log in with" this
+      # PICSUR_OIDC_NAME: Authelia
+      ## Give everyone who can log in at the provider an account here
+      # PICSUR_OIDC_AUTO_REGISTER: "false"
+      ## Only allow logging in at the provider, once your own account is
+      ## linked. Set it to "true" to turn password login on again.
+      # PICSUR_PASSWORD_LOGIN: "false"
     ## For storing images in a directory
     # volumes:
     #   - picsur-images:/picsur/images

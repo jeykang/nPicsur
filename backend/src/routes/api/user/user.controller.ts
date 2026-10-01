@@ -14,6 +14,7 @@ import {
 import type { EUser } from 'picsur-shared/dist/entities/user.entity';
 import { Fail, FT, ThrowIfFailed } from 'picsur-shared/dist/types/failable';
 import { UserDbService } from '../../../collections/user-db/user-db.service.js';
+import { LoginConfigService } from '../../../config/early/login.config.service.js';
 import { EasyThrottle } from '../../../decorators/easy-throttle.decorator.js';
 import {
   NoPermissions,
@@ -37,6 +38,7 @@ export class UserController {
   constructor(
     private readonly usersService: UserDbService,
     private readonly authService: AuthManagerService,
+    private readonly loginConfig: LoginConfigService,
   ) {}
 
   @Post('login')
@@ -56,6 +58,13 @@ export class UserController {
   async register(
     @Body() register: UserRegisterRequest,
   ): Promise<UserRegisterResponse> {
+    // An account that can not be logged in to is no use
+    if (!this.loginConfig.password) {
+      throw Fail(
+        FT.Permission,
+        'Logging in with a password is turned off, so is registering with one',
+      );
+    }
     const user = ThrowIfFailed(
       await this.usersService.create(register.username, register.password),
     );

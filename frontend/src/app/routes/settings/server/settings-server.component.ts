@@ -11,6 +11,7 @@ import {
   StorageStatusResponse,
 } from 'picsur-shared/dist/dto/api/server.dto';
 import {
+  OidcSettings,
   SecretServerSettings,
   ServerSetting,
   ServerSettingList,
@@ -19,6 +20,7 @@ import {
 } from 'picsur-shared/dist/dto/server-settings.dto';
 import { Failure, HasFailed } from 'picsur-shared/dist/types/failable';
 import { ServerSettingUI } from '../../../i18n/server-settings.i18n';
+import { InfoService } from '../../../services/api/info.service';
 import { ServerSettingsService } from '../../../services/api/server-settings.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { DialogService } from '../../../util/dialog-manager/dialog.service';
@@ -27,6 +29,14 @@ import { ErrorService } from '../../../util/error-manager/error.service';
 type SettingControls = { [key in ServerSetting]: FormControl<string> };
 type StorageDriver = 'database' | 's3' | 'filesystem';
 const StorageDrivers: StorageDriver[] = ['database', 's3', 'filesystem'];
+
+// Settings shown as a toggle, which always have a value
+const Toggles: ServerSetting[] = [
+  ServerSetting.S3ForcePathStyle,
+  ServerSetting.OidcAutoRegister,
+  ServerSetting.OidcAutoLaunch,
+  ServerSetting.PasswordLogin,
+];
 
 // The maximum upload size is shown in MB instead of bytes
 const BYTES_PER_MB = 1000 * 1000;
@@ -77,16 +87,18 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
   // What the form showed when the settings were loaded
   private initial: Partial<Record<ServerSetting, string>> = {};
   // Whether the stored secret access key is removed on saving
-  public removeSecret = false;
+  // Saved secrets that are to be removed
+  public readonly removeSecrets = new Set<ServerSetting>();
   // Why the directory that was tested might not be safe for images
   public pathWarning: string | null = null;
 
   public busy: 'saving' | 'testing' | 'restarting' | 'migrating' | null = null;
-  public testing: 's3' | 'filesystem' | null = null;
+  public testing: 's3' | 'filesystem' | 'oidc' | null = null;
   private migrationTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly serverSettings: ServerSettingsService,
+    private readonly infoService: InfoService,
     private readonly dialogService: DialogService,
     private readonly errorService: ErrorService,
   ) {
@@ -187,7 +199,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     const state = this.state(key);
     if (state === null) return '';
     if (SecretServerSettings.includes(key)) {
-      return state.source === 'settings' && !this.removeSecret
+      return state.source === 'settings' && !this.removeSecrets.has(key)
         ? 'Saved, leave empty to keep it'
         : '';
     }
@@ -224,8 +236,24 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     return this.driver === 'filesystem' || this.pathIsSet;
   }
 
+  public isSet(key: ServerSetting): boolean {
+    return this.state(key)?.set ?? false;
+  }
+
   public get secretIsSet(): boolean {
-    return this.state(ServerSetting.S3SecretAccessKey)?.set ?? false;
+    return this.isSet(ServerSetting.S3SecretAccessKey);
+  }
+
+  // Where the provider sends users back to, to be registered there
+  public get oidcRedirectUri(): string {
+    const override = this.infoService.snapshot.host_override;
+    let origin = window.location.origin;
+    try {
+      if (override) origin = new URL(override).origin;
+    } catch {
+      // The address of the page it is
+    }
+    return origin + '/user/oidc';
   }
 
   public get hasChanges(): boolean {
@@ -263,9 +291,16 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     return ((migration.moved + migration.failed) / migration.total) * 100;
   }
 
-  public toggleRemoveSecret() {
-    this.removeSecret = !this.removeSecret;
-    this.form.controls[ServerSetting.S3SecretAccessKey].setValue('');
+  public toggleRemoveSecret(key: ServerSetting) {
+    if (this.removeSecrets.has(key)) this.removeSecrets.delete(key);
+    else this.removeSecrets.add(key);
+    this.form.controls[key].setValue('');
+  }
+
+  public setToggle(key: ServerSetting, on: boolean) {
+    const control = this.form.controls[key];
+    control.setValue(on ? 'true' : 'false');
+    control.markAsDirty();
   }
 
   // Empties all bucket settings, to be saved
@@ -282,7 +317,9 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
       control.setValue(key === ServerSetting.S3ForcePathStyle ? 'false' : '');
       control.markAsDirty();
     }
-    if (this.secretIsSet) this.removeSecret = true;
+    if (this.secretIsSet) {
+      this.removeSecrets.add(ServerSetting.S3SecretAccessKey);
+    }
   }
 
   // Empties the directory setting, to be saved
@@ -349,6 +386,23 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
         ? `Created ${where}, images can be stored there`
         : `Images can be stored in ${where}`,
     );
+  }
+
+  async testOidc() {
+    this.form.markAllAsTouched();
+    if (this.form.invalid) return;
+
+    this.busy = 'testing';
+    this.testing = 'oidc';
+    const result = await this.serverSettings.testOidc(
+      this.changes(OidcSettings),
+    );
+    this.busy = null;
+    this.testing = null;
+    if (HasFailed(result)) {
+      return this.errorService.showFailure(result, this.logger);
+    }
+    this.errorService.success(`Found the provider ${result.issuer}`);
   }
 
   async promptRestart() {
@@ -437,7 +491,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
   private showSettings(settings: ServerSettingsResponse) {
     this.settings = settings;
-    this.removeSecret = false;
+    this.removeSecrets.clear();
     this.pathWarning = null;
     this.initial = {};
 
@@ -496,10 +550,10 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
   // What the form shows for a setting
   private formValue(key: ServerSetting, state: ServerSettingState): string {
+    if (Toggles.includes(key)) return state.value ?? state.default ?? '';
     switch (key) {
       case ServerSetting.StorageDriver:
-      case ServerSetting.S3ForcePathStyle:
-        // A select and a toggle, which always have a value
+        // A select, which always has a value
         return state.value ?? state.default ?? '';
       case ServerSetting.MaxFileSize:
         return state.value === null ? '' : bytesToMb(state.value);
@@ -520,7 +574,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
       if (SecretServerSettings.includes(key)) {
         if (control.value !== '') changes[key] = control.value;
-        else if (this.removeSecret) changes[key] = null;
+        else if (this.removeSecrets.has(key)) changes[key] = null;
         continue;
       }
 
@@ -533,11 +587,10 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
             ? mbToBytes(input)
             : input;
 
-      // A select and a toggle can only go back to the default by choosing it
+      // A select and toggles can only go back to the default by choosing it
       const state = this.state(key);
       if (
-        (key === ServerSetting.StorageDriver ||
-          key === ServerSetting.S3ForcePathStyle) &&
+        (key === ServerSetting.StorageDriver || Toggles.includes(key)) &&
         value === state?.default
       ) {
         value = null;

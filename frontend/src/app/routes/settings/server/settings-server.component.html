@@ -34,6 +34,18 @@
   </mat-form-field>
 </ng-template>
 
+<!-- A toggle for a setting that is true or false -->
+<ng-template #toggle let-key>
+  <mat-slide-toggle
+    [checked]="control(key).value === 'true'"
+    [disabled]="locked(key)"
+    (change)="setToggle(key, $event.checked)"
+  >
+    {{ name(key) }}
+  </mat-slide-toggle>
+  <p class="hint">{{ hint(key) }}</p>
+</ng-template>
+
 @if (loadFailure) {
   <p>{{ loadFailure.getReason() }}</p>
   <button mat-raised-button color="primary" (click)="load()">TRY AGAIN</button>
@@ -252,24 +264,26 @@
             "
           ></ng-container>
           @if (secretIsSet && !locked(S.S3SecretAccessKey)) {
-            <button mat-button type="button" (click)="toggleRemoveSecret()">
-              {{ removeSecret ? 'KEEP THE SAVED SECRET' : 'REMOVE THE SECRET' }}
+            <button
+              mat-button
+              type="button"
+              (click)="toggleRemoveSecret(S.S3SecretAccessKey)"
+            >
+              {{
+                removeSecrets.has(S.S3SecretAccessKey)
+                  ? 'KEEP THE SAVED SECRET'
+                  : 'REMOVE THE SECRET'
+              }}
             </button>
           }
         </div>
         <div class="col-12 toggle">
-          <mat-slide-toggle
-            [checked]="control(S.S3ForcePathStyle).value === 'true'"
-            [disabled]="locked(S.S3ForcePathStyle)"
-            (change)="
-              control(S.S3ForcePathStyle).setValue(
-                $event.checked ? 'true' : 'false'
-              )
+          <ng-container
+            *ngTemplateOutlet="
+              toggle;
+              context: { $implicit: S.S3ForcePathStyle }
             "
-          >
-            {{ name(S.S3ForcePathStyle) }}
-          </mat-slide-toggle>
-          <p class="hint">{{ hint(S.S3ForcePathStyle) }}</p>
+          ></ng-container>
         </div>
       </div>
       <button
@@ -363,6 +377,90 @@
           *ngTemplateOutlet="field; context: { $implicit: S.TrustProxy }"
         ></ng-container>
       </div>
+    </div>
+
+    <h2>Logging in</h2>
+    <p>
+      Users can log in with an OpenID Connect provider, like Authelia, Authentik
+      or Keycloak, once an issuer and a client id are set. Picsur is a
+      confidential client that uses the authorization code flow. Register
+      exactly this address with the provider to send users back to:
+    </p>
+    <p>
+      <code>{{ oidcRedirectUri }}</code>
+    </p>
+    <div class="row">
+      <div class="col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.OidcIssuer }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.OidcClientId }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12 secret">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: { $implicit: S.OidcClientSecret, type: 'password' }
+          "
+        ></ng-container>
+        @if (isSet(S.OidcClientSecret) && !locked(S.OidcClientSecret)) {
+          <button
+            mat-button
+            type="button"
+            (click)="toggleRemoveSecret(S.OidcClientSecret)"
+          >
+            {{
+              removeSecrets.has(S.OidcClientSecret)
+                ? 'KEEP THE SAVED SECRET'
+                : 'REMOVE THE SECRET'
+            }}
+          </button>
+        }
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.OidcName }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.OidcScope }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.OidcUsernameClaim }"
+        ></ng-container>
+      </div>
+      <div class="col-12 toggle">
+        <ng-container
+          *ngTemplateOutlet="toggle; context: { $implicit: S.OidcAutoRegister }"
+        ></ng-container>
+      </div>
+      <div class="col-12 toggle">
+        <ng-container
+          *ngTemplateOutlet="toggle; context: { $implicit: S.OidcAutoLaunch }"
+        ></ng-container>
+      </div>
+      <div class="col-12 toggle">
+        <ng-container
+          *ngTemplateOutlet="toggle; context: { $implicit: S.PasswordLogin }"
+        ></ng-container>
+      </div>
+    </div>
+    <div class="pb-4">
+      <button
+        mat-stroked-button
+        type="button"
+        [disabled]="busy !== null"
+        (click)="testOidc()"
+      >
+        {{ testing === 'oidc' ? 'TESTING...' : 'TEST THE PROVIDER' }}
+      </button>
     </div>
 
     <div class="row">

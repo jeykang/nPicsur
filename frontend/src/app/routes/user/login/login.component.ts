@@ -1,9 +1,10 @@
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { LoginControl } from '../../../models/forms/login.control';
+import { InfoService } from '../../../services/api/info.service';
 import { PermissionService } from '../../../services/api/permission.service';
 import { UserPassModel } from '../../../models/forms-dto/userpass.dto';
 import { UserService } from '../../../services/api/user.service';
@@ -21,6 +22,9 @@ export class LoginComponent implements OnInit {
 
   public showRegister = false;
   public loading = false;
+  // How users can log in, as the server says
+  public passwordLogin = true;
+  public oidcName: string | null = null;
 
   public readonly model = new LoginControl();
 
@@ -28,7 +32,9 @@ export class LoginComponent implements OnInit {
     private readonly userService: UserService,
     private readonly permissionService: PermissionService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
     private readonly errorService: ErrorService,
+    private readonly infoService: InfoService,
   ) {}
 
   ngOnInit(): void {
@@ -39,13 +45,45 @@ export class LoginComponent implements OnInit {
     }
 
     this.onPermissions();
+    this.onInfo();
   }
 
   @AutoUnsubscribe()
   onPermissions() {
     return this.permissionService.live.subscribe((permissions) => {
-      this.showRegister = permissions.includes(Permission.UserRegister);
+      this.canRegister = permissions.includes(Permission.UserRegister);
+      this.showRegister = this.canRegister && this.passwordLogin;
     });
+  }
+
+  private canRegister = false;
+  private launched = false;
+
+  @AutoUnsubscribe()
+  onInfo() {
+    return this.infoService.live.subscribe((info) => {
+      this.passwordLogin = info.login?.password ?? true;
+      this.oidcName = info.login?.oidc?.name ?? null;
+      this.showRegister = this.canRegister && this.passwordLogin;
+
+      // Straight to the provider, unless the login page is asked for with
+      // ?local, to log in with a password anyway
+      const local = this.route.snapshot.queryParamMap.has('local');
+      if (info.login?.oidc?.auto_launch && !local && !this.launched) {
+        this.launched = true;
+        this.loginWithOidc().catch(this.logger.error);
+      }
+    });
+  }
+
+  async loginWithOidc() {
+    this.loading = true;
+    const url = await this.userService.startOidcLogin();
+    if (HasFailed(url)) {
+      this.loading = false;
+      return this.errorService.showFailure(url, this.logger);
+    }
+    window.location.assign(url);
   }
 
   async onSubmit() {

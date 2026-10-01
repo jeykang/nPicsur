@@ -19,12 +19,25 @@ export enum ServerSetting {
   MaxConcurrentConversions = 'max_concurrent_conversions',
   ConversionRateLimit = 'conversion_rate_limit',
   TrustProxy = 'trust_proxy',
+
+  // Logging in with an OpenID Connect provider, which is set up when there is
+  // an issuer and a client id
+  OidcIssuer = 'oidc_issuer',
+  OidcClientId = 'oidc_client_id',
+  OidcClientSecret = 'oidc_client_secret',
+  OidcScope = 'oidc_scope',
+  OidcName = 'oidc_name',
+  OidcUsernameClaim = 'oidc_username_claim',
+  OidcAutoRegister = 'oidc_auto_register',
+  OidcAutoLaunch = 'oidc_auto_launch',
+  PasswordLogin = 'password_login',
 }
 export const ServerSettingList: ServerSetting[] = Object.values(ServerSetting);
 
 // Never shown once set
 export const SecretServerSettings: ServerSetting[] = [
   ServerSetting.S3SecretAccessKey,
+  ServerSetting.OidcClientSecret,
 ];
 
 // Where image data is kept, changing these makes what is stored there
@@ -48,6 +61,17 @@ export const StorageSettings: ServerSetting[] = [
   ServerSetting.S3SecretAccessKey,
 ];
 
+export const OidcSettings: ServerSetting[] = [
+  ServerSetting.OidcIssuer,
+  ServerSetting.OidcClientId,
+  ServerSetting.OidcClientSecret,
+  ServerSetting.OidcScope,
+  ServerSetting.OidcName,
+  ServerSetting.OidcUsernameClaim,
+  ServerSetting.OidcAutoRegister,
+  ServerSetting.OidcAutoLaunch,
+];
+
 export function ServerSettingEnvName(setting: ServerSetting): string {
   return 'PICSUR_' + setting.toUpperCase();
 }
@@ -65,6 +89,10 @@ const IpOrRange =
   /^(\d{1,3}(\.\d{1,3}){3}|[0-9a-fA-F:]*:[0-9a-fA-F:.]*)(\/\d{1,3})?$/;
 // Names for common ranges that the proxy handling understands
 const NamedRanges = ['loopback', 'linklocal', 'uniquelocal'];
+
+const Bool = z.enum(['true', 'false']);
+// Characters a scope may have, RFC 6749 section 3.3
+const ScopeToken = /^[\x21\x23-\x5b\x5d-\x7e]+$/;
 
 // All values are strings, like environment variables
 export const ServerSettingValidators: {
@@ -89,7 +117,7 @@ export const ServerSettingValidators: {
     .string()
     .max(256)
     .regex(/^[^\s\\]*$/, 'Invalid prefix'),
-  [ServerSetting.S3ForcePathStyle]: z.enum(['true', 'false']),
+  [ServerSetting.S3ForcePathStyle]: Bool,
   [ServerSetting.S3AccessKeyId]: z
     .string()
     .regex(/^\S{1,256}$/, 'Invalid access key id'),
@@ -115,4 +143,32 @@ export const ServerSettingValidators: {
           ),
       'Should be true, false, or addresses and ranges separated by commas',
     ),
+
+  [ServerSetting.OidcIssuer]: IsHttpUrl(),
+  [ServerSetting.OidcClientId]: z
+    .string()
+    .regex(/^\S{1,512}$/, 'Invalid client id'),
+  [ServerSetting.OidcClientSecret]: z
+    .string()
+    .regex(/^\S{1,1024}$/, 'Invalid client secret'),
+  [ServerSetting.OidcScope]: z
+    .string()
+    .max(1024)
+    .refine(
+      (value) => value.split(/ +/).every((scope) => ScopeToken.test(scope)),
+      'Should be scopes separated by spaces',
+    )
+    .refine(
+      (value) => value.split(/ +/).includes('openid'),
+      'Should include openid',
+    ),
+  [ServerSetting.OidcName]: z
+    .string()
+    .regex(/^[^\x00-\x1f\x7f]{1,64}$/, 'Should be at most 64 characters'),
+  [ServerSetting.OidcUsernameClaim]: z
+    .string()
+    .regex(/^\S{1,256}$/, 'Invalid claim name'),
+  [ServerSetting.OidcAutoRegister]: Bool,
+  [ServerSetting.OidcAutoLaunch]: Bool,
+  [ServerSetting.PasswordLogin]: Bool,
 };

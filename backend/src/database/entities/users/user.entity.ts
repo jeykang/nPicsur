@@ -30,8 +30,9 @@ export class EUserBackend implements OverriddenEUser {
   @Column('text', { nullable: false, array: true })
   roles: string[];
 
-  @Column({ nullable: false, select: false })
-  hashed_password?: string;
+  // Null for users who only log in with an OpenID Connect provider
+  @Column({ type: 'varchar', nullable: true, select: false })
+  hashed_password?: string | null;
 
   // Login tokens issued before this are no longer accepted. It is set when
   // the password changes, so whoever had the old one is logged out.

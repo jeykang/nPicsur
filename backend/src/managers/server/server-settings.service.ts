@@ -1,10 +1,12 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import {
+  OidcTestResponse,
   ServerSettingsResponse,
   StorageStatusResponse,
   StorageTestResponse,
 } from 'picsur-shared/dist/dto/api/server.dto';
 import {
+  OidcSettings,
   SecretServerSettings,
   ServerSetting,
   ServerSettingEnvName,
@@ -26,6 +28,10 @@ import {
 import { TestS3Storage } from '../../collections/object-storage/object-storage.service.js';
 import { ServerSettingsDbService } from '../../collections/server-settings-db/server-settings-db.service.js';
 import { SystemStateDbService } from '../../collections/system-state-db/system-state-db.service.js';
+import {
+  BuildLoginConfig,
+  LoginConfig,
+} from '../../config/early/login.config.service.js';
 import {
   BuildStorageConfig,
   ChangedStorageLocations,
@@ -50,12 +56,15 @@ import {
   UseGeneratedEncryptionKey,
 } from '../../config/settings-encryption.js';
 import { RequestRestart, RestartError, StartedAt } from '../../util/restart.js';
+import { TestOidc } from '../auth/oidc.js';
+import { OidcService } from '../auth/oidc.service.js';
 import { StorageMigrationService } from './storage-migration.service.js';
 
 interface PlannedChange {
   changes: Map<ServerSetting, string | null>;
   stored: StoredServerSettings;
   storage: StorageConfig;
+  login: LoginConfig;
 }
 
 // The server settings as the settings page shows and changes them
@@ -70,6 +79,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     private readonly migration: StorageMigrationService,
     private readonly storageConfig: StorageConfigService,
     private readonly diskStorage: DiskStorageService,
+    private readonly oidc: OidcService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -184,6 +194,8 @@ export class ServerSettingsService implements OnApplicationBootstrap {
   // value of null goes back to the default.
   async update(
     values: Record<string, string | null>,
+    // The admin making the changes
+    userId: string,
   ): AsyncFailable<ServerSettingsResponse> {
     const plan = await this.plan(values, true);
     if (HasFailed(plan)) return plan;
@@ -224,6 +236,23 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     ) {
       const tested = await TestDiskStorage(plan.storage.filesystem);
       if (HasFailed(tested)) return tested;
+    }
+
+    // Like storage, a provider is only stored when it can be reached
+    const loginChanged = changed.some(
+      (key) =>
+        OidcSettings.includes(key) || key === ServerSetting.PasswordLogin,
+    );
+    if (
+      plan.login.oidc !== null &&
+      changed.some((key) => OidcSettings.includes(key))
+    ) {
+      const tested = await TestOidc(plan.login.oidc);
+      if (HasFailed(tested)) return tested;
+    }
+    if (!plan.login.password && loginChanged) {
+      const safe = await this.checkPasswordLoginCanBeOff(plan.login, userId);
+      if (HasFailed(safe)) return safe;
     }
 
     const updated = await this.settingsDb.update(plan.changes);
@@ -278,6 +307,18 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       created: tested.created,
       warning: tested.warning,
     };
+  }
+
+  // Tries out the provider the given changes would result in
+  async testOidc(
+    values: Record<string, string | null>,
+  ): AsyncFailable<OidcTestResponse> {
+    const plan = await this.plan(values);
+    if (HasFailed(plan)) return plan;
+    if (plan.login.oidc === null) {
+      return Fail(FT.BadRequest, 'Set an issuer and a client id first');
+    }
+    return TestOidc(plan.login.oidc);
   }
 
   async restart(): AsyncFailable<Date> {
@@ -385,7 +426,49 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       return Fail(FT.UsrValidation, e instanceof Error ? e.message : e);
     }
 
-    return { changes, stored, storage };
+    // Settings that do not fit together are not stored, unless they already
+    // did not, for example because of the environment
+    const login = BuildLoginConfig(ServerSettingResolver(stored));
+    if (
+      saving &&
+      login.problem !== null &&
+      login.problem !== BuildLoginConfig(ServerSettingResolver(current)).problem
+    ) {
+      return Fail(FT.UsrValidation, login.problem);
+    }
+
+    return { changes, stored, storage, login: login.config };
+  }
+
+  // Turning off password login can not leave anyone without a way to log in,
+  // the admin who does it in particular. Logins are linked to one provider,
+  // so changing that is only possible with password login on.
+  private async checkPasswordLoginCanBeOff(
+    login: LoginConfig,
+    userId: string,
+  ): AsyncFailable<true> {
+    const running = this.oidc.config;
+    if (
+      running === null ||
+      login.oidc === null ||
+      running.issuer !== login.oidc.issuer ||
+      running.clientId !== login.oidc.clientId
+    ) {
+      return Fail(
+        FT.Conflict,
+        'Password login can only be turned off once logging in with this OpenID Connect provider works: save it, restart, and link your own account first. To change the provider, turn password login on first.',
+      );
+    }
+
+    const linked = await this.oidc.linkedLogin(userId);
+    if (HasFailed(linked)) return linked;
+    if (linked === null) {
+      return Fail(
+        FT.Conflict,
+        `Link your own account to ${running.name} in your account settings first, or you could not log in anymore`,
+      );
+    }
+    return true;
   }
 
   private describeStored(stored: StoredServerSettings): ServerSettingsResponse {

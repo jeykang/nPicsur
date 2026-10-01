@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { LoginComponent } from './login/login.component';
+import { OidcCallbackComponent } from './oidc/oidc-callback.component';
 import { RegisterComponent } from './register/register.component';
 import { PermissionGuard } from '../../guards/permission.guard';
 import { PRoutes } from '../../models/dto/picsur-routes.dto';
@@ -12,6 +13,12 @@ const routes: PRoutes = [
     component: LoginComponent,
     canActivate: [PermissionGuard],
     data: { permissions: [Permission.UserLogin] },
+  },
+  // Back from the OpenID Connect provider, for logging in and for linking a
+  // login to an account, so for everyone
+  {
+    path: 'oidc',
+    component: OidcCallbackComponent,
   },
   {
     path: 'register',

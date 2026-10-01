@@ -10,6 +10,7 @@
 - Images can be moved between the database and S3 from that page, which shows how far along it is. Picsur keeps working in the meantime.
 - The command line tool uses the settings from the page as well.
 - APNG, ICO and TGA images can be uploaded, and any image can be converted to them. Animated PNGs stay animated, also when converted to GIF or WebP and the other way around, and are kept as they were uploaded, like PNG images. Icons are read from their largest image, and written with images of at most 256 pixels. TGA images are read in all their variants, including run length encoded and color-mapped ones.
+- Logging in with an OpenID Connect provider, like Authelia, Authentik or Keycloak, set up on the settings page or with `PICSUR_OIDC_*` variables. Users link their login at the provider to their account, or get an account the first time they log in when that is turned on. Password login can be turned off once the admin's own account is linked, and turned on again with `PICSUR_PASSWORD_LOGIN=true`. See [Logging in with OpenID Connect](README.md#logging-in-with-openid-connect).
 - Images can be stored as files in a directory, besides the database and S3, with `PICSUR_STORAGE_DRIVER=filesystem` and `PICSUR_STORAGE_PATH`, or on the settings page. The Docker image has `/picsur/images` ready for a volume, and the settings page warns when the directory is not on one. Images can be moved between any of the three, and `storage gc` cleans up the directory too.
 
 ### Faster

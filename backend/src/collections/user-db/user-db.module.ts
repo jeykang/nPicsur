@@ -4,11 +4,13 @@ import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { generateRandomString } from 'picsur-shared/dist/util/random';
 import { AuthConfigService } from '../../config/early/auth.config.service.js';
 import { EarlyConfigModule } from '../../config/early/early-config.module.js';
+import { EUserOidcBackend } from '../../database/entities/users/user-oidc.entity.js';
 import { EUserBackend } from '../../database/entities/users/user.entity.js';
 import { ImageDBModule } from '../image-db/image-db.module.js';
 import { PreferenceDbModule } from '../preference-db/preference-db.module.js';
 import { RoleDbModule } from '../role-db/role-db.module.js';
 import { UserDbService } from './user-db.service.js';
+import { UserOidcDbService } from './user-oidc-db.service.js';
 
 @Module({
   imports: [
@@ -16,10 +18,10 @@ import { UserDbService } from './user-db.service.js';
     RoleDbModule,
     PreferenceDbModule,
     ImageDBModule,
-    TypeOrmModule.forFeature([EUserBackend]),
+    TypeOrmModule.forFeature([EUserBackend, EUserOidcBackend]),
   ],
-  providers: [UserDbService],
-  exports: [UserDbService],
+  providers: [UserDbService, UserOidcDbService],
+  exports: [UserDbService, UserOidcDbService],
 })
 export class UserDbModule implements OnModuleInit {
   private readonly logger = new Logger(UserDbModule.name);

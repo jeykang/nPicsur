@@ -68,4 +68,47 @@ export const ServerSettingUI: {
     helpText:
       'Which reverse proxies may pass on the address of visitors, for rate limiting. Addresses and ranges separated by commas, or true for any and false for none.',
   },
+
+  [ServerSetting.OidcIssuer]: {
+    name: 'Issuer',
+    helpText:
+      'Of the provider, like https://auth.example.com. Exactly what the provider calls itself, or the address of its discovery document.',
+  },
+  [ServerSetting.OidcClientId]: {
+    name: 'Client id',
+    helpText: 'Of Picsur, as set up at the provider.',
+  },
+  [ServerSetting.OidcClientSecret]: {
+    name: 'Client secret',
+    helpText:
+      'Of Picsur, as set up at the provider. It is never shown again once it is saved.',
+  },
+  [ServerSetting.OidcScope]: {
+    name: 'Scopes',
+    helpText: 'Asked for at the provider, separated by spaces.',
+  },
+  [ServerSetting.OidcName]: {
+    name: 'Name',
+    helpText: 'Of the provider, the login button says "Log in with" it.',
+  },
+  [ServerSetting.OidcUsernameClaim]: {
+    name: 'Username claim',
+    helpText:
+      'The claim new users get their username from. Without it, their email address or name is used. Usernames only have letters and digits.',
+  },
+  [ServerSetting.OidcAutoRegister]: {
+    name: 'Create accounts for new users',
+    helpText:
+      'Gives everyone who can log in at the provider an account here, the first time they log in. Otherwise only users who linked their login can log in with it.',
+  },
+  [ServerSetting.OidcAutoLaunch]: {
+    name: 'Go to the provider right away',
+    helpText:
+      'Skips the login page. It can still be reached at /user/login?local.',
+  },
+  [ServerSetting.PasswordLogin]: {
+    name: 'Password login',
+    helpText:
+      'Can only be turned off once you logged in with the provider yourself. Should the provider fail, set PICSUR_PASSWORD_LOGIN=true to turn it on again.',
+  },
 };

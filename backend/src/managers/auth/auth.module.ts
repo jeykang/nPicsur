@@ -17,6 +17,7 @@ import { LocalAuthGuard } from './guards/local-auth.guard.js';
 import { LocalAuthStrategy } from './guards/local-auth.strategy.js';
 import { MainAuthGuard } from './guards/main.guard.js';
 import { GuestService } from './guest.service.js';
+import { OidcService } from './oidc.service.js';
 
 @Module({
   imports: [
@@ -40,7 +41,14 @@ import { GuestService } from './guest.service.js';
     ApiKeyStrategy,
     LocalAuthGuard,
     MainAuthGuard,
+    OidcService,
   ],
-  exports: [UserDbModule, AuthManagerService, LocalAuthGuard, MainAuthGuard],
+  exports: [
+    UserDbModule,
+    AuthManagerService,
+    LocalAuthGuard,
+    MainAuthGuard,
+    OidcService,
+  ],
 })
 export class AuthManagerModule {}

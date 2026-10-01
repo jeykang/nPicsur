@@ -26,16 +26,19 @@ export class ChangePasswordControl {
     return CreatePasswordError(this.newPasswordConfirm.errors);
   }
 
-  public getData(): Failable<{ current: string; new: string }> {
+  // Users without a password set one without a current one
+  public getData(
+    hasPassword = true,
+  ): Failable<{ current: string | null; new: string }> {
     if (
-      this.currentPassword.errors ||
+      (hasPassword && this.currentPassword.errors) ||
       this.newPassword.errors ||
       this.newPasswordConfirm.errors
     )
       return Fail(FT.UsrValidation, 'Invalid password');
 
     return {
-      current: this.currentPassword.value ?? '',
+      current: hasPassword ? (this.currentPassword.value ?? '') : null,
       new: this.newPassword.value ?? '',
     };
   }

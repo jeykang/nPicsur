@@ -54,6 +54,17 @@ export function ServerSettingDefault(key: ServerSetting): string | null {
       return String(DefaultConversionRateLimit);
     case ServerSetting.TrustProxy:
       return DefaultTrustProxy.join(',');
+    case ServerSetting.OidcScope:
+      return 'openid profile email';
+    case ServerSetting.OidcName:
+      return 'single sign-on';
+    case ServerSetting.OidcUsernameClaim:
+      return 'preferred_username';
+    case ServerSetting.OidcAutoRegister:
+    case ServerSetting.OidcAutoLaunch:
+      return 'false';
+    case ServerSetting.PasswordLogin:
+      return 'true';
     default:
       return null;
   }

@@ -43,8 +43,10 @@ import {
 import {
   EnvServerSetting,
   RunningStoredServerSettings,
+  SavedFirst,
   ServerSettingDefault,
   ServerSettingResolver,
+  ServerSettingsOrderState,
   StoredServerSettings,
 } from '../../config/server-settings.js';
 import {
@@ -89,7 +91,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       );
     }
     await this.prepareEncryption();
-    await this.saveEnvironment();
+    await this.markSavedFirst();
   }
 
   // Makes sure there is a key to encrypt secrets with. Without
@@ -144,44 +146,18 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     );
   }
 
-  // Settings from environment variables are saved as well, so the variables
-  // can be removed later without changing anything, and the settings changed
-  // on the settings page from then on
-  async saveEnvironment() {
-    const stored = await this.settingsDb.getAll();
-    if (HasFailed(stored)) {
-      stored.print(this.logger, { prefix: 'Saving environment settings:' });
+  // Settings saved from now on come before the environment. When the settings
+  // could not be read before Picsur started, as they are new, there are no
+  // copies of the environment to drop, see config/server-settings.ts.
+  async markSavedFirst() {
+    const order = await this.stateDb.get(ServerSettingsOrderState);
+    if (HasFailed(order)) {
+      order.print(this.logger);
       return;
     }
-
-    const changes = new Map<ServerSetting, string>();
-    for (const key of ServerSettingList) {
-      const value = EnvServerSetting(key);
-      if (value === undefined || stored.get(key) === value) continue;
-      if (!ServerSettingValidators[key].safeParse(value).success) {
-        this.logger.warn(
-          `${ServerSettingEnvName(key)} is not saved in the settings, the settings page does not accept its value`,
-        );
-        continue;
-      }
-      if (
-        SecretServerSettings.includes(key) &&
-        EncryptionKeySource() === null
-      ) {
-        continue;
-      }
-      changes.set(key, value);
-    }
-    if (changes.size === 0) return;
-
-    const updated = await this.settingsDb.update(changes);
-    if (HasFailed(updated)) {
-      updated.print(this.logger, { prefix: 'Saving environment settings:' });
-      return;
-    }
-    this.logger.log(
-      `Saved ${[...changes.keys()].map(ServerSettingEnvName).join(', ')} in the settings as well`,
-    );
+    if (order === SavedFirst) return;
+    const marked = await this.stateDb.set(ServerSettingsOrderState, SavedFirst);
+    if (HasFailed(marked)) marked.print(this.logger);
   }
 
   async describe(): AsyncFailable<ServerSettingsResponse> {
@@ -191,7 +167,8 @@ export class ServerSettingsService implements OnApplicationBootstrap {
   }
 
   // Stores the given settings, which take effect when Picsur restarts. A
-  // value of null goes back to the default.
+  // value of null removes what is saved, so the environment or the default
+  // applies again.
   async update(
     values: Record<string, string | null>,
     // The admin making the changes
@@ -380,16 +357,6 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       const setting = key as ServerSetting;
       const value = raw === null || raw.trim() === '' ? null : raw.trim();
 
-      const fromEnv = EnvServerSetting(setting);
-      if (fromEnv !== undefined) {
-        // Sending back what the page shows is fine
-        if (value === fromEnv) continue;
-        return Fail(
-          FT.UsrValidation,
-          `${ServerSettingEnvName(setting)} is set in the environment, so it can only be changed there`,
-        );
-      }
-
       if (value !== null) {
         const valid = ServerSettingValidators[setting].safeParse(value);
         if (!valid.success) {
@@ -472,35 +439,33 @@ export class ServerSettingsService implements OnApplicationBootstrap {
   }
 
   private describeStored(stored: StoredServerSettings): ServerSettingsResponse {
-    const running = RunningStoredServerSettings();
+    const now = ServerSettingResolver(stored);
+    const running = ServerSettingResolver(RunningStoredServerSettings());
 
     return {
       settings: ServerSettingList.map((key) => {
+        const saved = stored.get(key);
         const fromEnv = EnvServerSetting(key);
-        const value = fromEnv ?? stored.get(key);
+        const secret = SecretServerSettings.includes(key);
         return {
           key,
-          value:
-            value === undefined || SecretServerSettings.includes(key)
-              ? null
-              : value,
-          set: value !== undefined,
+          value: saved === undefined || secret ? null : saved,
+          saved: saved !== undefined,
+          env: ServerSettingEnvName(key),
+          env_value: fromEnv === undefined || secret ? null : fromEnv,
+          env_set: fromEnv !== undefined,
           default: ServerSettingDefault(key),
           source:
-            fromEnv !== undefined
-              ? 'environment'
-              : stored.has(key)
-                ? 'settings'
+            saved !== undefined
+              ? 'settings'
+              : fromEnv !== undefined
+                ? 'environment'
                 : 'default',
-          saved: stored.has(key) && stored.get(key) === value,
-          env: ServerSettingEnvName(key),
+          set: saved !== undefined || fromEnv !== undefined,
         };
       }),
-      // Settings from the environment are the same either way
       restart_needed: ServerSettingList.some(
-        (key) =>
-          EnvServerSetting(key) === undefined &&
-          stored.get(key) !== running.get(key),
+        (key) => now(key) !== running(key),
       ),
       restart_error: RestartError(),
       started_at: StartedAt(),

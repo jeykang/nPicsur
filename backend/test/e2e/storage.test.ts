@@ -11,7 +11,7 @@ import { dirname, join } from 'node:path';
 import pg from 'pg';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { spawnBackend } from './helpers/backend.js';
+import { cli } from './helpers/cli.js';
 import {
   Client,
   createUser,
@@ -51,21 +51,6 @@ const prefix = (env['PICSUR_S3_PREFIX'] ?? '')
   .replace(/^(.+?)\/*$/, '$1/');
 
 // Runs the command line tool against the test database and bucket
-function cli(args: string[], envOverrides: Record<string, string> = {}) {
-  return new Promise<{ code: number; output: string }>((done) => {
-    const child = spawnBackend(
-      'cli',
-      args,
-      { ...env, ...envOverrides },
-      inject('dockerImage'),
-    );
-    let output = '';
-    child.stdout.on('data', (d) => (output += d));
-    child.stderr.on('data', (d) => (output += d));
-    child.on('close', (code) => done({ code: code ?? -1, output }));
-  });
-}
-
 describe('image storage', () => {
   let db: pg.Client;
   let s3: S3Client;

@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { spawnBackend } from './helpers/backend.js';
+import { cli } from './helpers/cli.js';
 import {
   Client,
   createUser,
@@ -22,7 +22,7 @@ import { getSettings, restart, setting, update } from './helpers/settings.js';
 
 const env = inject('serverEnv');
 const s3TestEnv = inject('s3TestEnv');
-// Storage set with environment variables can not be changed on the page
+// Storage set with environment variables
 const storageFromEnv = Object.keys(env).some(
   (key) =>
     key === 'PICSUR_STORAGE_DRIVER' ||
@@ -68,17 +68,6 @@ async function migrate(client: Client): Promise<StorageResponse> {
 
 function serverLog(): string {
   return readFileSync(inject('serverLog'), 'utf8');
-}
-
-// Runs the command line tool against the test database
-function cli(args: string[]) {
-  return new Promise<{ code: number; output: string }>((done) => {
-    const child = spawnBackend('cli', args, env, inject('dockerImage'));
-    let output = '';
-    child.stdout.on('data', (d) => (output += d));
-    child.stderr.on('data', (d) => (output += d));
-    child.on('close', (code) => done({ code: code ?? -1, output }));
-  });
 }
 
 describe('server settings', () => {
@@ -135,31 +124,37 @@ describe('server settings', () => {
 
     // Set by the test setup
     expect(setting(settings, 'max_file_size')).toMatchObject({
-      value: env['PICSUR_MAX_FILE_SIZE'],
-      set: true,
-      source: 'environment',
-      saved: true,
+      value: null,
+      saved: false,
       env: 'PICSUR_MAX_FILE_SIZE',
+      env_value: env['PICSUR_MAX_FILE_SIZE'],
+      env_set: true,
+      source: 'environment',
+      set: true,
     });
     expect(setting(settings, 'max_concurrent_conversions')).toMatchObject({
       value: null,
-      set: false,
-      source: 'default',
       saved: false,
+      env_set: false,
+      source: 'default',
+      set: false,
     });
     expect(setting(settings, 's3_region').default).toBe('us-east-1');
     // Generated, since the tests do not set PICSUR_ENCRYPTION_KEY
     expect(settings.encryption_key).toBe('database');
   });
 
-  it('saves settings from the environment, to take them over later', async () => {
-    expect(await storedValue('max_file_size')).toBe(
-      env['PICSUR_MAX_FILE_SIZE'],
+  async function settingsOrder(): Promise<string | null> {
+    const result = await db.query(
+      `SELECT "value" FROM e_system_state_backend WHERE "key" = 'server_settings_order'`,
     );
-    expect(await storedValue('conversion_rate_limit')).toBe(
-      env['PICSUR_CONVERSION_RATE_LIMIT'],
-    );
-    expect(await storedValue('max_concurrent_conversions')).toBeNull();
+    return result.rows[0]?.value ?? null;
+  }
+
+  it('does not save settings from the environment', async () => {
+    expect(await storedValue('max_file_size')).toBeNull();
+    expect(await storedValue('conversion_rate_limit')).toBeNull();
+    expect(await settingsOrder()).toBe('saved-first');
   });
 
   it('never shows secrets, and only saves them encrypted', async () => {
@@ -168,11 +163,9 @@ describe('server settings', () => {
 
     const fromEnv = env['PICSUR_S3_SECRET_ACCESS_KEY'];
     expect(secret.set).toBe(fromEnv !== undefined);
-    if (fromEnv !== undefined) {
-      const stored = await storedValue('s3_secret_access_key');
-      expect(stored).toMatch(/^enc:v1:db:/);
-      expect(stored).not.toContain(fromEnv);
-    }
+    expect(secret.env_set).toBe(fromEnv !== undefined);
+    expect(secret.env_value).toBeNull();
+    expect(await storedValue('s3_secret_access_key')).toBeNull();
 
     // The generated key they are encrypted with
     const key = await db.query(
@@ -181,16 +174,86 @@ describe('server settings', () => {
     expect(key.rows).toHaveLength(1);
   });
 
-  it('can not change settings from the environment', async () => {
-    const res = await update(admin, { max_file_size: '1000000' });
-    expectFailure(res, 400, 'usrvalidation');
-    expect(res.json.data.message).toContain('PICSUR_MAX_FILE_SIZE');
+  it('come before the environment once saved here', async () => {
+    const size = String(Number(env['PICSUR_MAX_FILE_SIZE']) + 1000);
+    const saved = expectSuccess(await update(admin, { max_file_size: size }));
+    expect(saved.restart_needed).toBe(true);
+    expect(setting(saved, 'max_file_size')).toMatchObject({
+      value: size,
+      saved: true,
+      env_value: env['PICSUR_MAX_FILE_SIZE'],
+      env_set: true,
+      source: 'settings',
+    });
+    expect((await restart(admin)).restart_needed).toBe(false);
+    expect(serverLog()).toContain(`Max file size: ${size}`);
+    expect(await storedValue('max_file_size')).toBe(size);
 
-    // Sending back what is shown is fine
-    const settings = expectSuccess(
-      await update(admin, { max_file_size: env['PICSUR_MAX_FILE_SIZE'] }),
+    // Removing what is saved uses the environment again
+    const removed = expectSuccess(await update(admin, { max_file_size: null }));
+    expect(setting(removed, 'max_file_size').source).toBe('environment');
+    expect(removed.restart_needed).toBe(true);
+    expect((await restart(admin)).restart_needed).toBe(false);
+  });
+
+  it('drops copies of the environment saved when it came first, once', async () => {
+    // What versions where the environment came first left behind: copies of
+    // it, next to settings saved on the page
+    await db.query(
+      `DELETE FROM e_system_state_backend WHERE "key" = 'server_settings_order'`,
     );
-    expect(settings.restart_needed).toBe(false);
+    await db.query(
+      'INSERT INTO e_server_setting_backend ("key", "value") VALUES ($1, $2), ($3, $4)',
+      [
+        'max_file_size',
+        env['PICSUR_MAX_FILE_SIZE'],
+        'max_concurrent_conversions',
+        '2',
+      ],
+    );
+
+    await restart(admin);
+    expect(await storedValue('max_file_size')).toBeNull();
+    expect(await storedValue('max_concurrent_conversions')).toBe('2');
+    expect(await settingsOrder()).toBe('saved-first');
+    expect(serverLog()).toContain(
+      'PICSUR_MAX_FILE_SIZE were saved as well when the environment came first',
+    );
+
+    expectSuccess(await update(admin, { max_concurrent_conversions: null }));
+    expect((await restart(admin)).restart_needed).toBe(false);
+  });
+
+  it('can be listed and reset on the command line', async () => {
+    expectSuccess(await update(admin, { max_concurrent_conversions: '5' }));
+    const listed = await cli(['settings', 'list']);
+    expect(listed.code, listed.output).toBe(0);
+    expect(listed.output).toMatch(
+      /max_concurrent_conversions\s+5, saved on the settings page/,
+    );
+    expect(listed.output).toMatch(
+      new RegExp(
+        `max_file_size\\s+${env['PICSUR_MAX_FILE_SIZE']}, from PICSUR_MAX_FILE_SIZE`,
+      ),
+    );
+    expect(listed.output).toMatch(/s3_region\s+us-east-1, the default/);
+    const secret = env['PICSUR_S3_SECRET_ACCESS_KEY'];
+    if (secret !== undefined) expect(listed.output).not.toContain(secret);
+
+    // Takes environment variable names as well
+    const reset = await cli([
+      'settings',
+      'reset',
+      'PICSUR_MAX_CONCURRENT_CONVERSIONS',
+    ]);
+    expect(reset.code, reset.output).toBe(0);
+    expect(reset.output).toContain('max_concurrent_conversions: removed');
+    expect(await storedValue('max_concurrent_conversions')).toBeNull();
+    expect((await getSettings(admin)).restart_needed).toBe(false);
+
+    const unknown = await cli(['settings', 'reset', 'not_a_setting']);
+    expect(unknown.code).toBe(1);
+    expect(unknown.output).toContain('There is no setting "not_a_setting"');
   });
 
   it('checks values', async () => {
@@ -245,17 +308,24 @@ describe('server settings', () => {
   });
 
   describe.skipIf(!storageFromEnv)('with storage from the environment', () => {
-    it('can not change the storage', async () => {
-      // One of the settings the environment sets
-      const [key, value] =
-        env['PICSUR_S3_BUCKET'] !== undefined
-          ? ['s3_bucket', 'another-bucket']
-          : env['PICSUR_STORAGE_PATH'] !== undefined
-            ? ['storage_path', '/somewhere/else']
-            : ['storage_driver', 'database'];
-      const res = await update(admin, { [key]: value });
-      expectFailure(res, 400, 'usrvalidation');
-      expect(res.json.data.message).toContain(`PICSUR_${key.toUpperCase()}`);
+    it('can change the storage here as well', async () => {
+      const saved = expectSuccess(
+        await update(admin, { storage_driver: 'database' }),
+      );
+      expect(setting(saved, 'storage_driver')).toMatchObject({
+        value: 'database',
+        saved: true,
+        env_value: env['PICSUR_STORAGE_DRIVER'],
+        env_set: true,
+        source: 'settings',
+      });
+      expect(saved.restart_needed).toBe(true);
+
+      const removed = expectSuccess(
+        await update(admin, { storage_driver: null }),
+      );
+      expect(setting(removed, 'storage_driver').source).toBe('environment');
+      expect(removed.restart_needed).toBe(false);
     });
   });
 

@@ -5,11 +5,13 @@ import { Client, expectSuccess } from './client.js';
 export interface SettingState {
   key: string;
   value: string | null;
-  set: boolean;
-  default: string | null;
-  source: 'environment' | 'settings' | 'default';
   saved: boolean;
   env: string;
+  env_value: string | null;
+  env_set: boolean;
+  default: string | null;
+  source: 'settings' | 'environment' | 'default';
+  set: boolean;
 }
 
 export interface SettingsResponse {

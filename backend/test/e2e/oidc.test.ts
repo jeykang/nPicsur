@@ -7,6 +7,7 @@ import {
   expectFailure,
   expectSuccess,
 } from './helpers/client.js';
+import { cli } from './helpers/cli.js';
 import {
   LoginAtProvider,
   TestAccount,
@@ -17,7 +18,7 @@ import {
 import { restart, update } from './helpers/settings.js';
 
 const env = inject('serverEnv');
-// Login settings from the environment can not be changed on the page
+// Login settings from the environment would change what these tests expect
 const loginFromEnv = Object.keys(env).some(
   (key) => key.startsWith('PICSUR_OIDC_') || key === 'PICSUR_PASSWORD_LOGIN',
 );
@@ -365,6 +366,17 @@ describe.skipIf(loginFromEnv)('logging in with OpenID Connect', () => {
       expectFailure(unlink, 409);
       expect(unlink.json.data.message).toContain('turned off');
       expect((await loginMethods(admin)).oidc?.linked).toBe(true);
+
+      // The way back in when the provider is gone: removing the saved
+      // setting on the command line, and restarting
+      const reset = await cli(['settings', 'reset', 'password_login']);
+      expect(reset.code, reset.output).toBe(0);
+      expect(reset.output).toContain('the default (true) applies');
+      await restart(admin);
+      expect(
+        expectSuccess(await Client.guest().get('/api/info')).login.password,
+      ).toBe(true);
+      await Client.admin();
     });
   });
 });

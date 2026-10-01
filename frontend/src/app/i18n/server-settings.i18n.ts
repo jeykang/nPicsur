@@ -109,6 +109,6 @@ export const ServerSettingUI: {
   [ServerSetting.PasswordLogin]: {
     name: 'Password login',
     helpText:
-      'Can only be turned off once you logged in with the provider yourself. Should the provider fail, set PICSUR_PASSWORD_LOGIN=true to turn it on again.',
+      'Can only be turned off once you logged in with the provider yourself. Should the provider fail, "settings reset password_login" on the command line turns it on again, see the README.',
   },
 };

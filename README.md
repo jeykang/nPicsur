@@ -107,9 +107,14 @@ The `latest` tag is the latest release, `edge` follows the master branch.
 | `PICSUR_STATIC_FRONTEND_ROOT`       | the built in frontend       | Only needed for a custom frontend                                                                                                                               |
 | `PICSUR_VERBOSE`                    | `false`                     | More logging, which might include sensitive data                                                                                                                |
 
-The storage, the upload size, the conversion limits and the trusted proxies can also be set in the web interface, under Settings → Server. Picsur restarts itself to apply them, and goes back to the settings it had before when it can not start with the new ones. An environment variable takes precedence over what is set there, the page shows such settings but can not change them.
+The storage, the upload size, the conversion limits, the trusted proxies and logging in can also be set in the web interface, under Settings → Server. Picsur restarts itself to apply them, and goes back to the settings it had before when it can not start with the new ones. What is saved there comes before these environment variables, which only set what is not saved there. So the variables can be what an instance starts out with, to be changed on the page later. The page lists the variables that are not used because something is saved instead, and can go back to them.
 
-Values of these environment variables are saved in the settings as well, every time Picsur starts. So to manage a setting on the page instead, remove its variable and restart the container: Picsur keeps using the last value, which can then be changed on the page. The page lists the variables that can be removed.
+The command line tool shows where each of these settings comes from, and removes what is saved for a setting, so its variable or default applies again once Picsur restarts:
+
+```sh
+docker exec picsur node backend/dist/cli.js settings list
+docker exec picsur node backend/dist/cli.js settings reset max_file_size
+```
 
 Secrets saved on the settings page, like the S3 secret access key, are always encrypted. By default Picsur generates the key for that and keeps it in the database, which keeps the secrets out of sight, but someone with a copy of the database can still decrypt them. To prevent that, set `PICSUR_ENCRYPTION_KEY` to a long random value, like the output of `openssl rand -base64 32`. It is not stored anywhere, and secrets saved with the generated key are encrypted with it the next time Picsur starts, after which the generated key is removed. Keep it safe along with your backups: secrets saved with it can not be read without it, and would have to be entered again.
 
@@ -161,7 +166,7 @@ Moving back to the database, or to a directory, works the same way. A bucket can
 
 The secret access key is saved encrypted, see [Configuration](#configuration) for how to keep it safe from copies of the database as well.
 
-Everything can also be set with environment variables, which then can not be changed on the page until they are removed:
+Everything can also be set with environment variables, which apply when nothing is saved on the page:
 
 | Variable                      | Description                                                                                    |
 | ----------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -259,7 +264,14 @@ identity_providers:
 
 New accounts are named after the `preferred_username` claim, or another one that is set, without characters other than letters and digits, and with a number after it when that name is taken. They have no password, users can set one under Settings → Account.
 
-Once your own account is linked, **Password login** can be turned off, so only logins at the provider work, and nobody can register with a password. Should the provider be unreachable then, set `PICSUR_PASSWORD_LOGIN=true` and restart to turn password login on again. With **Go to the provider right away**, the login page goes straight to the provider, `/user/login?local` still shows it.
+Once your own account is linked, **Password login** can be turned off, so only logins at the provider work, and nobody can register with a password. Should the provider be unreachable then, remove that setting on the command line and restart Picsur to turn password login on again, or remove `PICSUR_PASSWORD_LOGIN` when it was turned off with that:
+
+```sh
+docker exec picsur node backend/dist/cli.js settings reset password_login
+docker restart picsur
+```
+
+With **Go to the provider right away**, the login page goes straight to the provider, `/user/login?local` still shows it.
 
 The same can be set with environment variables:
 

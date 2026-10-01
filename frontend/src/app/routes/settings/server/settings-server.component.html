@@ -1,8 +1,8 @@
 <h1>Server</h1>
 <p>
   Where images are stored, and other settings of the server itself. Changes take
-  effect when Picsur restarts, which can be done from here. Settings made with
-  environment variables can only be changed there.
+  effect when Picsur restarts, which can be done from here. What is saved here
+  comes before environment variables, which set what is not saved here.
 </p>
 
 <!-- A text field for a setting -->
@@ -88,30 +88,30 @@
     </mat-card>
   }
 
-  @if (removableEnv.length > 0 || keptEnv.length > 0) {
+  @if (overriddenEnv.length > 0) {
     <mat-card appearance="outlined" class="notice env-notice">
       <mat-card-content class="notice-content">
         <mat-icon>settings_suggest</mat-icon>
         <div class="grow">
-          @if (removableEnv.length > 0) {
-            <p>
-              Settings from environment variables are saved here as well, so
-              these variables can be removed from Picsur's configuration:
-              @for (env of removableEnv; track env; let last = $last) {
-                <code>{{ env }}</code
-                >{{ last ? '.' : ', ' }}
-              }
-              Once they are removed and the container is restarted, these
-              settings can be changed on this page.
-            </p>
-          }
-          @for (kept of keptEnv; track kept.env) {
-            <p>
-              Keep <code>{{ kept.env }}</code
-              >, {{ kept.reason }}.
-            </p>
-          }
+          <p>
+            These environment variables are not used, as what is saved here
+            comes first:
+            @for (env of overriddenEnv; track env; let last = $last) {
+              <code>{{ env }}</code
+              >{{ last ? '.' : ', ' }}
+            }
+            They can be removed from Picsur's configuration, or what is saved
+            here removed to use them again.
+          </p>
         </div>
+        <button
+          mat-stroked-button
+          type="button"
+          [disabled]="busy !== null"
+          (click)="useEnvironment()"
+        >
+          USE THE ENVIRONMENT
+        </button>
       </mat-card-content>
     </mat-card>
   }
@@ -218,7 +218,7 @@
           Images stored in this bucket before can still be viewed. Once they are
           moved elsewhere, the bucket can be removed.
         </p>
-        @if (!locked(S.S3Bucket)) {
+        @if (saved(S.S3Bucket)) {
           <button
             mat-stroked-button
             type="button"
@@ -263,7 +263,7 @@
               context: { $implicit: S.S3SecretAccessKey, type: 'password' }
             "
           ></ng-container>
-          @if (secretIsSet && !locked(S.S3SecretAccessKey)) {
+          @if (saved(S.S3SecretAccessKey) && !locked(S.S3SecretAccessKey)) {
             <button
               mat-button
               type="button"
@@ -272,7 +272,7 @@
               {{
                 removeSecrets.has(S.S3SecretAccessKey)
                   ? 'KEEP THE SAVED SECRET'
-                  : 'REMOVE THE SECRET'
+                  : 'REMOVE THE SAVED SECRET'
               }}
             </button>
           }
@@ -302,7 +302,7 @@
           Images stored in this directory before can still be viewed. Once they
           are moved elsewhere, Picsur can stop using the directory.
         </p>
-        @if (!locked(S.StoragePath)) {
+        @if (saved(S.StoragePath)) {
           <button
             mat-stroked-button
             type="button"
@@ -407,7 +407,7 @@
             context: { $implicit: S.OidcClientSecret, type: 'password' }
           "
         ></ng-container>
-        @if (isSet(S.OidcClientSecret) && !locked(S.OidcClientSecret)) {
+        @if (saved(S.OidcClientSecret) && !locked(S.OidcClientSecret)) {
           <button
             mat-button
             type="button"
@@ -416,7 +416,7 @@
             {{
               removeSecrets.has(S.OidcClientSecret)
                 ? 'KEEP THE SAVED SECRET'
-                : 'REMOVE THE SECRET'
+                : 'REMOVE THE SAVED SECRET'
             }}
           </button>
         }

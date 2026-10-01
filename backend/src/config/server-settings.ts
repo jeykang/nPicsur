@@ -19,9 +19,9 @@ import {
   UseGeneratedEncryptionKey,
 } from './settings-encryption.js';
 
-// Server settings come from the environment first, and otherwise from what is
-// stored in the database, which the settings page changes. Either way they
-// are only read when Picsur starts, changes take effect on a restart.
+// Server settings are what is saved on the settings page, stored in the
+// database, and otherwise what the environment sets. Either way they are only
+// read when Picsur starts, changes take effect on a restart.
 
 export type StoredServerSettings = ReadonlyMap<ServerSetting, string>;
 
@@ -86,11 +86,12 @@ export function EnvServerSetting(key: ServerSetting): string | undefined {
   return value ? value : undefined;
 }
 
-// How settings resolve with the given stored values
+// How settings resolve with the given stored values: what is saved comes
+// first, the environment only sets what is not saved
 export function ServerSettingResolver(
   stored: StoredServerSettings,
 ): (key: ServerSetting) => string | undefined {
-  return (key) => EnvServerSetting(key) ?? stored.get(key);
+  return (key) => stored.get(key) ?? EnvServerSetting(key);
 }
 
 // A setting as this instance uses it
@@ -139,12 +140,14 @@ export async function StoredServerSettingValue(
     : value;
 }
 
-// The key secrets are encrypted with when PICSUR_ENCRYPTION_KEY is not set
-async function readGeneratedKey(client: pg.Client): Promise<string | null> {
+async function readState(
+  client: pg.Client,
+  key: string,
+): Promise<string | null> {
   try {
     const { rows } = await client.query<{ value: string }>(
       `SELECT "value" FROM "${SystemStateTable}" WHERE "key" = $1`,
-      [GeneratedKeyState],
+      [key],
     );
     return rows[0]?.value ?? null;
   } catch (e: any) {
@@ -152,6 +155,57 @@ async function readGeneratedKey(client: pg.Client): Promise<string | null> {
     if (e?.code === '42P01') return null;
     throw e;
   }
+}
+
+// Saved settings used to come after the environment, and settings from the
+// environment were saved as well. Those copies are dropped once, so the
+// environment keeps setting what it set, until a setting is saved on the page.
+export const ServerSettingsOrderState = 'server_settings_order';
+export const SavedFirst = 'saved-first';
+
+async function dropEnvironmentCopies(
+  client: pg.Client,
+  rows: { key: string; value: string }[],
+  logger: Logger,
+): Promise<{ key: string; value: string }[]> {
+  if ((await readState(client, ServerSettingsOrderState)) === SavedFirst) {
+    return rows;
+  }
+
+  const copies = rows.filter(
+    (row) =>
+      ServerSettingList.includes(row.key as ServerSetting) &&
+      EnvServerSetting(row.key as ServerSetting) !== undefined,
+  );
+  await client.query('BEGIN');
+  try {
+    for (const row of copies) {
+      await client.query(
+        `DELETE FROM "${ServerSettingsTable}" WHERE "key" = $1`,
+        [row.key],
+      );
+    }
+    await client.query(
+      `INSERT INTO "${SystemStateTable}" ("key", "value") VALUES ($1, $2)
+       ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value"`,
+      [ServerSettingsOrderState, SavedFirst],
+    );
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw e;
+  }
+
+  if (copies.length > 0) {
+    logger.log(
+      `Settings saved on the settings page now come before environment variables. ${copies
+        .map((row) => ServerSettingEnvName(row.key as ServerSetting))
+        .join(
+          ', ',
+        )} were saved as well when the environment came first, those copies are removed so the environment still sets them.`,
+    );
+  }
+  return rows.filter((row) => !copies.includes(row));
 }
 
 function createClient() {
@@ -177,11 +231,12 @@ export async function LoadStoredServerSettings(
     const client = createClient();
     try {
       await client.connect();
-      UseGeneratedEncryptionKey(await readGeneratedKey(client));
+      UseGeneratedEncryptionKey(await readState(client, GeneratedKeyState));
       const { rows } = await client.query<{ key: string; value: string }>(
         `SELECT "key", "value" FROM "${ServerSettingsTable}"`,
       );
-      return await ParseStoredServerSettings(rows, (key, reason) => {
+      const saved = await dropEnvironmentCopies(client, rows, logger);
+      return await ParseStoredServerSettings(saved, (key, reason) => {
         if (SecretServerSettings.includes(key)) {
           logger.error(
             `The saved ${ServerSettingEnvName(key)} can not be used, ${reason}. Set ${ServerSettingEnvName(key)} instead, or save it again on the settings page.`,
@@ -201,6 +256,24 @@ export async function LoadStoredServerSettings(
     } finally {
       await client.end().catch(() => undefined);
     }
+  }
+}
+
+// Removes what is saved for the given settings, so the environment or the
+// default applies to them again. Returns the ones that had something saved.
+export async function RemoveStoredServerSettings(
+  keys: ServerSetting[],
+): Promise<ServerSetting[]> {
+  const client = createClient();
+  await client.connect();
+  try {
+    const { rows } = await client.query<{ key: ServerSetting }>(
+      `DELETE FROM "${ServerSettingsTable}" WHERE "key" = ANY($1) RETURNING "key"`,
+      [keys],
+    );
+    return rows.map((row) => row.key);
+  } finally {
+    await client.end().catch(() => undefined);
   }
 }
 

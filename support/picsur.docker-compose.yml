@@ -36,9 +36,8 @@ services:
       # PICSUR_ENCRYPTION_KEY: CHANGE_ME
 
       ## The settings below can also be changed in the web interface, under
-      ## Settings -> Server. When set here, they can not be changed there.
-      ## Their values are saved there as well, so they can be removed from
-      ## here later to change them in the web interface instead.
+      ## Settings -> Server. What is saved there comes first, these only set
+      ## what is not saved there.
 
       ## Maximum accepted size for uploads in bytes
       # PICSUR_MAX_FILE_SIZE: 128000000
@@ -84,7 +83,7 @@ services:
       ## Give everyone who can log in at the provider an account here
       # PICSUR_OIDC_AUTO_REGISTER: "false"
       ## Only allow logging in at the provider, once your own account is
-      ## linked. Set it to "true" to turn password login on again.
+      ## linked. Remove it to turn password login on again.
       # PICSUR_PASSWORD_LOGIN: "false"
     ## For storing images in a directory
     # volumes:

@@ -4,20 +4,26 @@ import { IsPosInt } from '../../validators/positive-int.validator.js';
 
 // ServerSettings
 
+// A setting is what is saved on the settings page, and otherwise what its
+// environment variable sets, and otherwise its default
 export const ServerSettingStateSchema = z.object({
   key: z.string(),
-  // Null when it is not set, and always for secrets
+  // What is saved, null when nothing is, and always for secrets
   value: z.string().nullable(),
-  // Whether it has a value, also for secrets
-  set: z.boolean(),
-  // What is used when it is not set
-  default: z.string().nullable(),
-  // Settings from the environment can not be changed here
-  source: z.enum(['environment', 'settings', 'default']),
-  // Whether the value is saved in the settings. Values from the environment
-  // are saved as well, so the variable can be removed later.
+  // Whether something is saved, also for secrets
   saved: z.boolean(),
+  // The environment variable for it
   env: z.string(),
+  // Its value, null when it is not set, and always for secrets
+  env_value: z.string().nullable(),
+  // Whether it is set, also for secrets
+  env_set: z.boolean(),
+  // What is used when neither is set, null when it is left out then
+  default: z.string().nullable(),
+  // Where the value in use comes from
+  source: z.enum(['settings', 'environment', 'default']),
+  // Whether it is saved or set in the environment, also for secrets
+  set: z.boolean(),
 });
 export type ServerSettingState = z.infer<typeof ServerSettingStateSchema>;
 
@@ -38,8 +44,8 @@ export class ServerSettingsResponse extends createZodDto(
 ) {}
 
 export const ServerSettingsUpdateRequestSchema = z.object({
-  // A value to use, or null to go back to the default. Secrets left out stay
-  // as they are.
+  // A value to save, or null to remove what is saved, so the environment or
+  // the default applies again. Secrets left out stay as they are.
   values: z.record(z.string(), z.string().nullable()),
 });
 export class ServerSettingsUpdateRequest extends createZodDto(

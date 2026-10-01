@@ -10,7 +10,7 @@ import {
   ImageFileType,
   Mime2FileType,
 } from 'picsur-shared/dist/dto/mimes.dto';
-import { SysPreference } from 'picsur-shared/dist/dto/sys-preferences.enum';
+import { ServerSetting } from 'picsur-shared/dist/dto/server-settings.dto';
 import { UsrPreference } from 'picsur-shared/dist/dto/usr-preferences.enum';
 import {
   AsyncFailable,
@@ -26,8 +26,8 @@ import {
   ImageFileDBService,
   StoredImage,
 } from '../../collections/image-db/image-file-db.service.js';
-import { SysPreferenceDbService } from '../../collections/preference-db/sys-preference-db.service.js';
 import { UsrPreferenceDbService } from '../../collections/preference-db/usr-preference-db.service.js';
+import { GetServerSettingBool } from '../../config/server-settings.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
 import { MutexFallBack } from '../../util/mutex-fallback.js';
 import { ConversionLimiterService } from './conversion-limiter.service.js';
@@ -56,7 +56,6 @@ export class ImageManagerService {
     private readonly convertService: ImageConverterService,
     private readonly conversionLimiter: ConversionLimiterService,
     private readonly userPref: UsrPreferenceDbService,
-    private readonly sysPref: SysPreferenceDbService,
   ) {}
 
   public async findOne(id: string): AsyncFailable<EImageBackend> {
@@ -166,10 +165,7 @@ export class ImageManagerService {
     const targetFileType = ParseFileType(fileType);
     if (HasFailed(targetFileType)) return targetFileType;
 
-    const allow_editing = await this.sysPref.getBooleanPreference(
-      SysPreference.AllowEditing,
-    );
-    if (HasFailed(allow_editing)) return allow_editing;
+    const allow_editing = GetServerSettingBool(ServerSetting.AllowEditing);
 
     // The cache key has to match what is actually rendered, otherwise an
     // unedited image would be cached for the edited parameters while editing

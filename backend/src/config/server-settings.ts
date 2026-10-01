@@ -2,6 +2,9 @@ import { Logger } from '@nestjs/common';
 import { availableParallelism } from 'node:os';
 import pg from 'pg';
 import {
+  BoolServerSettings,
+  LiveServerSettings,
+  ParseDuration,
   SecretServerSettings,
   ServerSetting,
   ServerSettingEnvName,
@@ -9,6 +12,7 @@ import {
   ServerSettingValidators,
 } from 'picsur-shared/dist/dto/server-settings.dto';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
+import { ParseBool } from 'picsur-shared/dist/util/parse-simple';
 import { ServerSettingsTable } from '../database/entities/system/server-setting.entity.js';
 import { SystemStateTable } from '../database/entities/system/system-state.entity.js';
 import { GetDbConnectionOptions } from './db-connection.js';
@@ -20,8 +24,9 @@ import {
 } from './settings-encryption.js';
 
 // Server settings are what is saved on the settings page, stored in the
-// database, and otherwise what the environment sets. Either way they are only
-// read when Picsur starts, changes take effect on a restart.
+// database, and otherwise what the environment sets, and otherwise their
+// default. Most are read when Picsur starts, so changes take effect on a
+// restart. Those in LiveServerSettings take effect when they are saved.
 
 export type StoredServerSettings = ReadonlyMap<ServerSetting, string>;
 
@@ -52,6 +57,14 @@ export function ServerSettingDefault(key: ServerSetting): string | null {
       return String(availableParallelism());
     case ServerSetting.ConversionRateLimit:
       return String(DefaultConversionRateLimit);
+    case ServerSetting.ConversionTimeLimit:
+      return '15s';
+    case ServerSetting.ConversionMemoryLimit:
+      return '512';
+    case ServerSetting.AllowEditing:
+      return 'true';
+    case ServerSetting.RemoveDerivativesAfter:
+      return '7d';
     case ServerSetting.TrustProxy:
       return DefaultTrustProxy.join(',');
     case ServerSetting.OidcScope:
@@ -65,6 +78,12 @@ export function ServerSettingDefault(key: ServerSetting): string | null {
       return 'false';
     case ServerSetting.PasswordLogin:
       return 'true';
+    case ServerSetting.JwtExpiry:
+      return '7d';
+    case ServerSetting.BCryptStrength:
+      return '10';
+    case ServerSetting.Verbose:
+      return 'false';
     default:
       return null;
   }
@@ -72,18 +91,46 @@ export function ServerSettingDefault(key: ServerSetting): string | null {
 
 // What was stored when this instance started
 let running: StoredServerSettings = new Map();
+// What is stored now, for the settings that take effect when saved
+let saved: StoredServerSettings = new Map();
 
 export function UseStoredServerSettings(settings: StoredServerSettings) {
   running = settings;
+  saved = settings;
+}
+
+// After settings were saved, so those that take effect right away do
+export function UseSavedServerSettings(settings: StoredServerSettings) {
+  saved = settings;
 }
 
 export function RunningStoredServerSettings(): StoredServerSettings {
   return running;
 }
 
+// The given settings, with those that take effect when saved as in current
+export function WithLiveServerSettings(
+  settings: StoredServerSettings,
+  current: StoredServerSettings,
+): StoredServerSettings {
+  const merged = new Map(settings);
+  for (const key of LiveServerSettings) {
+    const value = current.get(key);
+    if (value === undefined) merged.delete(key);
+    else merged.set(key, value);
+  }
+  return merged;
+}
+
 export function EnvServerSetting(key: ServerSetting): string | undefined {
   const value = process.env[ServerSettingEnvName(key)]?.trim();
-  return value ? value : undefined;
+  if (!value) return undefined;
+  // Like the other environment variables, these can be yes, no, 1 or 0 too
+  if (BoolServerSettings.includes(key)) {
+    const bool = ParseBool(value, null);
+    if (bool !== null) return String(bool);
+  }
+  return value;
 }
 
 // How settings resolve with the given stored values: what is saved comes
@@ -96,7 +143,41 @@ export function ServerSettingResolver(
 
 // A setting as this instance uses it
 export function GetServerSetting(key: ServerSetting): string | undefined {
-  return ServerSettingResolver(running)(key);
+  const stored = LiveServerSettings.includes(key) ? saved : running;
+  return ServerSettingResolver(stored)(key);
+}
+
+// Settings whose value from the environment was not valid, warned about once
+const warnedInvalid = new Set<ServerSetting>();
+
+// A setting as this instance uses it, or its default. Saved values are always
+// valid, but values from the environment might not be, those are ignored.
+export function GetServerSettingOrDefault(key: ServerSetting): string | null {
+  const value = GetServerSetting(key);
+  if (value === undefined) return ServerSettingDefault(key);
+
+  const valid = ServerSettingValidators[key].safeParse(value);
+  if (valid.success) return value;
+  if (!warnedInvalid.has(key)) {
+    warnedInvalid.add(key);
+    new Logger('ServerSettings').warn(
+      `${ServerSettingEnvName(key)} is ignored: ${valid.error.issues[0]?.message ?? 'Not a valid value'}`,
+    );
+  }
+  return ServerSettingDefault(key);
+}
+
+export function GetServerSettingNumber(key: ServerSetting): number {
+  return Number(GetServerSettingOrDefault(key));
+}
+
+export function GetServerSettingBool(key: ServerSetting): boolean {
+  return GetServerSettingOrDefault(key) === 'true';
+}
+
+// In milliseconds
+export function GetServerSettingDuration(key: ServerSetting): number {
+  return ParseDuration(GetServerSettingOrDefault(key) ?? '') ?? 0;
 }
 
 // Reads stored settings, decrypting secrets. Only valid values can be saved,

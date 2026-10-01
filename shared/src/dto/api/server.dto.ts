@@ -27,9 +27,21 @@ export const ServerSettingStateSchema = z.object({
 });
 export type ServerSettingState = z.infer<typeof ServerSettingStateSchema>;
 
+// What can only be set with environment variables, as Picsur needs it before
+// it can read its settings
+export const EnvironmentOptionSchema = z.object({
+  env: z.string(),
+  // What applies, null for secrets
+  value: z.string().nullable(),
+  // Whether it is set, otherwise the default applies
+  set: z.boolean(),
+});
+export type EnvironmentOption = z.infer<typeof EnvironmentOptionSchema>;
+
 export const ServerSettingsResponseSchema = z.object({
   settings: z.array(ServerSettingStateSchema),
-  // Settings changed since Picsur started, they take effect when it restarts
+  environment: z.array(EnvironmentOptionSchema),
+  // Settings changed since Picsur started that take effect when it restarts
   restart_needed: z.boolean(),
   // Why the last restart went back to the settings before it, if it did
   restart_error: z.string().nullable(),

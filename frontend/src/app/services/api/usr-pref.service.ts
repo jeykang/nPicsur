@@ -134,7 +134,7 @@ export class UsrPrefService {
     this.usrprefObservable.next([]);
   }
 
-  // We want to flush on logout, because the syspreferences can contain sensitive information
+  // Flushed on logout, as they belong to the user
   @AutoUnsubscribe()
   private subscribePermissions() {
     return this.permissionsService.live

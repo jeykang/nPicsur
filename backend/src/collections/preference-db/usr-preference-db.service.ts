@@ -204,13 +204,13 @@ export class UsrPreferenceDbService {
       return Fail(FT.UsrValidation, undefined, valueValidated.error);
     }
 
-    const verifySysPreference = new EUsrPreferenceBackend();
-    verifySysPreference.key = validated.key;
-    verifySysPreference.value = validated.value;
-    verifySysPreference.user_id = userid;
+    const verifyUsrPreference = new EUsrPreferenceBackend();
+    verifyUsrPreference.key = validated.key;
+    verifyUsrPreference.value = validated.value;
+    verifyUsrPreference.user_id = userid;
 
     // It should already be valid, but these two validators might go out of sync
-    const result = EUsrPreferenceSchema.safeParse(verifySysPreference);
+    const result = EUsrPreferenceSchema.safeParse(verifyUsrPreference);
     if (!result.success) {
       return Fail(FT.UsrValidation, result.error);
     }

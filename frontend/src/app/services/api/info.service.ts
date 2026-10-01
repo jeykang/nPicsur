@@ -105,7 +105,7 @@ export class InfoService {
     return this.snapshot.version !== '0.0.0';
   }
 
-  private async updateInfo(): AsyncFailable<ServerInfo> {
+  public async updateInfo(): AsyncFailable<ServerInfo> {
     const response = await this.api.get(InfoResponse, '/api/info').result;
     if (HasFailed(response)) return response;
 

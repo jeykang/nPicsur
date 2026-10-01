@@ -24,6 +24,14 @@
 
 - Picsur gives back the memory it took while it was busy once it is idle again, instead of keeping it until it restarts, and takes less of it while busy. Measured with the Docker image: 120 MB when idle instead of 160 MB, about 250 MB instead of 390 MB while handling a lot of requests, and back to about 140 MB within half a minute after. Outside the Docker image, this needs Node to be started with `--expose-gc`, see the `start:prod` script.
 
+### Changed
+
+- The System Settings page is part of Settings → Server, which has every setting of the server now, and what was set on it is moved over when Picsur first starts. Each of these can be set with an environment variable as well: `PICSUR_CONVERSION_TIME_LIMIT`, `PICSUR_CONVERSION_MEMORY_LIMIT`, `PICSUR_ALLOW_EDITING`, `PICSUR_REMOVE_DERIVATIVES_AFTER`, `PICSUR_HOST_OVERRIDE`, `PICSUR_BCRYPT_STRENGTH`, `PICSUR_TRACKING_URL` and `PICSUR_TRACKING_ID`. They take effect as soon as they are saved, as before, and so does how long logins last, which used to need a restart.
+- What is saved on the settings page comes before `PICSUR_JWT_EXPIRY` as well, which used to come first. `PICSUR_VERBOSE` can be set on the page too.
+- The settings page shows what can only be set with environment variables, like the database connection.
+- Settings that are true or false take `yes`, `no`, `1` and `0` in the environment as well, like `PICSUR_VERBOSE` always did.
+- Visits are only counted with Ackee when both its address and the website id are set. The setting to turn counting on did nothing, and is gone.
+
 ### Fixed
 
 - Photos were shown sideways when their EXIF orientation said to turn them, like phones do for photos taken upright. Animations are turned as well, each frame by itself. Images uploaded before stay as they are.

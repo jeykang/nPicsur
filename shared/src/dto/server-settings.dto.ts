@@ -1,10 +1,12 @@
+import ms from 'ms';
 import { z } from 'zod';
+import { IsEntityID } from '../validators/entity-id.validator.js';
 import { IsHttpUrl } from '../validators/url.validator.js';
 
-// Settings of the server itself, which take effect when Picsur (re)starts.
-// Each can also be set with the environment variable of the same name,
-// PICSUR_ followed by the key in capitals, which applies when nothing is
-// saved for it on the settings page.
+// The settings of Picsur, changed on the settings page. Each can also be set
+// with the environment variable of the same name, PICSUR_ followed by the key
+// in capitals, which applies when nothing is saved for it on the page. Most
+// take effect when Picsur (re)starts, those in LiveServerSettings right away.
 export enum ServerSetting {
   StorageDriver = 'storage_driver',
   StoragePath = 'storage_path',
@@ -19,7 +21,13 @@ export enum ServerSetting {
   MaxFileSize = 'max_file_size',
   MaxConcurrentConversions = 'max_concurrent_conversions',
   ConversionRateLimit = 'conversion_rate_limit',
+  ConversionTimeLimit = 'conversion_time_limit',
+  ConversionMemoryLimit = 'conversion_memory_limit',
+  AllowEditing = 'allow_editing',
+  RemoveDerivativesAfter = 'remove_derivatives_after',
+
   TrustProxy = 'trust_proxy',
+  HostOverride = 'host_override',
 
   // Logging in with an OpenID Connect provider, which is set up when there is
   // an issuer and a client id
@@ -32,8 +40,39 @@ export enum ServerSetting {
   OidcAutoRegister = 'oidc_auto_register',
   OidcAutoLaunch = 'oidc_auto_launch',
   PasswordLogin = 'password_login',
+  JwtExpiry = 'jwt_expiry',
+  BCryptStrength = 'bcrypt_strength',
+
+  // Counting visits with Ackee
+  TrackingUrl = 'tracking_url',
+  TrackingId = 'tracking_id',
+
+  Verbose = 'verbose',
 }
 export const ServerSettingList: ServerSetting[] = Object.values(ServerSetting);
+
+// Take effect when they are saved, the others when Picsur restarts
+export const LiveServerSettings: ServerSetting[] = [
+  ServerSetting.ConversionTimeLimit,
+  ServerSetting.ConversionMemoryLimit,
+  ServerSetting.AllowEditing,
+  ServerSetting.RemoveDerivativesAfter,
+  ServerSetting.HostOverride,
+  ServerSetting.JwtExpiry,
+  ServerSetting.BCryptStrength,
+  ServerSetting.TrackingUrl,
+  ServerSetting.TrackingId,
+];
+
+// Either true or false
+export const BoolServerSettings: ServerSetting[] = [
+  ServerSetting.S3ForcePathStyle,
+  ServerSetting.AllowEditing,
+  ServerSetting.OidcAutoRegister,
+  ServerSetting.OidcAutoLaunch,
+  ServerSetting.PasswordLogin,
+  ServerSetting.Verbose,
+];
 
 // Never shown once set
 export const SecretServerSettings: ServerSetting[] = [
@@ -91,9 +130,36 @@ const IpOrRange =
 // Names for common ranges that the proxy handling understands
 const NamedRanges = ['loopback', 'linklocal', 'uniquelocal'];
 
-const Bool = z.enum(['true', 'false']);
+const Bool = z.enum(['true', 'false'], {
+  errorMap: () => ({ message: 'Should be true or false' }),
+});
 // Characters a scope may have, RFC 6749 section 3.3
 const ScopeToken = /^[\x21\x23-\x5b\x5d-\x7e]+$/;
+
+const SECOND = 1000;
+const MINUTE = 60 * SECOND;
+const DAY = 24 * 60 * MINUTE;
+
+// A duration like 15s, 30m or 7d, in milliseconds
+export function ParseDuration(value: string): number | undefined {
+  try {
+    const parsed = ms(value);
+    return typeof parsed === 'number' && Number.isFinite(parsed)
+      ? parsed
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const Duration = (min: number, max: number, message: string) =>
+  z
+    .string()
+    .max(32)
+    .refine((value) => {
+      const parsed = ParseDuration(value);
+      return parsed !== undefined && parsed >= min && parsed <= max;
+    }, message);
 
 // All values are strings, like environment variables
 export const ServerSettingValidators: {
@@ -129,6 +195,23 @@ export const ServerSettingValidators: {
   [ServerSetting.MaxFileSize]: PositiveInt(100_000_000_000, 1024),
   [ServerSetting.MaxConcurrentConversions]: PositiveInt(256),
   [ServerSetting.ConversionRateLimit]: PositiveInt(1_000_000, 0),
+  [ServerSetting.ConversionTimeLimit]: Duration(
+    SECOND,
+    10 * MINUTE,
+    'Should be a duration between 1s and 10m, like 15s',
+  ),
+  [ServerSetting.ConversionMemoryLimit]: PositiveInt(65536, 16),
+  [ServerSetting.AllowEditing]: Bool,
+  // 0 keeps them
+  [ServerSetting.RemoveDerivativesAfter]: z
+    .literal('0')
+    .or(
+      Duration(
+        MINUTE,
+        Number.MAX_SAFE_INTEGER,
+        'Should be 0, or a duration of at least 1m, like 7d',
+      ),
+    ),
   [ServerSetting.TrustProxy]: z
     .string()
     .max(1024)
@@ -144,6 +227,7 @@ export const ServerSettingValidators: {
           ),
       'Should be true, false, or addresses and ranges separated by commas',
     ),
+  [ServerSetting.HostOverride]: IsHttpUrl(),
 
   [ServerSetting.OidcIssuer]: IsHttpUrl(),
   [ServerSetting.OidcClientId]: z
@@ -172,4 +256,17 @@ export const ServerSettingValidators: {
   [ServerSetting.OidcAutoRegister]: Bool,
   [ServerSetting.OidcAutoLaunch]: Bool,
   [ServerSetting.PasswordLogin]: Bool,
+  // Too short and nobody can stay logged in, the admin included
+  [ServerSetting.JwtExpiry]: Duration(
+    MINUTE,
+    365 * DAY,
+    'Should be a duration between 1m and 365d, like 7d',
+  ),
+  // Every step doubles the time logging in takes
+  [ServerSetting.BCryptStrength]: PositiveInt(15, 4),
+
+  [ServerSetting.TrackingUrl]: IsHttpUrl(),
+  [ServerSetting.TrackingId]: IsEntityID(),
+
+  [ServerSetting.Verbose]: Bool,
 };

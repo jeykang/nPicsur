@@ -63,10 +63,35 @@ export const ServerSettingUI: {
     helpText:
       'How many new sizes or formats one visitor may have made per minute. 0 turns the limit off.',
   },
+  [ServerSetting.ConversionTimeLimit]: {
+    name: 'Conversion time limit',
+    helpText:
+      'How long converting or customizing one image may take, like 15s. Slow computers might need more for large images.',
+  },
+  [ServerSetting.ConversionMemoryLimit]: {
+    name: 'Conversion memory limit (MB)',
+    helpText:
+      'How much memory converting or customizing one image may use. Only very large images need more.',
+  },
+  [ServerSetting.AllowEditing]: {
+    name: 'Allow customizing images',
+    helpText:
+      'Lets the address of an image ask for another size, a rotation or other changes, which takes time to convert. Other formats can always be asked for.',
+  },
+  [ServerSetting.RemoveDerivativesAfter]: {
+    name: 'Keep converted versions for',
+    helpText:
+      'Converted versions of images that were not asked for this long are removed, like 7d, and made again when needed. Shorter saves space, but costs more conversions. 0 keeps them.',
+  },
   [ServerSetting.TrustProxy]: {
     name: 'Trusted proxies',
     helpText:
       'Which reverse proxies may pass on the address of visitors, for rate limiting. Addresses and ranges separated by commas, or true for any and false for none.',
+  },
+  [ServerSetting.HostOverride]: {
+    name: 'Public address',
+    helpText:
+      'Where Picsur is reached, like https://images.example.com. Links to images use it, and the provider sends users back to it after logging in. Leave empty to use the address in the browser.',
   },
 
   [ServerSetting.OidcIssuer]: {
@@ -111,4 +136,47 @@ export const ServerSettingUI: {
     helpText:
       'Can only be turned off once you logged in with the provider yourself. Should the provider fail, "settings reset password_login" on the command line turns it on again, see the README.',
   },
+  [ServerSetting.JwtExpiry]: {
+    name: 'Logins last',
+    helpText:
+      'How long someone stays logged in without opening Picsur, like 7d or 12h. Opening it renews the login.',
+  },
+  [ServerSetting.BCryptStrength]: {
+    name: 'Password hashing strength',
+    helpText:
+      'Makes passwords harder to find from a copy of the database, every step doubles the time logging in takes. Applies to passwords set from now on. Lower it on slow computers.',
+  },
+
+  [ServerSetting.TrackingUrl]: {
+    name: 'Ackee server',
+    helpText:
+      'Address of an Ackee server to count visits with, like https://ackee.example.com. Visits are passed on through Picsur, with the address of the visitor in X-Forwarded-For.',
+  },
+  [ServerSetting.TrackingId]: {
+    name: 'Ackee website id',
+    helpText:
+      'Of Picsur, as set up in Ackee. Visits are counted once both are set.',
+  },
+
+  [ServerSetting.Verbose]: {
+    name: 'Verbose logging',
+    helpText: 'Logs a lot more, which can include sensitive data.',
+  },
+};
+
+// What can only be set with environment variables
+export const EnvironmentOptionUI: Record<string, string> = {
+  PICSUR_HOST: 'Listens on',
+  PICSUR_PORT: 'Port',
+  PICSUR_DB_HOST: 'Database server',
+  PICSUR_DB_PORT: 'Database port',
+  PICSUR_DB_DATABASE: 'Database',
+  PICSUR_DB_USERNAME: 'Database user',
+  PICSUR_DB_PASSWORD: 'Database password',
+  PICSUR_JWT_SECRET: 'Secret logins are signed with',
+  PICSUR_ENCRYPTION_KEY: 'Key saved secrets are encrypted with',
+  PICSUR_STATIC_FRONTEND_ROOT: 'Frontend files',
+  PICSUR_PRODUCTION: 'Production mode',
+  PICSUR_DEMO: 'Demo mode',
+  PICSUR_DEMO_INTERVAL: 'Demo resets every (ms)',
 };

@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import ms from 'ms';
 import { ImageRequestParams } from 'picsur-shared/dist/dto/api/image.dto';
 import {
   AnimFileType,
@@ -7,7 +6,7 @@ import {
   ImageFileType,
   SupportedFileTypeCategory,
 } from 'picsur-shared/dist/dto/mimes.dto';
-import { SysPreference } from 'picsur-shared/dist/dto/sys-preferences.enum';
+import { ServerSetting } from 'picsur-shared/dist/dto/server-settings.dto';
 import {
   AsyncFailable,
   Fail,
@@ -16,7 +15,10 @@ import {
 } from 'picsur-shared/dist/types/failable';
 import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
 import { SharpOptions } from 'sharp';
-import { SysPreferenceDbService } from '../../collections/preference-db/sys-preference-db.service.js';
+import {
+  GetServerSettingDuration,
+  GetServerSettingNumber,
+} from '../../config/server-settings.js';
 import { SharpWorkerPool } from '../../workers/sharp.pool.js';
 import { SharpWrapper } from '../../workers/sharp.wrapper.js';
 import { ConversionLimiterService } from './conversion-limiter.service.js';
@@ -32,7 +34,6 @@ export type ConvertOptions = ImageRequestParams & InternalConvertOptions;
 @Injectable()
 export class ImageConverterService {
   constructor(
-    private readonly sysPref: SysPreferenceDbService,
     private readonly limiter: ConversionLimiterService,
     private readonly workers: SharpWorkerPool,
   ) {}
@@ -107,17 +108,11 @@ export class ImageConverterService {
     targetFiletype: FileType,
     options: ConvertOptions,
   ): AsyncFailable<ImageResult> {
-    const [memLimit, timeLimit] = await Promise.all([
-      this.sysPref.getNumberPreference(SysPreference.ConversionMemoryLimit),
-      this.sysPref.getStringPreference(SysPreference.ConversionTimeLimit),
-    ]);
-    if (HasFailed(memLimit) || HasFailed(timeLimit)) {
-      return Fail(FT.Internal, 'Failed to get conversion limits');
-    }
-    let timeLimitMS = ms(timeLimit as string);
-    if (isNaN(timeLimitMS) || timeLimitMS === 0) timeLimitMS = 15 * 1000; // 15 seconds
-
-    const sharpWrapper = new SharpWrapper(this.workers, timeLimitMS, memLimit);
+    const sharpWrapper = new SharpWrapper(
+      this.workers,
+      GetServerSettingDuration(ServerSetting.ConversionTimeLimit),
+      GetServerSettingNumber(ServerSetting.ConversionMemoryLimit),
+    );
     const sharpOptions: SharpOptions = {
       animated: targetFiletype.category === SupportedFileTypeCategory.Animation,
     };

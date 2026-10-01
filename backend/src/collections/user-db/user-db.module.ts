@@ -7,7 +7,6 @@ import { EarlyConfigModule } from '../../config/early/early-config.module.js';
 import { EUserOidcBackend } from '../../database/entities/users/user-oidc.entity.js';
 import { EUserBackend } from '../../database/entities/users/user.entity.js';
 import { ImageDBModule } from '../image-db/image-db.module.js';
-import { PreferenceDbModule } from '../preference-db/preference-db.module.js';
 import { RoleDbModule } from '../role-db/role-db.module.js';
 import { UserDbService } from './user-db.service.js';
 import { UserOidcDbService } from './user-oidc-db.service.js';
@@ -16,7 +15,6 @@ import { UserOidcDbService } from './user-oidc-db.service.js';
   imports: [
     EarlyConfigModule,
     RoleDbModule,
-    PreferenceDbModule,
     ImageDBModule,
     TypeOrmModule.forFeature([EUserBackend, EUserOidcBackend]),
   ],

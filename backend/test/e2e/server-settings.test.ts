@@ -258,6 +258,12 @@ describe('server settings', () => {
     const unknown = await cli(['settings', 'reset', 'not_a_setting']);
     expect(unknown.code).toBe(1);
     expect(unknown.output).toContain('There is no setting "not_a_setting"');
+
+    // Like other environment variables, true and false can be yes and no too
+    const no = await cli(['settings', 'list'], { PICSUR_ALLOW_EDITING: 'no' });
+    expect(no.output).toMatch(
+      /allow_editing\s+false, from PICSUR_ALLOW_EDITING/,
+    );
   });
 
   it('checks values', async () => {
@@ -269,6 +275,164 @@ describe('server settings', () => {
     ]) {
       expectFailure(await update(admin, values), 400, 'usrvalidation');
     }
+    expect((await getSettings(admin)).restart_needed).toBe(false);
+  });
+
+  it('checks values of the settings that were system settings', async () => {
+    for (const [key, value] of [
+      ['bcrypt_strength', '40'],
+      ['bcrypt_strength', '1'],
+      ['conversion_memory_limit', '0'],
+      ['jwt_expiry', '1s'],
+      ['conversion_time_limit', '5h'],
+      ['conversion_time_limit', '0'],
+      ['remove_derivatives_after', 'not a duration'],
+      ['allow_editing', 'yes'],
+      ['host_override', 'javascript:alert(1)'],
+      ['host_override', 'not a url at all https://example.com'],
+      ['tracking_url', 'ftp://example.com'],
+      ['tracking_id', 'not an id'],
+      ['verbose', 'loud'],
+    ]) {
+      expectFailure(
+        await update(admin, { [key]: value }),
+        400,
+        'usrvalidation',
+      );
+    }
+
+    // These take effect right away
+    const saved = expectSuccess(
+      await update(admin, {
+        host_override: 'https://img.example.com',
+        remove_derivatives_after: '0',
+        bcrypt_strength: '11',
+      }),
+    );
+    expect(saved.restart_needed).toBe(false);
+    const info = () => Client.guest().get('/api/info');
+    expect(expectSuccess(await info()).host_override).toBe(
+      'https://img.example.com',
+    );
+    expectSuccess(
+      await update(admin, {
+        host_override: null,
+        remove_derivatives_after: null,
+        bcrypt_strength: null,
+      }),
+    );
+    expect(expectSuccess(await info()).host_override).toBeUndefined();
+  });
+
+  it('applies how long logins last to new logins', async () => {
+    const lasts = (token: string | undefined) => {
+      const payload = JSON.parse(
+        Buffer.from(token!.split('.')[1], 'base64url').toString(),
+      );
+      return payload.exp - payload.iat;
+    };
+    expect(lasts((await Client.admin()).jwt)).toBe(7 * 24 * 60 * 60);
+
+    const saved = expectSuccess(await update(admin, { jwt_expiry: '2h' }));
+    expect(saved.restart_needed).toBe(false);
+    try {
+      expect(lasts((await Client.admin()).jwt)).toBe(2 * 60 * 60);
+    } finally {
+      expectSuccess(await update(admin, { jwt_expiry: null }));
+    }
+  });
+
+  it('lists what can only be set with environment variables', async () => {
+    const settings = await getSettings(admin);
+    const option = (name: string) =>
+      settings.environment.find((option) => option.env === name);
+
+    expect(option('PICSUR_DB_DATABASE')).toEqual({
+      env: 'PICSUR_DB_DATABASE',
+      value: env['PICSUR_DB_DATABASE'],
+      set: true,
+    });
+    expect(option('PICSUR_PRODUCTION')).toEqual({
+      env: 'PICSUR_PRODUCTION',
+      value: 'true',
+      set: true,
+    });
+    expect(option('PICSUR_DEMO')).toMatchObject({ value: 'false', set: false });
+    // Secrets only say whether they are set
+    expect(option('PICSUR_JWT_SECRET')).toEqual({
+      env: 'PICSUR_JWT_SECRET',
+      value: null,
+      set: true,
+    });
+    expect(option('PICSUR_ENCRYPTION_KEY')).toMatchObject({
+      value: null,
+      set: false,
+    });
+    expect(option('PICSUR_DB_PASSWORD')?.value).toBeNull();
+    expect(JSON.stringify(settings)).not.toContain(env['PICSUR_JWT_SECRET']);
+  });
+
+  it('moves the system settings of earlier versions over', async () => {
+    // What earlier versions left: the system settings in a table of their
+    // own, which this version moves when it first starts
+    await db.query(
+      `CREATE TABLE "e_sys_preference_backend" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "key" character varying NOT NULL UNIQUE, "value" character varying NOT NULL, PRIMARY KEY ("id"))`,
+    );
+    await db.query(
+      `INSERT INTO "e_sys_preference_backend" ("key", "value") VALUES
+        ('allow_editing', 'false'),
+        ('jwt_expires_in', '2d'),
+        ('remove_derivatives_after', '0s'),
+        ('host_override', 'https://old.example.com'),
+        ('bcrypt_strength', '10'),
+        ('conversion_time_limit', '0'),
+        ('tracking_url', ''),
+        ('enable_tracking', 'true'),
+        ('jwt_secret', 'a secret the database had, long enough for logins')`,
+    );
+    await db.query(
+      `DELETE FROM "migrations" WHERE "name" = 'V070D1790915263104'`,
+    );
+
+    const restarted = await restart(admin);
+    expect(restarted.restart_needed).toBe(false);
+    expect(restarted.restart_error).toBeNull();
+    expect(await storedValue('allow_editing')).toBe('false');
+    expect(await storedValue('jwt_expiry')).toBe('2d');
+    expect(await storedValue('remove_derivatives_after')).toBe('0');
+    expect(await storedValue('host_override')).toBe('https://old.example.com');
+    // Defaults were saved as well, those keep following the default
+    expect(await storedValue('bcrypt_strength')).toBeNull();
+    expect(await storedValue('conversion_time_limit')).toBeNull();
+    expect(await storedValue('tracking_url')).toBeNull();
+    expect(await storedValue('enable_tracking')).toBeNull();
+    // The saved secret was a copy of PICSUR_JWT_SECRET, which still applies
+    const secret = await db.query(
+      `SELECT "value" FROM e_system_state_backend WHERE "key" = 'jwt_secret'`,
+    );
+    expect(secret.rows).toHaveLength(0);
+    const table = await db.query(
+      `SELECT to_regclass('e_sys_preference_backend') AS "table"`,
+    );
+    expect(table.rows[0].table).toBeNull();
+    expect(serverLog()).toContain(
+      'The system settings are server settings now: ',
+    );
+
+    // In use from the start, logins included
+    expect(
+      expectSuccess(await Client.guest().get('/api/info')).host_override,
+    ).toBe('https://old.example.com');
+    expectSuccess(await admin.get('/api/server/settings'));
+
+    expectSuccess(
+      await update(admin, {
+        allow_editing: null,
+        jwt_expiry: null,
+        remove_derivatives_after: null,
+        host_override: null,
+      }),
+    );
     expect((await getSettings(admin)).restart_needed).toBe(false);
   });
 

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt-ts';
-import { SysPreference } from 'picsur-shared/dist/dto/sys-preferences.enum';
+import { ServerSetting } from 'picsur-shared/dist/dto/server-settings.dto';
 import {
   AsyncFailable,
   Fail,
@@ -13,6 +13,7 @@ import { FindResult } from 'picsur-shared/dist/types/find-result';
 import { generateRandomString } from 'picsur-shared/dist/util/random';
 import { makeUnique } from 'picsur-shared/dist/util/unique';
 import { Repository } from 'typeorm';
+import { GetServerSettingNumber } from '../../config/server-settings.js';
 import { EUserBackend } from '../../database/entities/users/user.entity.js';
 import { Permissions } from '../../models/constants/permissions.const.js';
 import {
@@ -27,7 +28,6 @@ import {
 import { GetCols } from '../../util/collection.js';
 import { ImageDBService } from '../image-db/image-db.service.js';
 import { ImageFileDBService } from '../image-db/image-file-db.service.js';
-import { SysPreferenceDbService } from '../preference-db/sys-preference-db.service.js';
 import { RoleDbService } from '../role-db/role-db.service.js';
 
 @Injectable()
@@ -38,7 +38,6 @@ export class UserDbService {
     @InjectRepository(EUserBackend)
     private readonly usersRepository: Repository<EUserBackend>,
     private readonly rolesService: RoleDbService,
-    private readonly prefService: SysPreferenceDbService,
     private readonly imageDB: ImageDBService,
     private readonly imageFiles: ImageFileDBService,
   ) {}
@@ -61,7 +60,7 @@ export class UserDbService {
     user.hashed_password =
       password === null
         ? null
-        : await bcrypt.hash(password, await this.getBCryptStrength());
+        : await bcrypt.hash(password, this.getBCryptStrength());
     if (byPassRoleCheck) {
       const rolesToAdd = roles ?? [];
       user.roles = makeUnique(rolesToAdd);
@@ -177,7 +176,7 @@ export class UserDbService {
     let userToModify = await this.findOne(uuid);
     if (HasFailed(userToModify)) return userToModify;
 
-    const strength = await this.getBCryptStrength();
+    const strength = this.getBCryptStrength();
     userToModify.hashed_password = await bcrypt.hash(password, strength);
     userToModify.tokens_valid_after = new Date();
 
@@ -362,7 +361,7 @@ export class UserDbService {
   private dummyHashStrength: number | undefined;
 
   private async getDummyHash(): Promise<string> {
-    const strength = await this.getBCryptStrength();
+    const strength = this.getBCryptStrength();
     if (this.dummyHash === undefined || this.dummyHashStrength !== strength) {
       this.dummyHashStrength = strength;
       this.dummyHash = bcrypt.hash(generateRandomString(32), strength);
@@ -378,13 +377,7 @@ export class UserDbService {
     return filteredRoles;
   }
 
-  private async getBCryptStrength(): Promise<number> {
-    const result = await this.prefService.getNumberPreference(
-      SysPreference.BCryptStrength,
-    );
-    if (HasFailed(result)) {
-      return 12;
-    }
-    return result;
+  private getBCryptStrength(): number {
+    return GetServerSettingNumber(ServerSetting.BCryptStrength);
   }
 }

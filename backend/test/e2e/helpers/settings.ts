@@ -14,8 +14,15 @@ export interface SettingState {
   set: boolean;
 }
 
+export interface EnvironmentOption {
+  env: string;
+  value: string | null;
+  set: boolean;
+}
+
 export interface SettingsResponse {
   settings: SettingState[];
+  environment: EnvironmentOption[];
   restart_needed: boolean;
   restart_error: string | null;
   started_at: string;

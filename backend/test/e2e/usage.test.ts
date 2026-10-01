@@ -1,16 +1,19 @@
+import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Client, expectFailure, expectSuccess } from './helpers/client.js';
+import { update } from './helpers/settings.js';
 
 // The frontend reports visitor statistics through /api/usage/report, which
-// passes them on to the Ackee server in the tracking_url preference. Here a
+// passes them on to the Ackee server in the tracking_url setting. Here a
 // stand-in plays a tracking server that answers the way a hostile one would.
 describe('usage statistics', () => {
   let admin: Client;
   let server: Server;
   let requests: { headers: IncomingHttpHeaders; body: string }[] = [];
   let answer: { type: string; body: string };
+  const trackingId = randomUUID();
 
   beforeAll(async () => {
     admin = await Client.admin();
@@ -34,15 +37,18 @@ describe('usage statistics', () => {
     );
     const { port } = server.address() as AddressInfo;
 
-    expectSuccess(
-      await admin.post('/api/pref/sys/tracking_url', {
-        value: `http://127.0.0.1:${port}/`,
+    const saved = expectSuccess(
+      await update(admin, {
+        tracking_url: `http://127.0.0.1:${port}/`,
+        tracking_id: trackingId,
       }),
     );
+    // Takes effect without restarting
+    expect(saved.restart_needed).toBe(false);
   });
 
   afterAll(async () => {
-    await admin.post('/api/pref/sys/tracking_url', { value: '' });
+    await update(admin, { tracking_url: null, tracking_id: null });
     await new Promise((resolve) => server.close(resolve));
   });
 
@@ -83,6 +89,23 @@ describe('usage statistics', () => {
     expect(res.headers.get('x-tracker')).toBeNull();
     expect(res.headers.get('access-control-allow-origin')).toBeNull();
     expect(res.body.toString()).toBe(answer.body);
+  });
+
+  it('tells the frontend to count visits', async () => {
+    const info = expectSuccess(await Client.guest().get('/api/info'));
+    expect(info.tracking.id).toBe(trackingId);
+  });
+
+  it('needs both the server and the website id', async () => {
+    expectSuccess(await update(admin, { tracking_id: null }));
+    try {
+      const info = expectSuccess(await Client.guest().get('/api/info'));
+      expect(info.tracking.id).toBeUndefined();
+      expectFailure(await Client.guest().post('/api/usage/report', {}), 404);
+      expect(requests).toHaveLength(0);
+    } finally {
+      expectSuccess(await update(admin, { tracking_id: trackingId }));
+    }
   });
 
   it('refuses anything but JSON', async () => {

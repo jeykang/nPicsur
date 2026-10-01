@@ -29,8 +29,8 @@ export class PreferenceCommonService {
   // Preferences values are only validated upon encoding, not decoding
   // The preference keys are always validated
 
-  // E is either the SysPreference or the UsrPreference enum
-  // the pref value types is the object containing the type of each key in E
+  // E is the UsrPreference enum, the pref value types is the object
+  // containing the type of each key in E
   public DecodePref<E extends Enum>(
     preference: EncodedPref<E>,
     prefType: E,

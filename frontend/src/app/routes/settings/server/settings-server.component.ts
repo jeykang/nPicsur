@@ -6,11 +6,14 @@ import {
 } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup } from '@angular/forms';
 import {
+  EnvironmentOption,
   ServerSettingState,
   ServerSettingsResponse,
   StorageStatusResponse,
 } from 'picsur-shared/dist/dto/api/server.dto';
 import {
+  BoolServerSettings,
+  LiveServerSettings,
   OidcSettings,
   SecretServerSettings,
   ServerSetting,
@@ -19,7 +22,10 @@ import {
   StorageSettings,
 } from 'picsur-shared/dist/dto/server-settings.dto';
 import { Failure, HasFailed } from 'picsur-shared/dist/types/failable';
-import { ServerSettingUI } from '../../../i18n/server-settings.i18n';
+import {
+  EnvironmentOptionUI,
+  ServerSettingUI,
+} from '../../../i18n/server-settings.i18n';
 import { InfoService } from '../../../services/api/info.service';
 import { ServerSettingsService } from '../../../services/api/server-settings.service';
 import { Logger } from '../../../services/logger/logger.service';
@@ -29,14 +35,6 @@ import { ErrorService } from '../../../util/error-manager/error.service';
 type SettingControls = { [key in ServerSetting]: FormControl<string> };
 type StorageDriver = 'database' | 's3' | 'filesystem';
 const StorageDrivers: StorageDriver[] = ['database', 's3', 'filesystem'];
-
-// Settings shown as a toggle, which always have a value
-const Toggles: ServerSetting[] = [
-  ServerSetting.S3ForcePathStyle,
-  ServerSetting.OidcAutoRegister,
-  ServerSetting.OidcAutoLaunch,
-  ServerSetting.PasswordLogin,
-];
 
 // The maximum upload size is shown in MB instead of bytes
 const BYTES_PER_MB = 1000 * 1000;
@@ -169,6 +167,8 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
       }
     }
 
+    if (LiveServerSettings.includes(key)) hint += ' Takes effect right away.';
+
     const state = this.state(key);
     if (state?.env_set) {
       hint += state.saved
@@ -176,6 +176,15 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
         : ` Set with ${state.env}, unless something is saved here.`;
     }
     return hint;
+  }
+
+  // What can only be set with environment variables, as shown on the page
+  public get environment(): { name: string; env: string; value: string }[] {
+    return (this.settings?.environment ?? []).map((option) => ({
+      name: EnvironmentOptionUI[option.env] ?? option.env,
+      env: option.env,
+      value: this.environmentValue(option),
+    }));
   }
 
   // Environment variables that are not used, as something is saved here for
@@ -309,7 +318,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
       }
       const control = this.form.controls[key];
       control.setValue(
-        key === ServerSetting.StorageDriver || Toggles.includes(key)
+        key === ServerSetting.StorageDriver || BoolServerSettings.includes(key)
           ? (this.fallback(key) ?? '')
           : '',
       );
@@ -378,7 +387,16 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     }
 
     this.showSettings(result);
-    if (!result.restart_needed) {
+    // Links to images use it
+    if (ServerSetting.HostOverride in changes) {
+      await this.infoService.updateInfo();
+    }
+    // Changes that take effect right away need no restart, even while
+    // earlier ones still wait for one
+    const restartFor = Object.keys(changes).some(
+      (key) => !LiveServerSettings.includes(key as ServerSetting),
+    );
+    if (!result.restart_needed || !restartFor) {
       this.errorService.success('Saved');
       return;
     }
@@ -516,6 +534,24 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
   // Internals
 
+  private environmentValue(option: EnvironmentOption): string {
+    if (option.value !== null) {
+      return option.set ? option.value : `${option.value}, the default`;
+    }
+    // Secrets
+    if (option.set) return 'Set';
+    switch (option.env) {
+      case 'PICSUR_JWT_SECRET':
+        return 'Generated, kept in the database';
+      case 'PICSUR_ENCRYPTION_KEY':
+        return this.settings?.encryption_key === 'database'
+          ? 'Generated, kept in the database'
+          : 'None, secrets can not be saved';
+      default:
+        return 'The default';
+    }
+  }
+
   private filesNotIn(driver: StorageDriver): number {
     if (this.storage === null) return 0;
     return StorageDrivers.filter((other) => other !== driver).reduce(
@@ -585,10 +621,11 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
   }
 
   // What the form shows for a setting: what is saved here, and for toggles
-  // and the select, which always have a value, what applies otherwise
+  // (BoolServerSettings) and the select, which always have a value, what
+  // applies otherwise
   private formValue(key: ServerSetting, state: ServerSettingState): string {
     const always = state.value ?? state.env_value ?? state.default ?? '';
-    if (Toggles.includes(key)) return always;
+    if (BoolServerSettings.includes(key)) return always;
     switch (key) {
       case ServerSetting.StorageDriver:
         return always;
@@ -629,7 +666,8 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
       // The select and toggles show what applies without saving anything,
       // choosing that saves nothing
       if (
-        (key === ServerSetting.StorageDriver || Toggles.includes(key)) &&
+        (key === ServerSetting.StorageDriver ||
+          BoolServerSettings.includes(key)) &&
         value === this.fallback(key)
       ) {
         value = null;

@@ -1,6 +1,6 @@
 import { Controller, Logger, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { FT, Fail, ThrowIfFailed } from 'picsur-shared/dist/types/failable';
+import { FT, Fail } from 'picsur-shared/dist/types/failable';
 import { UsageConfigService } from '../../../config/late/usage.config.service.js';
 import { EasyThrottle } from '../../../decorators/easy-throttle.decorator.js';
 import { NoPermissions } from '../../../decorators/permissions.decorator.js';
@@ -14,7 +14,7 @@ function isJson(contentType: unknown): boolean {
 }
 
 // Passes the visitor statistics of the frontend on to the Ackee server set in
-// the tracking_url preference
+// the tracking_url setting
 @Controller('api/usage')
 @NoPermissions()
 export class UsageController {
@@ -32,10 +32,9 @@ export class UsageController {
     })
     res: FastifyReply,
   ) {
-    const trackingUrl = ThrowIfFailed(await this.usageService.getTrackingUrl());
-
+    const trackingUrl = this.usageService.getTrackingUrl();
     if (trackingUrl === null) {
-      throw Fail(FT.NotFound, undefined, 'Tracking URL not set');
+      throw Fail(FT.NotFound, undefined, 'Counting visits is not set up');
     }
 
     // The tracker only sends JSON. Refusing anything else also keeps other

@@ -18,6 +18,7 @@ import {
   withPngOrientation,
   withWebpOrientation,
 } from './helpers/images.js';
+import { update } from './helpers/settings.js';
 
 describe('image upload and retrieval', () => {
   let admin: Client;
@@ -365,16 +366,16 @@ describe('image editing parameters', () => {
 
   it('ignores editing parameters when editing is disabled', async () => {
     const admin = await Client.admin();
-    expectSuccess(
-      await admin.post('/api/pref/sys/allow_editing', { value: false }),
+    // Takes effect without restarting
+    const saved = expectSuccess(
+      await update(admin, { allow_editing: 'false' }),
     );
+    expect(saved.restart_needed).toBe(false);
     try {
       const meta = await fetchMeta('width=16');
       expect(meta.width).toBe(64);
     } finally {
-      expectSuccess(
-        await admin.post('/api/pref/sys/allow_editing', { value: true }),
-      );
+      expectSuccess(await update(admin, { allow_editing: null }));
     }
     const meta = await fetchMeta('width=16');
     expect(meta.width).toBe(16);

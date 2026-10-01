@@ -1,11 +1,13 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import {
+  EnvironmentOption,
   OidcTestResponse,
   ServerSettingsResponse,
   StorageStatusResponse,
   StorageTestResponse,
 } from 'picsur-shared/dist/dto/api/server.dto';
 import {
+  LiveServerSettings,
   OidcSettings,
   SecretServerSettings,
   ServerSetting,
@@ -28,10 +30,14 @@ import {
 import { TestS3Storage } from '../../collections/object-storage/object-storage.service.js';
 import { ServerSettingsDbService } from '../../collections/server-settings-db/server-settings-db.service.js';
 import { SystemStateDbService } from '../../collections/system-state-db/system-state-db.service.js';
+import { EnvPrefix } from '../../config/config.static.js';
+import { GetDbConnectionOptions } from '../../config/db-connection.js';
+import { HostConfigService } from '../../config/early/host.config.service.js';
 import {
   BuildLoginConfig,
   LoginConfig,
 } from '../../config/early/login.config.service.js';
+import { ServeStaticConfigService } from '../../config/early/serve-static.config.service.js';
 import {
   BuildStorageConfig,
   ChangedStorageLocations,
@@ -48,6 +54,7 @@ import {
   ServerSettingResolver,
   ServerSettingsOrderState,
   StoredServerSettings,
+  UseSavedServerSettings,
 } from '../../config/server-settings.js';
 import {
   EncryptionKeyEnv,
@@ -82,6 +89,8 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     private readonly storageConfig: StorageConfigService,
     private readonly diskStorage: DiskStorageService,
     private readonly oidc: OidcService,
+    private readonly hostConfig: HostConfigService,
+    private readonly staticConfig: ServeStaticConfigService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -166,9 +175,9 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     return this.describeStored(stored);
   }
 
-  // Stores the given settings, which take effect when Picsur restarts. A
-  // value of null removes what is saved, so the environment or the default
-  // applies again.
+  // Stores the given settings, which take effect when Picsur restarts, or
+  // right away for those in LiveServerSettings. A value of null removes what
+  // is saved, so the environment or the default applies again.
   async update(
     values: Record<string, string | null>,
     // The admin making the changes
@@ -234,6 +243,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
 
     const updated = await this.settingsDb.update(plan.changes);
     if (HasFailed(updated)) return updated;
+    UseSavedServerSettings(plan.stored);
     this.logger.log(
       `Changed server settings: ${[...plan.changes.keys()].join(', ')}`,
     );
@@ -464,13 +474,45 @@ export class ServerSettingsService implements OnApplicationBootstrap {
           set: saved !== undefined || fromEnv !== undefined,
         };
       }),
+      environment: this.describeEnvironment(),
       restart_needed: ServerSettingList.some(
-        (key) => now(key) !== running(key),
+        (key) => !LiveServerSettings.includes(key) && now(key) !== running(key),
       ),
       restart_error: RestartError(),
       started_at: StartedAt(),
       encryption_key: EncryptionKeySource(),
     };
+  }
+
+  // What can only be set with environment variables
+  private describeEnvironment(): EnvironmentOption[] {
+    const db = GetDbConnectionOptions((name) => process.env[name]);
+    const option = (
+      name: string,
+      value: string | number | boolean | null,
+    ): EnvironmentOption => ({
+      env: EnvPrefix + name,
+      value: value === null ? null : String(value),
+      set: !!process.env[EnvPrefix + name]?.trim(),
+    });
+
+    return [
+      option('HOST', this.hostConfig.getHost()),
+      option('PORT', this.hostConfig.getPort()),
+      option('DB_HOST', db.host),
+      option('DB_PORT', db.port),
+      option('DB_DATABASE', db.database),
+      option('DB_USERNAME', db.username),
+      option('DB_PASSWORD', null),
+      option('JWT_SECRET', null),
+      option('ENCRYPTION_KEY', null),
+      option('STATIC_FRONTEND_ROOT', this.staticConfig.getStaticDirectory()),
+      option('PRODUCTION', this.hostConfig.isProduction()),
+      option('DEMO', this.hostConfig.isDemo()),
+      ...(this.hostConfig.isDemo()
+        ? [option('DEMO_INTERVAL', this.hostConfig.getDemoInterval())]
+        : []),
+    ];
   }
 
   private runningStorage(): StorageConfig {

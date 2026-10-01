@@ -15,14 +15,9 @@ export const DecodedPrefSchema = z.object({
   value: IsPrefValue(),
   type: z.enum(PrefValueTypes),
 });
-export type DecodedPref = z.infer<typeof DecodedSysPrefSchema>;
+export type DecodedPref = z.infer<typeof DecodedPrefSchema>;
 
-// Usr and Sys
-
-export const DecodedSysPrefSchema = DecodedPrefSchema;
-export type DecodedSysPref = z.infer<typeof DecodedSysPrefSchema>;
-
-export const DecodedUsrPrefSchema = DecodedSysPrefSchema.merge(
+export const DecodedUsrPrefSchema = DecodedPrefSchema.merge(
   z.object({
     user: IsEntityID(),
   }),

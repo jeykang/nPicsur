@@ -1,8 +1,9 @@
 <h1>Server</h1>
 <p>
-  Where images are stored, and other settings of the server itself. Changes take
-  effect when Picsur restarts, which can be done from here. What is saved here
-  comes before environment variables, which set what is not saved here.
+  Where images are stored, and the other settings of the server itself. Most
+  changes take effect when Picsur restarts, which can be done from here, the
+  others right away. What is saved here comes before environment variables,
+  which set what is not saved here.
 </p>
 
 <!-- A text field for a setting -->
@@ -368,10 +369,47 @@
           "
         ></ng-container>
       </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: { $implicit: S.ConversionTimeLimit }
+          "
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: {
+              $implicit: S.ConversionMemoryLimit,
+              inputmode: 'numeric',
+            }
+          "
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: { $implicit: S.RemoveDerivativesAfter }
+          "
+        ></ng-container>
+      </div>
+      <div class="col-12 toggle">
+        <ng-container
+          *ngTemplateOutlet="toggle; context: { $implicit: S.AllowEditing }"
+        ></ng-container>
+      </div>
     </div>
 
     <h2>Network</h2>
     <div class="row">
+      <div class="col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.HostOverride }"
+        ></ng-container>
+      </div>
       <div class="col-12">
         <ng-container
           *ngTemplateOutlet="field; context: { $implicit: S.TrustProxy }"
@@ -380,6 +418,21 @@
     </div>
 
     <h2>Logging in</h2>
+    <div class="row">
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.JwtExpiry }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: { $implicit: S.BCryptStrength, inputmode: 'numeric' }
+          "
+        ></ng-container>
+      </div>
+    </div>
     <p>
       Users can log in with an OpenID Connect provider, like Authelia, Authentik
       or Keycloak, once an issuer and a client id are set. Picsur is a
@@ -452,7 +505,7 @@
         ></ng-container>
       </div>
     </div>
-    <div class="pb-4">
+    <div>
       <button
         mat-stroked-button
         type="button"
@@ -461,6 +514,39 @@
       >
         {{ testing === 'oidc' ? 'TESTING...' : 'TEST THE PROVIDER' }}
       </button>
+    </div>
+
+    <h2>Counting visits</h2>
+    <p>
+      Picsur can count visits with an
+      <a
+        href="https://github.com/electerious/Ackee"
+        target="_blank"
+        rel="noopener"
+        >Ackee</a
+      >
+      server.
+    </p>
+    <div class="row">
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.TrackingUrl }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.TrackingId }"
+        ></ng-container>
+      </div>
+    </div>
+
+    <h2>Logging</h2>
+    <div class="row">
+      <div class="col-12 toggle">
+        <ng-container
+          *ngTemplateOutlet="toggle; context: { $implicit: S.Verbose }"
+        ></ng-container>
+      </div>
     </div>
 
     <div class="row">
@@ -476,4 +562,22 @@
       </div>
     </div>
   </form>
+
+  <h2>Set with environment variables</h2>
+  <p>
+    These can only be set with environment variables, as Picsur needs them
+    before it can read the settings above, or as they are secrets kept out of
+    the database.
+  </p>
+  <table class="environment">
+    @for (option of environment; track option.env) {
+      <tr>
+        <th scope="row">
+          {{ option.name }}
+          <code>{{ option.env }}</code>
+        </th>
+        <td>{{ option.value }}</td>
+      </tr>
+    }
+  </table>
 }

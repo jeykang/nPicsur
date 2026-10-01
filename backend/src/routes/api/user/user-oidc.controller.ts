@@ -155,7 +155,7 @@ export class UserOidcController {
     userId: string | null,
   ): Promise<UserOidcStartResponse> {
     const started = ThrowIfFailed(
-      await this.oidc.start(await this.redirectUri(req), userId),
+      await this.oidc.start(this.redirectUri(req), userId),
     );
     setLoginCookie(req, reply, started.id);
     return { url: started.url };
@@ -164,8 +164,8 @@ export class UserOidcController {
   // Where the provider sends the browser back to, which has to be registered
   // with the provider. The public url when one is set in the settings,
   // otherwise the address the browser uses, as long as it is this server.
-  private async redirectUri(req: FastifyRequest): Promise<string> {
-    const hostOverride = await this.infoConfig.getHostnameOverride();
+  private redirectUri(req: FastifyRequest): string {
+    const hostOverride = this.infoConfig.getHostnameOverride();
     if (hostOverride !== undefined) {
       return new URL(hostOverride).origin + CallbackPage;
     }

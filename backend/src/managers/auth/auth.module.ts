@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ApiKeyDbModule } from '../../collections/apikey-db/apikey-db.module.js';
-import { PreferenceDbModule } from '../../collections/preference-db/preference-db.module.js';
 import { UserDbModule } from '../../collections/user-db/user-db.module.js';
 import {
   JwtConfigService,
@@ -23,7 +22,6 @@ import { OidcService } from './oidc.service.js';
   imports: [
     UserDbModule,
     PassportModule,
-    PreferenceDbModule,
     ApiKeyDbModule,
     LateConfigModule,
     JwtModule.registerAsync({

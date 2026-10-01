@@ -17,7 +17,7 @@ import { SpeedDialAnimation } from './speed-dial.animation';
   standalone: false,
 })
 export class SpeedDialComponent {
-  @Input('aria-label') ariaLabel = 'Floating Action Button';
+  @Input('aria-label') ariaLabel = 'Floating action button';
 
   @Input('icon') icon = 'add';
   @Input('icon-hover') iconHover = 'close';

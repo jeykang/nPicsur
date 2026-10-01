@@ -7,7 +7,7 @@ const Timeout = 15;
 
 // Clients authenticate with HTTP Basic, the default of the specification and
 // what providers like Authelia expect unless set up otherwise. Only with
-// providers that can not do that, the secret goes in the request body.
+// providers that cannot do that, the secret goes in the request body.
 function ClientAuthentication(secret: string | undefined): client.ClientAuth {
   if (!secret) return client.None();
   const basic = client.ClientSecretBasic(secret);

@@ -10,5 +10,5 @@ export const UsrPreferenceHelpText: {
   [key in UsrPreference]: string;
 } = {
   [UsrPreference.KeepOriginal]:
-    'Store the original files you upload to the service, this way no data will be lost. This will also store exif data.',
+    'Keeps the file of every image you upload exactly as it was uploaded, next to the image Picsur makes of it. That includes its metadata, like EXIF data with the place a photo was taken.',
 };

@@ -136,7 +136,7 @@ export class HeaderComponent implements OnInit {
     if (HasFailed(user))
       return this.errorService.showFailure(user, this.logger);
 
-    this.errorService.success('Logout successful');
+    this.errorService.success('Logged out');
   }
 
   doSettings() {

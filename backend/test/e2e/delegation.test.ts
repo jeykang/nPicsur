@@ -38,7 +38,7 @@ describe('delegated administration', () => {
       userAdmin = await createUser(admin, [userAdminRole]);
     });
 
-    it("can not change the admin's password", async () => {
+    it("cannot change the admin's password", async () => {
       expectFailure(
         await userAdmin.client.post('/api/user/update', {
           id: adminId,
@@ -51,7 +51,7 @@ describe('delegated administration', () => {
       await Client.admin();
     });
 
-    it('can not make themselves an admin', async () => {
+    it('cannot make themselves an admin', async () => {
       expectFailure(
         await userAdmin.client.post('/api/user/update', {
           id: userAdmin.id,
@@ -66,7 +66,7 @@ describe('delegated administration', () => {
       expect(me.roles).not.toContain('admin');
     });
 
-    it('can not create admins', async () => {
+    it('cannot create admins', async () => {
       expectFailure(
         await userAdmin.client.post('/api/user/create', {
           username: uniqueName(),
@@ -78,7 +78,7 @@ describe('delegated administration', () => {
       );
     });
 
-    it('can not delete users with more permissions', async () => {
+    it('cannot delete users with more permissions', async () => {
       const otherAdmin = await createUser(admin, ['admin']);
       expectFailure(
         await userAdmin.client.post('/api/user/delete', { id: otherAdmin.id }),
@@ -134,7 +134,7 @@ describe('delegated administration', () => {
       roleAdmin = (await createUser(admin, [roleAdminRole])).client;
     });
 
-    it('can not add permissions they do not have to their own role', async () => {
+    it('cannot add permissions they do not have to their own role', async () => {
       expectFailure(
         await roleAdmin.post('/api/roles/update', {
           name: roleAdminRole,
@@ -149,7 +149,7 @@ describe('delegated administration', () => {
       expect(role.permissions).toEqual(['role-admin']);
     });
 
-    it('can not give the user role more permissions than they have', async () => {
+    it('cannot give the user role more permissions than they have', async () => {
       const before = expectSuccess(
         await admin.post('/api/roles/info', { name: 'user' }),
       );
@@ -163,7 +163,7 @@ describe('delegated administration', () => {
       );
     });
 
-    it('can not create roles with permissions they do not have', async () => {
+    it('cannot create roles with permissions they do not have', async () => {
       expectFailure(
         await roleAdmin.post('/api/roles/create', {
           name: roleName(),
@@ -174,7 +174,7 @@ describe('delegated administration', () => {
       );
     });
 
-    it('can not change or delete roles with more permissions', async () => {
+    it('cannot change or delete roles with more permissions', async () => {
       const powerful = await createRole(admin, ['syspref-admin']);
       expectFailure(
         await roleAdmin.post('/api/roles/update', {

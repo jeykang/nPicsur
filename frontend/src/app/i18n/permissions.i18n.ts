@@ -3,23 +3,23 @@ import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 export const UIFriendlyPermissions: {
   [key in Permission]: string;
 } = {
-  [Permission.ImageView]: 'View Images',
-  [Permission.ImageUpload]: 'Upload Images',
-  [Permission.ImageManage]: 'Manage Own Images',
-  [Permission.ImageDeleteKey]: 'Use Deletekey',
-  [Permission.GalleryView]: 'View Gallery',
+  [Permission.ImageView]: 'View images',
+  [Permission.ImageUpload]: 'Upload images',
+  [Permission.ImageManage]: 'Manage own images',
+  [Permission.ImageDeleteKey]: 'Use deletion links',
+  [Permission.GalleryView]: 'View the gallery',
 
-  [Permission.UserLogin]: 'Login',
-  [Permission.UserKeepLogin]: 'Stay Logged In',
+  [Permission.UserLogin]: 'Log in',
+  [Permission.UserKeepLogin]: 'Stay logged in',
   [Permission.UserRegister]: 'Register',
 
-  [Permission.Settings]: 'View settings',
+  [Permission.Settings]: 'Change preferences',
 
   [Permission.ApiKey]: 'Use API keys',
 
-  [Permission.ImageAdmin]: 'Image Admin',
-  [Permission.UserAdmin]: 'User Admin',
-  [Permission.RoleAdmin]: 'Role Admin',
-  [Permission.ApiKeyAdmin]: 'API Key Admin',
-  [Permission.SysPrefAdmin]: 'System Admin',
+  [Permission.ImageAdmin]: 'Manage all images and albums',
+  [Permission.UserAdmin]: 'Manage users',
+  [Permission.RoleAdmin]: 'Manage roles',
+  [Permission.ApiKeyAdmin]: 'Manage all API keys',
+  [Permission.SysPrefAdmin]: 'Change server settings',
 };

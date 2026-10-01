@@ -63,7 +63,7 @@ function ApiFailure(type: string, message: string): Failure {
 // proxy in front of it
 function DescribeStatus(status: number): string {
   if (status === 413) return 'The file is too large';
-  if (status >= 502 && status <= 504) return 'The server can not be reached';
+  if (status >= 502 && status <= 504) return 'The server cannot be reached';
   return `The server answered with status ${status}`;
 }
 

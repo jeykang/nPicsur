@@ -22,7 +22,7 @@ const SettingsRoutes: PRoutes = [
         data: {
           permissions: [Permission.Settings],
           page: {
-            title: 'General',
+            title: 'Preferences',
             icon: 'settings',
             category: 'personal',
           },
@@ -48,7 +48,7 @@ const SettingsRoutes: PRoutes = [
         data: {
           permissions: [Permission.ApiKey],
           page: {
-            title: 'Api Keys',
+            title: 'API keys',
             icon: 'key',
             category: 'personal',
           },

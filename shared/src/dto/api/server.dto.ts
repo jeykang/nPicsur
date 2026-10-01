@@ -48,7 +48,7 @@ export const ServerSettingsResponseSchema = z.object({
   started_at: z.preprocess((data: any) => new Date(data), z.date()),
   // Where the key that encrypts saved secrets is kept: in the environment
   // (PICSUR_ENCRYPTION_KEY), or generated and kept in the database. Null when
-  // there is none, and secrets can not be saved.
+  // there is none, and secrets cannot be saved.
   encryption_key: z.enum(['environment', 'database']).nullable(),
 });
 export class ServerSettingsResponse extends createZodDto(

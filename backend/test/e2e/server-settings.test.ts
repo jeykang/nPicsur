@@ -548,7 +548,7 @@ describe('server settings', () => {
       });
       expectFailure(tested, 500, 'network');
       expect(tested.json.data.message).toContain(
-        'Can not access bucket "picsur-unreachable"',
+        'Cannot access bucket "picsur-unreachable"',
       );
 
       expectFailure(await update(admin, unreachable), 500, 'network');
@@ -574,7 +574,7 @@ describe('server settings', () => {
 
       const restarted = await restart(admin);
       expect(restarted.restart_error).toContain(
-        'Can not access bucket "picsur-unreachable"',
+        'Cannot access bucket "picsur-unreachable"',
       );
       expect(restarted.restart_needed).toBe(false);
       expect(setting(restarted, 'storage_driver').source).toBe('default');

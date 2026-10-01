@@ -58,7 +58,7 @@ export class UserController {
   async register(
     @Body() register: UserRegisterRequest,
   ): Promise<UserRegisterResponse> {
-    // An account that can not be logged in to is no use
+    // An account that cannot be logged in to is no use
     if (!this.loginConfig.password) {
       throw Fail(
         FT.Permission,
@@ -95,7 +95,7 @@ export class UserController {
 
     const user = EUserBackend2EUser(backenduser);
 
-    // An api key can not be exchanged for a session token, that token would
+    // An api key cannot be exchanged for a session token, that token would
     // keep working after the api key is deleted
     const viaApiKey = req.headers.authorization?.startsWith(ApiKeyPrefix);
     const token = viaApiKey
@@ -114,7 +114,7 @@ export class UserController {
     @Body() body: UserChangePasswordRequest,
     @Req() req: FastifyRequest,
   ): Promise<UserChangePasswordResponse> {
-    // This hands out a session token, which api keys can not be exchanged for
+    // This hands out a session token, which api keys cannot be exchanged for
     if (req.headers.authorization?.startsWith(ApiKeyPrefix)) {
       throw Fail(FT.Permission, 'Log in to change your password');
     }

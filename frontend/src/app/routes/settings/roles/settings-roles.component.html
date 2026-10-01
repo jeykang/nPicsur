@@ -11,7 +11,7 @@
       Permissions
     </mat-header-cell>
     <mat-cell class="d-none d-md-flex" *matCellDef="let role">
-      <mat-chip-listbox aria-label="Role Permissions">
+      <mat-chip-listbox aria-label="Role permissions">
         @if (isSystem(role)) {
           <mat-chip [disableRipple]="true" [disabled]="true"> System </mat-chip>
         }
@@ -71,7 +71,7 @@
 </mat-paginator>
 
 <fab
-  aria-label="Add Role"
+  aria-label="Add a role"
   (click)="addRole()"
   tooltip="Create a new role"
 ></fab>

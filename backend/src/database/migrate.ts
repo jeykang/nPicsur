@@ -26,7 +26,7 @@ export async function MigrateDatabase(
     } catch (e: any) {
       if (attempt >= attempts) throw e;
       logger.warn(
-        `Can not reach the database yet, trying again: ${e?.message ?? e}`,
+        `Cannot reach the database yet, trying again: ${e?.message ?? e}`,
       );
       await new Promise((resolve) => setTimeout(resolve, delayMs));
       continue;

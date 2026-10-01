@@ -29,7 +29,7 @@ export class ImageProcessorService {
     // Kept as it is, without its metadata, when possible
     const sanitized = SanitizeImage(image, filetype.identifier);
     if (sanitized !== null) {
-      // Uploads that can not be read are refused, like when converting them
+      // Uploads that cannot be read are refused, like when converting them
       const readable = await this.imageConverter.check(sanitized, filetype);
       if (HasFailed(readable)) return readable;
       return { image: sanitized, filetype: filetype.identifier };

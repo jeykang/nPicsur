@@ -63,7 +63,7 @@ export class UsrPrefService {
     if (!this.hasPermission)
       return Fail(
         FT.Permission,
-        'You do not have permission to edit user preferences',
+        'You do not have permission to change preferences',
       );
 
     const response = await this.api.get(
@@ -83,7 +83,7 @@ export class UsrPrefService {
     if (!this.hasPermission)
       return Fail(
         FT.Permission,
-        'You do not have permission to edit user preferences',
+        'You do not have permission to change preferences',
       );
 
     const response = await this.api.get(
@@ -102,7 +102,7 @@ export class UsrPrefService {
     if (!this.hasPermission)
       return Fail(
         FT.Permission,
-        'You do not have permission to edit user preferences',
+        'You do not have permission to change preferences',
       );
 
     const response = await this.api.post(

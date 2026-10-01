@@ -289,7 +289,7 @@ export class ImageManagerService {
     if (HasFailed(mime)) return mime;
 
     if (mime['master'] === undefined)
-      return Fail(FT.NotFound, 'No master file');
+      return Fail(FT.NotFound, 'The image file is missing');
 
     return ParseFileType(mime['master']);
   }
@@ -316,7 +316,7 @@ export class ImageManagerService {
     if (HasFailed(result)) return result;
 
     if (result[ImageEntryVariant.MASTER] === undefined) {
-      return Fail(FT.NotFound, 'No master file found');
+      return Fail(FT.NotFound, 'The image file is missing');
     }
 
     return {

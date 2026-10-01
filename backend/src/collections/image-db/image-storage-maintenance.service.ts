@@ -176,7 +176,7 @@ export class ImageStorageMaintenanceService {
       return result;
     }
 
-    // Cached conversions stored elsewhere are dropped
+    // Converted versions stored elsewhere are dropped
     result.droppedDerivatives = await this.dropDerivatives(
       target === null
         ? 'storage IS NOT NULL'
@@ -186,7 +186,7 @@ export class ImageStorageMaintenanceService {
     return result;
   }
 
-  // Drops the cached conversions kept in this storage, when it is going to
+  // Drops the converted versions kept in this storage, when it is going to
   // be somewhere else
   public async dropDerivativesIn(
     driver: ExternalStorageDriver,
@@ -375,7 +375,7 @@ export class ImageStorageMaintenanceService {
       if (!storage?.isConfigured) continue;
       const deleted = await storage.delete(storageKeys);
       if (HasFailed(deleted)) {
-        deleted.print(this.logger, { prefix: 'Dropping derivatives:' });
+        deleted.print(this.logger, { prefix: 'Dropping converted versions:' });
       }
     }
 

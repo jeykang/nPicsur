@@ -131,7 +131,7 @@ describe('settings encryption', () => {
     );
   });
 
-  it('leaves out secrets that are not encrypted or can not be read', async () => {
+  it('leaves out secrets that are not encrypted or cannot be read', async () => {
     useKeys({ generated: NewEncryptionKey() });
     const ignored: string[] = [];
     const settings = await ParseStoredServerSettings(

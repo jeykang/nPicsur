@@ -29,7 +29,7 @@ services:
       ## are encrypted with a generated key that is kept in the database. This
       ## key is kept out of the database, so copies of it do not reveal them.
       ## Any long random value, like: openssl rand -base64 32
-      ## Keep it, secrets saved with it can not be read without it.
+      ## Keep it, secrets saved with it cannot be read without it.
       # PICSUR_ENCRYPTION_KEY: CHANGE_ME
 
       ## The settings below can also be changed in the web interface, under

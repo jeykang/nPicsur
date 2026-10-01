@@ -37,7 +37,7 @@ Commands:
   storage status          Show where image data is stored
   storage migrate         Move image data to where new images are stored,
                           as set on the settings page or with
-                          PICSUR_STORAGE_DRIVER. Cached conversions stored
+                          PICSUR_STORAGE_DRIVER. Converted versions stored
                           elsewhere are dropped, they are made again when
                           needed. Can be run while Picsur is running.
   storage gc [--dry-run] [--min-age <seconds>]
@@ -175,14 +175,14 @@ async function main(args: string[]): Promise<number> {
       const status = await maintenance.status();
       logger.log(`New images are stored in: ${driver}`);
       logger.log(`Image files: ${counted(status.files)}`);
-      logger.log(`Cached conversions: ${counted(status.derivatives)}`);
+      logger.log(`Converted versions: ${counted(status.derivatives)}`);
     } else if (command === 'migrate') {
       logger.log(`Moving all image data to: ${driver}`);
       const result = await maintenance.migrate();
       logger.log(
         `Done, moved ${result.moved} files (${formatBytes(
           result.movedBytes,
-        )}) and dropped ${result.droppedDerivatives} cached conversions`,
+        )}) and dropped ${result.droppedDerivatives} converted versions`,
       );
       if (result.failed > 0) {
         logger.error(

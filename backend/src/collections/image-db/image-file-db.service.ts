@@ -196,7 +196,10 @@ export class ImageFileDBService {
     const loaded =
       derivative.data === null &&
       !this.storages.get(derivative.storage)?.isConfigured
-        ? Fail(FT.NotFound, 'Cached image is in storage that is not used')
+        ? Fail(
+            FT.NotFound,
+            'This converted version is in storage that is not used',
+          )
         : await this.load(derivative);
     if (HasFailed(loaded)) {
       // The object is gone, e.g. the bucket was cleaned up. Forget about it
@@ -339,7 +342,7 @@ export class ImageFileDBService {
       if (!storage?.isConfigured) continue;
       const result = await storage.delete(storageKeys);
       if (HasFailed(result)) {
-        result.print(this.logger, { prefix: 'Deleting cached images:' });
+        result.print(this.logger, { prefix: 'Deleting converted versions:' });
       }
     }
   }

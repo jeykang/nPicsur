@@ -171,7 +171,7 @@ describe.skipIf(loginFromEnv)('logging in with OpenID Connect', () => {
   it('does not let someone without an account in', async () => {
     const res = await loginAs({ sub: 'stranger', preferred_username: 'who' });
     expectFailure(res, 403);
-    expect(res.json.data.message).toContain('no account here');
+    expect(res.json.data.message).toContain('is not linked to an account here');
   });
 
   it('links a login to an account, which can then log in with it', async () => {
@@ -354,7 +354,7 @@ describe.skipIf(loginFromEnv)('logging in with OpenID Connect', () => {
       const viaProvider = await loginOk({ sub: 'the-admin' });
       expect(await username(viaProvider)).toBe('admin');
 
-      // Linked logins are of this provider, it can not be changed now
+      // Linked logins are of this provider, it cannot be changed now
       const res = await update(admin, {
         oidc_issuer: provider.issuer + '/.well-known/openid-configuration',
       });

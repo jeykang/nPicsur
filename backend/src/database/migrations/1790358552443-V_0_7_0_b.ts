@@ -32,7 +32,7 @@ export class V070B1790358552443 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Files on disk can not be told apart from objects in a bucket anymore
+    // Files on disk cannot be told apart from objects in a bucket anymore
     const [{ count }] = await queryRunner.query(
       `SELECT COUNT(*) AS count FROM "e_image_file_backend" WHERE "storage" = 'filesystem'`,
     );

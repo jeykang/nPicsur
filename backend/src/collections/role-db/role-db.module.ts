@@ -67,7 +67,7 @@ export class RoleDbModule implements OnModuleInit {
   }
 
   private async updateImmutableRoles() {
-    // Immutable roles can not be updated via the gui
+    // Immutable roles cannot be updated via the gui
     // They therefore do have to be kept up to date from the backend
 
     for (const immutableRole of ImmutableRolesList) {

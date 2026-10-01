@@ -173,7 +173,7 @@ describe('testing a directory', () => {
     expect(!HasFailed(again) && again.created).toBe(false);
   });
 
-  it('refuses files and directories it can not write to', async () => {
+  it('refuses files and directories it cannot write to', async () => {
     const file = join(root, 'file');
     await writeFile(file, 'x');
     const notDirectory = await TestDiskStorage({ path: file });
@@ -187,7 +187,7 @@ describe('testing a directory', () => {
 
   // Root may write anywhere
   it.skipIf(process.getuid?.() === 0)(
-    'refuses directories it can not write to',
+    'refuses directories it cannot write to',
     async () => {
       await chmod(root, 0o500);
       const tested = await TestDiskStorage({ path: root });

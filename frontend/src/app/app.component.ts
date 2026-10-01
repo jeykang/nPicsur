@@ -44,7 +44,7 @@ export class AppComponent implements OnInit {
   hasSidebar = false;
 
   // Nothing works without knowing what we are allowed to do, so the page is
-  // replaced by an error while that can not be loaded
+  // replaced by an error while that cannot be loaded
   loadFailure: Failure | null = null;
   retrying = false;
 

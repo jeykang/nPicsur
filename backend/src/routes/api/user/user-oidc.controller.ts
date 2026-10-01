@@ -85,10 +85,10 @@ export class UserOidcController {
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<UserOidcStartResponse> {
-    // A linked login gets session tokens, which api keys can not be
+    // A linked login gets session tokens, which api keys cannot be
     // exchanged for
     if (req.headers.authorization?.startsWith(ApiKeyPrefix)) {
-      throw Fail(FT.Permission, 'Log in to link a login');
+      throw Fail(FT.Permission, 'Log in to link an account');
     }
     return this.start(req, reply, userId);
   }
@@ -133,7 +133,7 @@ export class UserOidcController {
       password,
       oidc: {
         provider: config.name,
-        // When the provider can not be reached, this is not known
+        // When the provider cannot be reached, this is not known
         linked: !HasFailed(linked) && linked !== null,
         name: HasFailed(linked) ? null : (linked?.name ?? null),
       },

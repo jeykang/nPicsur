@@ -90,7 +90,7 @@ export class ObjectStorageService
       if (!IsNotFound(e)) {
         return Fail(
           FT.Network,
-          `Can not access bucket "${config.bucket}"`,
+          `Cannot access bucket "${config.bucket}"`,
           DescribeS3Error(e),
         );
       }
@@ -376,7 +376,7 @@ export async function TestS3Storage(
       await client.send(new HeadBucketCommand({ Bucket: bucket }));
     } catch (e) {
       if (!IsNotFound(e)) {
-        return failure(`Can not access bucket "${bucket}"`, e);
+        return failure(`Cannot access bucket "${bucket}"`, e);
       }
       try {
         await client.send(new CreateBucketCommand({ Bucket: bucket }));
@@ -400,12 +400,12 @@ export async function TestS3Storage(
         }),
       );
     } catch (e) {
-      return failure(`Can not store files in bucket "${bucket}"`, e);
+      return failure(`Cannot store files in bucket "${bucket}"`, e);
     }
     try {
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
     } catch (e) {
-      return failure(`Can not delete files in bucket "${bucket}"`, e);
+      return failure(`Cannot delete files in bucket "${bucket}"`, e);
     }
 
     return { created };

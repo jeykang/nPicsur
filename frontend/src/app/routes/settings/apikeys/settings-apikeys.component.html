@@ -1,4 +1,4 @@
-<h1>Api Keys</h1>
+<h1>API keys</h1>
 
 <mat-table [dataSource]="dataSubject" class="mat-elevation-z2">
   <ng-container matColumnDef="name">
@@ -31,7 +31,7 @@
 
   <ng-container matColumnDef="last_used">
     <mat-header-cell class="d-none d-sm-flex" *matHeaderCellDef>
-      Last Used
+      Last used
     </mat-header-cell>
     <mat-cell class="d-none d-sm-flex" *matCellDef="let apikey">
       {{ apikey.last_used === null ? 'Never' : (apikey.last_used | amTimeAgo) }}
@@ -64,14 +64,14 @@
   [showFirstLastButtons]="bootstrapService.isNotMobile() | async"
   [hidePageSize]="bootstrapService.isMobile() | async"
   [length]="totalApiKeys"
-  aria-label="Select page of apikeys"
+  aria-label="Select page of API keys"
   (page)="updateSubject.next($event)"
 >
 </mat-paginator>
 
 <fab
-  aria-label="Add Api Key"
+  aria-label="Add an API key"
   (click)="addApiKey()"
   icon="add"
-  tooltip="Create a new api key"
+  tooltip="Create a new API key"
 ></fab>

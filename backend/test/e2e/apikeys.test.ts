@@ -29,7 +29,7 @@ describe('api keys', () => {
 
     const me = expectSuccess(await viaKey.get('/api/user/me'));
     expect(me.user.username).toBe(username);
-    // But it can not be traded in for a session token
+    // But it cannot be traded in for a session token
     expect(me.token).toBe('');
 
     // Uploading with an api key is the ShareX use case

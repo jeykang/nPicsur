@@ -31,7 +31,7 @@ export class ServerSettingsDbService {
     private readonly settingsRepo: Repository<EServerSettingBackend>,
   ) {}
 
-  // Secrets that can not be decrypted are left out
+  // Secrets that cannot be decrypted are left out
   async getAll(): AsyncFailable<StoredServerSettings> {
     try {
       return await ParseStoredServerSettings(await this.settingsRepo.find());

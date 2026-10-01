@@ -14,7 +14,7 @@ export function AssertWithinOwnPermissions(
   if (missing.length > 0) {
     throw Fail(
       FT.Permission,
-      `You can not ${what} with permissions you do not have yourself`,
+      `You cannot ${what} with permissions you do not have yourself`,
       `Missing permissions: ${missing.join(', ')}`,
     );
   }

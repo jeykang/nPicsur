@@ -57,7 +57,7 @@ export class ImageManagerModule implements OnModuleInit {
       return;
     }
 
-    if (result > 0) this.logger.log(`Cleaned up ${result} derivatives`);
+    if (result > 0) this.logger.log(`Removed ${result} converted versions`);
   }
 
   private async cleanupExpired() {

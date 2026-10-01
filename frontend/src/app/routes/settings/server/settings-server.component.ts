@@ -163,7 +163,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
           break;
         default:
           hint =
-            'Secrets can not be saved right now, there is no key to encrypt them with. The server log says why.';
+            'Secrets cannot be saved right now, there is no key to encrypt them with. The server log says why.';
       }
     }
 
@@ -546,7 +546,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
       case 'PICSUR_ENCRYPTION_KEY':
         return this.settings?.encryption_key === 'database'
           ? 'Generated, kept in the database'
-          : 'None, secrets can not be saved';
+          : 'None, secrets cannot be saved';
       default:
         return 'The default';
     }

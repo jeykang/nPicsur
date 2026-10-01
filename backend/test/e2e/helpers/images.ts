@@ -38,7 +38,7 @@ export async function convertTo(
 
 // An animated gif where every frame has its own solid colour.
 //
-// Sharp can not create animations from scratch, so this writes the GIF by
+// Sharp cannot create animations from scratch, so this writes the GIF by
 // hand. With a 128 colour palette every LZW code is exactly one byte, and by
 // emitting a clear code every 126 pixels the code table never grows, so the
 // pixels can be written without any actual compression.
@@ -149,7 +149,7 @@ function orientationExif(orientation: number): Buffer {
   return tiff;
 }
 
-// Says the WebP image is to be turned, which sharp can not write for
+// Says the WebP image is to be turned, which sharp cannot write for
 // animations
 export function withWebpOrientation(webp: Buffer, orientation: number) {
   if (webp.toString('latin1', 12, 16) !== 'VP8X') {

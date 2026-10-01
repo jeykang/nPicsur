@@ -23,8 +23,8 @@ export class PermissionService {
   private allPermissions: string[] = [];
   private permissionsSubject = new BehaviorSubject<string[] | null>(null);
 
-  // Set while the permissions can not be loaded, which usually means the
-  // server can not be reached. Nothing works without them, so this is
+  // Set while the permissions cannot be loaded, which usually means the
+  // server cannot be reached. Nothing works without them, so this is
   // retried with growing pauses until it works.
   private loadFailureSubject = new BehaviorSubject<Failure | null>(null);
   private retryTimeout: number | null = null;

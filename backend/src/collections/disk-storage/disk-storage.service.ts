@@ -271,7 +271,7 @@ export async function TestDiskStorage(
       return Fail(FT.BadRequest, `"${path}" is not a directory`);
     }
   } catch (e) {
-    if (!IsNotFound(e)) return failure(`Can not access "${path}"`, e);
+    if (!IsNotFound(e)) return failure(`Cannot access "${path}"`, e);
     try {
       await mkdir(path, { recursive: true });
       created = true;
@@ -288,7 +288,7 @@ export async function TestDiskStorage(
       return Fail(FT.BadRequest, `Files in "${path}" do not read back right`);
     }
   } catch (e) {
-    return failure(`Can not store files in "${path}"`, e);
+    return failure(`Cannot store files in "${path}"`, e);
   } finally {
     await rm(test, { force: true }).catch(() => undefined);
   }

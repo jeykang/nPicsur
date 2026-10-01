@@ -8,9 +8,10 @@
   <h2>Logging in with {{ oidc.provider }}</h2>
   @if (oidc.linked) {
     <p>
-      Your account is linked to your login at {{ oidc.provider
-      }}{{ oidc.name ? ' (' + oidc.name + ')' : '' }}, so you can log in with
-      it.
+      Your {{ oidc.provider }} account{{
+        oidc.name ? ' (' + oidc.name + ')' : ''
+      }}
+      is linked, so you can log in with it.
       @if (!passwordLogin) {
         Logging in with a password is turned off on this server, so this is how
         you log in.
@@ -29,7 +30,7 @@
       </button>
     </div>
   } @else {
-    <p>Link your login at {{ oidc.provider }} to log in with it.</p>
+    <p>Link your {{ oidc.provider }} account to log in with it.</p>
     <div class="pb-4">
       <button
         mat-raised-button
@@ -38,7 +39,7 @@
         (click)="linkOidc()"
         [disabled]="loading"
       >
-        LINK YOUR LOGIN
+        LINK YOUR {{ oidc.provider | uppercase }} ACCOUNT
       </button>
     </div>
   }
@@ -57,7 +58,7 @@
     <div class="row">
       <div class="col-lg-6 col-12">
         <mat-form-field appearance="outline">
-          <mat-label>Current Password</mat-label>
+          <mat-label>Current password</mat-label>
           <input
             matInput
             type="password"
@@ -79,7 +80,7 @@
   <div class="row">
     <div class="col-lg-6 col-12">
       <mat-form-field appearance="outline">
-        <mat-label>New Password</mat-label>
+        <mat-label>New password</mat-label>
         <input
           matInput
           type="password"
@@ -100,7 +101,7 @@
   <div class="row">
     <div class="col-lg-6 col-12">
       <mat-form-field appearance="outline">
-        <mat-label>Confirm New Password</mat-label>
+        <mat-label>Confirm new password</mat-label>
         <input
           matInput
           type="password"

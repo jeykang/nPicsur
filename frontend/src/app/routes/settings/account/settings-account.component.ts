@@ -62,7 +62,9 @@ export class SettingsAccountComponent implements OnInit {
       return this.errorService.showFailure(methods, this.logger);
     }
     this.methods = methods;
-    this.errorService.success('Your login is no longer linked');
+    this.errorService.success(
+      `Your ${methods.oidc?.provider ?? 'provider'} account is no longer linked`,
+    );
   }
 
   async changePassword() {

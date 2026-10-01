@@ -122,7 +122,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       }
       if (HasFailed(key) || key === null) {
         this.logger.error(
-          `There is no key to encrypt secrets with, they can not be saved on the settings page. Set ${EncryptionKeyEnv}.`,
+          `There is no key to encrypt secrets with, they cannot be saved on the settings page. Set ${EncryptionKeyEnv}.`,
         );
         return;
       }
@@ -248,13 +248,13 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       `Changed server settings: ${[...plan.changes.keys()].join(', ')}`,
     );
 
-    // Cached conversions in the old bucket or directory would not be found
+    // Converted versions in the old bucket or directory would not be found
     // anymore, they are made again when needed
     for (const location of movedLocations) {
       await this.maintenance
         .dropDerivativesIn(location)
         .catch((e) =>
-          this.logger.warn(`Dropping cached conversions: ${String(e)}`),
+          this.logger.warn(`Dropping converted versions: ${String(e)}`),
         );
     }
 
@@ -417,7 +417,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     return { changes, stored, storage, login: login.config };
   }
 
-  // Turning off password login can not leave anyone without a way to log in,
+  // Turning off password login cannot leave anyone without a way to log in,
   // the admin who does it in particular. Logins are linked to one provider,
   // so changing that is only possible with password login on.
   private async checkPasswordLoginCanBeOff(

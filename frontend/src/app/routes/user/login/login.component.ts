@@ -99,7 +99,7 @@ export class LoginComponent implements OnInit {
     if (HasFailed(user))
       return this.errorService.showFailure(user, this.logger);
 
-    this.errorService.success('Login successful');
+    this.errorService.success('Logged in');
     this.router.navigate(['/']);
   }
 

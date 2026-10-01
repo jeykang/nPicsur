@@ -320,7 +320,7 @@ export async function LoadStoredServerSettings(
       return await ParseStoredServerSettings(saved, (key, reason) => {
         if (SecretServerSettings.includes(key)) {
           logger.error(
-            `The saved ${ServerSettingEnvName(key)} can not be used, ${reason}. Set ${ServerSettingEnvName(key)} instead, or save it again on the settings page.`,
+            `The saved ${ServerSettingEnvName(key)} cannot be used, ${reason}. Set ${ServerSettingEnvName(key)} instead, or save it again on the settings page.`,
           );
         } else {
           logger.warn(`Ignoring the saved value of ${key}, ${reason}`);
@@ -331,7 +331,7 @@ export async function LoadStoredServerSettings(
       if (e?.code === '42P01') return new Map();
       if (attempt >= attempts) throw e;
       logger.warn(
-        `Can not read the settings from the database yet, trying again: ${e?.message ?? e}`,
+        `Cannot read the settings from the database yet, trying again: ${e?.message ?? e}`,
       );
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     } finally {

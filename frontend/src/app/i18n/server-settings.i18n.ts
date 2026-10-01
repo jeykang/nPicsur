@@ -56,7 +56,7 @@ export const ServerSettingUI: {
   [ServerSetting.MaxConcurrentConversions]: {
     name: 'Conversions at once',
     helpText:
-      'How many images are converted or edited at the same time, others wait for their turn. Defaults to the number of CPU cores.',
+      'How many images are converted or customized at the same time, others wait for their turn. Defaults to the number of CPU cores.',
   },
   [ServerSetting.ConversionRateLimit]: {
     name: 'Conversions per visitor per minute',
@@ -113,7 +113,7 @@ export const ServerSettingUI: {
     helpText: 'Asked for at the provider, separated by spaces.',
   },
   [ServerSetting.OidcName]: {
-    name: 'Name',
+    name: 'Provider name',
     helpText: 'Of the provider, the login button says "Log in with" it.',
   },
   [ServerSetting.OidcUsernameClaim]: {

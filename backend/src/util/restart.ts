@@ -21,7 +21,7 @@ export function WaitForRestart(): Promise<void> {
 
 export function RequestRestart(): Failable<true> {
   if (!restartable) {
-    return Fail(FT.Impossible, 'Picsur can not restart itself here');
+    return Fail(FT.Impossible, 'Picsur cannot restart itself here');
   }
   if (requestRestart === null) {
     return Fail(FT.Conflict, 'Picsur is already restarting');

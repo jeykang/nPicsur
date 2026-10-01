@@ -10,19 +10,19 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
 
 ## What changed in this fork
 
-- **S3 compatible object storage** for image data, as an alternative to the database. It can be set up on the settings page, and existing images can be moved in either direction from there, see [Storing images in S3](#storing-images-in-s3).
+- **S3 compatible object storage and directories on disk** for image data, as alternatives to the database. They can be set up on the settings page, and existing images can be moved between them from there, see [Storing images on disk](#storing-images-on-disk) and [Storing images in S3](#storing-images-in-s3).
 - **Security fixes**, among others:
-  - Users allowed to manage users, roles or api keys could make themselves administrator. They can now only hand out permissions they have themselves.
+  - Users allowed to manage users, roles or API keys could make themselves administrator. They can now only hand out permissions they have themselves.
   - Rate limiting did not work, and anonymous visitors could make the server convert images without limit.
   - Changing a password now logs that user out everywhere.
   - Deletion links ask for confirmation, so link previews in chat apps no longer delete images.
   - Without `PICSUR_ADMIN_PASSWORD`, new instances got the admin password `picsur`. A random password is now generated instead.
-  - Api keys are stored hashed and only shown once, when they are created. They can no longer be turned into login tokens.
+  - API keys are stored hashed and only shown once, when they are created. They can no longer be turned into login tokens.
 - **New features**: albums, a public gallery, a light theme, changing your own password, logging in with an OpenID Connect provider like Authelia, and a settings page for the server itself, which restarts Picsur to apply them.
 - **Telemetry removed**: every instance of the original reported its hostname, user and image counts to the original author's server every hour.
 - **Current versions**: Node.js 24, NestJS 11 and Fastify 5 for the server, Angular 22 for the frontend. No dependency has a known vulnerability.
 - **Docker image** for amd64 and arm64 with HEIC (iPhone photos), JPEG XL and JPEG 2000 support. It is tested in CI before it is published.
-- An end-to-end test suite, run in CI against both storage drivers and against the Docker image.
+- An end-to-end test suite, run in CI with images in the database, in S3 and on disk, and against the Docker image.
 
 ## Features
 
@@ -30,12 +30,12 @@ This is **nPicsur**, a maintained fork of [Picsur](https://github.com/CaramelFur
 - User accounts, with roles and permissions
 - Logging in with an OpenID Connect provider, like Authelia, Authentik or Keycloak, next to passwords or instead of them
 - Many formats: QOI, JPEG, PNG, APNG (animated), WebP (animated), GIF (animated), TIFF, AVIF, HEIF/HEIC, BMP, ICO, TGA, JPEG XL, JPEG 2000
-- Converting and editing images through the url: resize, rotate, flip, strip transparency, negative, greyscale
+- Converting and customizing images through the URL: resize, rotate, flip, strip transparency, negative, greyscale
 - EXIF stripping, with the option to keep the original file
 - Expiring images, and deleting images with a secret deletion link
 - Correct previews in chat apps
-- A ShareX configuration builder, and api keys
-- Images stored in the database or in S3 compatible object storage
+- A ShareX configuration builder, and API keys
+- Images stored in the database, in S3 compatible object storage, or in a directory on disk
 - Albums, which anyone with their link can see
 - A public gallery of the images their owners chose to show there
 - A dark and a light theme
@@ -129,7 +129,7 @@ Durations are written like `15s`, `30m`, `12h` or `7d`, and true or false as `tr
 
 What is saved on the settings page comes before these environment variables, which only set what is not saved there. So the variables can be what an instance starts out with, to be changed on the page later. The page lists the variables that are not used because something is saved instead, and can go back to them. It also shows what is only set with environment variables.
 
-`PICSUR_CONVERSION_TIME_LIMIT`, `PICSUR_CONVERSION_MEMORY_LIMIT`, `PICSUR_ALLOW_EDITING`, `PICSUR_REMOVE_DERIVATIVES_AFTER`, `PICSUR_HOST_OVERRIDE`, `PICSUR_JWT_EXPIRY`, `PICSUR_BCRYPT_STRENGTH` and `PICSUR_TRACKING_*` take effect as soon as they are saved on the page. The others when Picsur restarts, which it does itself from the settings page. When it can not start with the new settings, it goes back to the ones it had before.
+`PICSUR_CONVERSION_TIME_LIMIT`, `PICSUR_CONVERSION_MEMORY_LIMIT`, `PICSUR_ALLOW_EDITING`, `PICSUR_REMOVE_DERIVATIVES_AFTER`, `PICSUR_HOST_OVERRIDE`, `PICSUR_JWT_EXPIRY`, `PICSUR_BCRYPT_STRENGTH` and `PICSUR_TRACKING_*` take effect as soon as they are saved on the page. The others when Picsur restarts, which it does itself from the settings page. When it cannot start with the new settings, it goes back to the ones it had before.
 
 The command line tool shows where each of these settings comes from, and removes what is saved for a setting, so its variable or default applies again once Picsur restarts:
 
@@ -138,7 +138,7 @@ docker exec picsur node backend/dist/cli.js settings list
 docker exec picsur node backend/dist/cli.js settings reset max_file_size
 ```
 
-Secrets saved on the settings page, like the S3 secret access key, are always encrypted. By default Picsur generates the key for that and keeps it in the database, which keeps the secrets out of sight, but someone with a copy of the database can still decrypt them. To prevent that, set `PICSUR_ENCRYPTION_KEY` to a long random value, like the output of `openssl rand -base64 32`. It is not stored anywhere, and secrets saved with the generated key are encrypted with it the next time Picsur starts, after which the generated key is removed. Keep it safe along with your backups: secrets saved with it can not be read without it, and would have to be entered again.
+Secrets saved on the settings page, like the S3 secret access key, are always encrypted. By default Picsur generates the key for that and keeps it in the database, which keeps the secrets out of sight, but someone with a copy of the database can still decrypt them. To prevent that, set `PICSUR_ENCRYPTION_KEY` to a long random value, like the output of `openssl rand -base64 32`. It is not stored anywhere, and secrets saved with the generated key are encrypted with it the next time Picsur starts, after which the generated key is removed. Keep it safe along with your backups: secrets saved with it cannot be read without it, and would have to be entered again.
 
 Encrypted secrets are stored as `enc:v1:env:...` or `enc:v1:db:...`, [`settings-encryption.ts`](backend/src/config/settings-encryption.ts) describes the format, for decrypting them by hand.
 
@@ -263,7 +263,7 @@ identity_providers:
 
 Under Settings → Server → Logging in, enter the issuer of the provider (like `https://auth.example.com`), the client id and secret, and the name of the provider for the login button. Testing it tells whether Picsur can reach the provider. After saving and restarting, the login page has a button to log in with the provider.
 
-Users with an account link their login at the provider under Settings → Account, after which they can log in with it. Logins are linked by the id the provider gives them, never by username or email address, so a user of the provider named like an account here can not take it over. A login is linked to one account, and an account to one login.
+Users with an account here link their account at the provider under Settings → Account, after which they can log in with it. Accounts are linked by the id the provider gives them, never by username or email address, so a user of the provider named like an account here cannot take it over. An account at the provider is linked to one account here, and the other way around.
 
 Without an account, logging in at the provider does not get you in, unless **Create accounts for new users** is on. Then everyone who can log in at the provider gets an account the first time, with the default roles. Only turn that on when the provider only lets in people who should have an account. In Authelia, that takes an authorization policy for the client, as its access control rules do not apply to OpenID Connect clients ([why](https://www.authelia.com/integration/openid-connect/frequently-asked-questions/#why-doesnt-the-access-control-configuration-work-with-openid-connect-10)). This one only lets in the users in the `picsur` group:
 
@@ -284,7 +284,7 @@ identity_providers:
 
 New accounts are named after the `preferred_username` claim, or another one that is set, without characters other than letters and digits, and with a number after it when that name is taken. They have no password, users can set one under Settings → Account.
 
-Once your own account is linked, **Password login** can be turned off, so only logins at the provider work, and nobody can register with a password. Should the provider be unreachable then, remove that setting on the command line and restart Picsur to turn password login on again, or remove `PICSUR_PASSWORD_LOGIN` when it was turned off with that:
+Once your own account is linked, **Password login** can be turned off, so only logging in at the provider works, and nobody can register with a password. Should the provider be unreachable then, remove that setting on the command line and restart Picsur to turn password login on again, or remove `PICSUR_PASSWORD_LOGIN` when it was turned off with that:
 
 ```sh
 docker exec picsur node backend/dist/cli.js settings reset password_login
@@ -307,7 +307,7 @@ The same can be set with environment variables:
 | `PICSUR_OIDC_AUTO_LAUNCH`    | `true` to go to the provider right away                                               |
 | `PICSUR_PASSWORD_LOGIN`      | `false` to turn off password login, which only works with a provider set up           |
 
-Linked logins belong to the provider they were made with. While password login is off, the provider can not be changed, as nobody could log in with the new one yet, and logins can not be unlinked, as that would leave their users no way to log in.
+Linked accounts belong to the provider they were linked at. While password login is off, the provider cannot be changed, as nobody could log in with the new one yet, and accounts cannot be unlinked, as that would leave their users no way to log in.
 
 ## Upgrading from Picsur 0.5
 
@@ -325,9 +325,9 @@ Things that behave differently:
   ```
 
 - Deletion links open a page that asks for confirmation. Links saved by ShareX keep working.
-- There is a public gallery, which only shows the images their owners chose to show there, so it starts out empty. The guest and user roles get the new "View Gallery" permission for it.
-- The token from `/api/user/me` is empty when authenticated with an api key. Api keys are used directly instead.
-- Api keys are only shown once, when they are created. Existing keys keep working, also in ShareX configs. The ShareX config builder creates a new key for every config.
+- There is a public gallery, which only shows the images their owners chose to show there, so it starts out empty. The guest and user roles get the new "View the gallery" permission for it.
+- The token from `/api/user/me` is empty when authenticated with an API key. API keys are used directly instead.
+- API keys are only shown once, when they are created. Existing keys keep working, also in ShareX configs. The ShareX config builder creates a new key for every config.
 - The image metadata (`/i/meta/:id`) only shows the uploader's id and username.
 - The statistics proxy (`/api/usage/report`) only accepts JSON.
 - The system settings are under Settings → Server, with the other settings of the server, and what was set there is moved over. Each can be set with an environment variable as well, see [Configuration](#configuration). What is saved on that page comes before environment variables, also before `PICSUR_JWT_EXPIRY`, which used to come first.
@@ -368,21 +368,21 @@ If you want to allow this you can though. To change this you go to `settings -> 
 
 ### How do I show images in the gallery, or close it?
 
-Open the image, edit it, and turn on "Show in the public gallery". Everyone with the "View Gallery" permission can then find it in the gallery, by default that includes visitors who are not logged in. Other images can only be seen by whoever has their link.
+Open the image, edit it, and turn on "Show in the public gallery". Everyone with the "View the gallery" permission can then find it in the gallery, by default that includes visitors who are not logged in. Other images can only be seen by whoever has their link.
 
-To close the gallery to visitors, go to `settings -> roles -> guest -> edit` and remove the "View Gallery" permission. Remove it from the user role as well to turn the gallery off completely.
+To close the gallery to visitors, go to `settings -> roles -> guest -> edit` and remove the "View the gallery" permission. Remove it from the user role as well to turn the gallery off completely.
 
 ### I want to keep my original image files, how?
 
 By default, Picsur will not keep your original image files. Since for most purposes this is not needed, and it saves disk space.
 
-If you want to enable this however, you can do so by going to `settings -> general`, and then enabling the `Keep original` option. Upon saving the settings, the original files will be kept.
+If you want to enable this however, you can do so by going to `settings -> preferences`, and then turning on "Keep original file". It is saved right away, and applies to the images you upload from then on.
 
 Do keep in mind here, that the exif data will NOT be removed from the original image. So make sure you do not accidentally share sensitive data.
 
 ### This service says its supports the QOI format, what is this?
 
-QOI is a lossless image format that is designed to be very fast to encode and decode, while still offering good compression ratios. Uploads in formats Picsur can not keep as they are, like TIFF, HEIC or TGA, are stored as QOI. JPEG, PNG, APNG, WebP and GIF uploads are kept as they were uploaded, only without their metadata.
+QOI is a lossless image format that is designed to be very fast to encode and decode, while still offering good compression ratios. Uploads in formats Picsur cannot keep as they are, like TIFF, HEIC or TGA, are stored as QOI. JPEG, PNG, APNG, WebP and GIF uploads are kept as they were uploaded, only without their metadata.
 
 You can [read more about QOI here](https://qoiformat.org/).
 

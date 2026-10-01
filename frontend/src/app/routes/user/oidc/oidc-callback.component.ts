@@ -1,12 +1,14 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
+import { InfoService } from '../../../services/api/info.service';
 import { UserService } from '../../../services/api/user.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
 
 // Where the OpenID Connect provider sends the browser back to, after logging
-// in there. Finishes logging in here, or linking the login to the account.
+// in there. Finishes logging in here, or linking the account there to the
+// account here.
 @Component({
   templateUrl: './oidc-callback.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -19,6 +21,7 @@ export class OidcCallbackComponent implements OnInit {
 
   constructor(
     private readonly userService: UserService,
+    private readonly infoService: InfoService,
     private readonly router: Router,
     private readonly errorService: ErrorService,
   ) {}
@@ -35,10 +38,13 @@ export class OidcCallbackComponent implements OnInit {
     }
 
     if (result.linked) {
-      this.errorService.success('Your login is linked to this account');
+      const provider = this.infoService.snapshot.login?.oidc?.name;
+      this.errorService.success(
+        `Your ${provider ?? 'provider'} account is linked, you can log in with it`,
+      );
       this.router.navigate(['/settings/account']);
     } else {
-      this.errorService.success('Login successful');
+      this.errorService.success('Logged in');
       this.router.navigate(['/']);
     }
   }

@@ -257,13 +257,13 @@ export class OidcService {
       if (existing.user_id === userId) return { linked: true, user: null };
       return Fail(
         FT.Conflict,
-        'This login is linked to another account already',
+        'This account at the provider is linked to another account here already',
       );
     }
 
     const linked = await this.logins.link(userId, issuer, subject, name);
     if (HasFailed(linked)) return linked;
-    this.logger.log(`Linked a login at ${issuer} to user ${userId}`);
+    this.logger.log(`Linked an account at ${issuer} to user ${userId}`);
     return { linked: true, user: null };
   }
 
@@ -287,7 +287,7 @@ export class OidcService {
       if (!config.autoRegister) {
         return Fail(
           FT.Permission,
-          `There is no account here for this login at ${config.name}. Log in with your password and link it in your settings, or ask an administrator.`,
+          `Your ${config.name} account is not linked to an account here. Log in with your password and link it under Settings → Account, or ask an administrator.`,
         );
       }
       const created = await this.register(
@@ -334,7 +334,7 @@ export class OidcService {
       return linked;
     }
     this.logger.log(
-      `Created user "${username}" for a new login at ${config.name}`,
+      `Created user "${username}" for a new account at ${config.name}`,
     );
     return user;
   }

@@ -14,7 +14,7 @@ export class EApiKeyBackend<
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // Only a hash of the key is stored, so the keys can not be taken from the
+  // Only a hash of the key is stored, so the keys cannot be taken from the
   // database
   @Column({
     nullable: false,

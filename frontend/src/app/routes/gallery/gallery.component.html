@@ -28,7 +28,7 @@
               mat-card-image
               class="clickable"
               [src]="getThumbnailUrl(image)"
-              alt="Image in the gallery"
+              [alt]="image.file_name"
               (click)="viewImage(image)"
             >
             </picsur-img>

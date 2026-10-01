@@ -2,6 +2,19 @@ import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { ImageService } from '../../../services/api/image.service';
 
+// A value the server does not accept is left out of the address, instead
+// of making it leave out every option
+function inRange(
+  value: number | null | undefined,
+  min: number,
+  max: number,
+): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  return Number.isInteger(value) && value >= min && value <= max
+    ? value
+    : undefined;
+}
+
 export interface CustomizeDialogData {
   imageID: string;
   formatOptions: {
@@ -59,10 +72,10 @@ export class CustomizeDialogComponent {
       this.imageID,
       this.selectedFormat,
       {
-        height: this.height ?? undefined,
-        width: this.width ?? undefined,
+        height: inRange(this.height, 1, 32767),
+        width: inRange(this.width, 1, 32767),
         rotate: this.rotate ?? undefined,
-        quality: this.quality ?? undefined,
+        quality: inRange(this.quality, 1, 100),
         flipx: this.flipx,
         flipy: this.flipy,
         shrinkonly: this.shrinkonly,

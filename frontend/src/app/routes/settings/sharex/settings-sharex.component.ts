@@ -77,7 +77,7 @@ export class SettingsShareXComponent implements OnInit {
 
     this.utilService.downloadBuffer(
       JSON.stringify(sharexConfig),
-      'Pisur-ShareX-target.sxcu',
+      'Picsur-ShareX-target.sxcu',
       'application/json',
     );
 

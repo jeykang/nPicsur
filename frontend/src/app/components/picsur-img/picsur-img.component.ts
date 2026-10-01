@@ -39,6 +39,7 @@ export class PicsurImgComponent implements OnChanges {
   private isInView = false;
 
   @Input('src') imageURL: string | undefined;
+  @Input() alt: string | undefined;
 
   public state: PicsurImgState = PicsurImgState.Init;
 

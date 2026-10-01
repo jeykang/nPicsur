@@ -3,6 +3,8 @@
     [style.display]="state === 'loading' ? 'none' : 'block'"
     height="0"
     width="0"
+    role="img"
+    [attr.aria-label]="alt ?? null"
     #targetcanvas
   ></canvas>
 }
@@ -10,6 +12,7 @@
 @if (state === 'image' || state === 'loading') {
   <img
     [style.display]="state === 'loading' ? 'none' : 'block'"
+    [attr.alt]="alt ?? ''"
     loading="lazy"
     #targetimg
   />

@@ -21,7 +21,11 @@
     }
 
     <div class="col-12 py-3">
-      <picsur-img class="uploadedimage" [src]="previewLink"></picsur-img>
+      <picsur-img
+        class="uploadedimage"
+        [src]="previewLink"
+        [alt]="image?.file_name ?? 'image'"
+      ></picsur-img>
     </div>
 
     <div class="col-md-6 col-12">

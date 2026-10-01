@@ -26,7 +26,7 @@ export class EditDialogComponent {
     ['10 Minutes', 10 * 60],
     ['30 Minutes', 30 * 60],
     ['1 Hour', 60 * 60],
-    ['6 Hours', 2 * 60 * 60],
+    ['6 Hours', 6 * 60 * 60],
     ['12 Hours', 12 * 60 * 60],
     ['1 Day', 24 * 60 * 60],
     ['1 Week', 7 * 24 * 60 * 60],

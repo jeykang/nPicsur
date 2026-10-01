@@ -26,7 +26,11 @@
               </mat-card-subtitle>
             </mat-card-header>
             @if (getCoverUrl(album); as cover) {
-              <picsur-img mat-card-image [src]="cover"></picsur-img>
+              <picsur-img
+                mat-card-image
+                [src]="cover"
+                [alt]="'Cover of ' + album.name"
+              ></picsur-img>
             } @else {
               <div class="no-cover">
                 <mat-icon fontSet="material-icons-outlined"

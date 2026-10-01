@@ -18,6 +18,7 @@ import {
   withPngOrientation,
   withWebpOrientation,
 } from './helpers/images.js';
+import { update } from './helpers/settings.js';
 
 describe('image upload and retrieval', () => {
   let admin: Client;
@@ -151,7 +152,7 @@ describe('image upload and retrieval', () => {
       expect(res.status).toBe(200);
       expect(res.headers.get('content-type')).toBe(mime);
 
-      // Sharp's own builds can not read these, so the server checks them
+      // Sharp's own builds cannot read these, so the server checks them
       const copy = await user.client.uploadOk(res.body, `copy.${ext}`);
       const png = await Client.guest().get(`/i/${copy.id}.png`);
       expect(png.status).toBe(200);
@@ -365,16 +366,16 @@ describe('image editing parameters', () => {
 
   it('ignores editing parameters when editing is disabled', async () => {
     const admin = await Client.admin();
-    expectSuccess(
-      await admin.post('/api/pref/sys/allow_editing', { value: false }),
+    // Takes effect without restarting
+    const saved = expectSuccess(
+      await update(admin, { allow_editing: 'false' }),
     );
+    expect(saved.restart_needed).toBe(false);
     try {
       const meta = await fetchMeta('width=16');
       expect(meta.width).toBe(64);
     } finally {
-      expectSuccess(
-        await admin.post('/api/pref/sys/allow_editing', { value: true }),
-      );
+      expectSuccess(await update(admin, { allow_editing: null }));
     }
     const meta = await fetchMeta('width=16');
     expect(meta.width).toBe(16);
@@ -491,7 +492,7 @@ describe('formats', () => {
       const meta = expectSuccess(
         await Client.guest().get(`/i/meta/${upload.id}`),
       );
-      // Converted to a lossless master, like other formats browsers can not
+      // Converted to a lossless master, like other formats browsers cannot
       // show
       expect(meta.fileTypes.master, ext).toBe('image:qoi');
       const served = await metadata(
@@ -684,7 +685,7 @@ describe('formats', () => {
     }
   });
 
-  it('converts uploads it can not keep as they are', async () => {
+  it('converts uploads it cannot keep as they are', async () => {
     const tiff = await convertTo(await makePng(), 'tiff');
     const { id } = await client.uploadOk(tiff, 'scan.tiff');
     const meta = expectSuccess(await Client.guest().get(`/i/meta/${id}`));

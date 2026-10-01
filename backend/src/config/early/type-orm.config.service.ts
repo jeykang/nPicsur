@@ -40,11 +40,6 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
 
       useUTC: true,
 
-      cli: {
-        migrationsDir: 'src/database/migrations',
-        entitiesDir: 'src/database/entities',
-      },
-
       ...varOptions,
     } as TypeOrmModuleOptions;
   }

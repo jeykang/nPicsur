@@ -14,6 +14,7 @@ import {
 import type { EUser } from 'picsur-shared/dist/entities/user.entity';
 import { Fail, FT, ThrowIfFailed } from 'picsur-shared/dist/types/failable';
 import { UserDbService } from '../../../collections/user-db/user-db.service.js';
+import { LoginConfigService } from '../../../config/early/login.config.service.js';
 import { EasyThrottle } from '../../../decorators/easy-throttle.decorator.js';
 import {
   NoPermissions,
@@ -25,7 +26,7 @@ import {
   ReqUserID,
 } from '../../../decorators/request-user.decorator.js';
 import { Returns } from '../../../decorators/returns.decorator.js';
-import { AuthManagerService } from '../../../managers/auth/auth.service.js';
+import { AuthManagerService } from '../../../managers/auth/auth-manager.service.js';
 import { ApiKeyPrefix } from '../../../managers/auth/guards/apikey.strategy.js';
 import { Permission } from '../../../models/constants/permissions.const.js';
 import { EUserBackend2EUser } from '../../../models/transformers/user.transformer.js';
@@ -37,6 +38,7 @@ export class UserController {
   constructor(
     private readonly usersService: UserDbService,
     private readonly authService: AuthManagerService,
+    private readonly loginConfig: LoginConfigService,
   ) {}
 
   @Post('login')
@@ -56,6 +58,13 @@ export class UserController {
   async register(
     @Body() register: UserRegisterRequest,
   ): Promise<UserRegisterResponse> {
+    // An account that cannot be logged in to is no use
+    if (!this.loginConfig.password) {
+      throw Fail(
+        FT.Permission,
+        'Logging in with a password is turned off, so is registering with one',
+      );
+    }
     const user = ThrowIfFailed(
       await this.usersService.create(register.username, register.password),
     );
@@ -86,7 +95,7 @@ export class UserController {
 
     const user = EUserBackend2EUser(backenduser);
 
-    // An api key can not be exchanged for a session token, that token would
+    // An api key cannot be exchanged for a session token, that token would
     // keep working after the api key is deleted
     const viaApiKey = req.headers.authorization?.startsWith(ApiKeyPrefix);
     const token = viaApiKey
@@ -105,7 +114,7 @@ export class UserController {
     @Body() body: UserChangePasswordRequest,
     @Req() req: FastifyRequest,
   ): Promise<UserChangePasswordResponse> {
-    // This hands out a session token, which api keys can not be exchanged for
+    // This hands out a session token, which api keys cannot be exchanged for
     if (req.headers.authorization?.startsWith(ApiKeyPrefix)) {
       throw Fail(FT.Permission, 'Log in to change your password');
     }

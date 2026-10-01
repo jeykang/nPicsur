@@ -132,7 +132,7 @@ async function apngSharpIn(
 }
 
 // libvips turns an animation upside down as one tall image, which plays its
-// frames backwards, and can not turn it sideways at all. So animations that
+// frames backwards, and cannot turn it sideways at all. So animations that
 // are stored turned have each of their frames turned by itself.
 async function animatedSharpIn(
   image: Buffer,

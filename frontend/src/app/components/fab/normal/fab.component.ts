@@ -7,10 +7,8 @@ import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
   standalone: false,
 })
 export class FabComponent {
-  @Input('aria-label') ariaLabel = 'Floating Action Button';
+  @Input('aria-label') ariaLabel = 'Floating action button';
   @Input() icon = 'add';
   @Input() color = 'primary';
   @Input('tooltip') tooltip: string;
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  @Input() onClick: () => void = () => {};
 }

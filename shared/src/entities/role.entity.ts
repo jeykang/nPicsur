@@ -7,7 +7,6 @@ export const SimpleRoleSchema = z.object({
   name: IsRoleName(),
   permissions: IsStringList(),
 });
-export type SimpleRole = z.infer<typeof SimpleRoleSchema>;
 
 export const ERoleSchema = z.object({
   id: IsEntityID().optional(),

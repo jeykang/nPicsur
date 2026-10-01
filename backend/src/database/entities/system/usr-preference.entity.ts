@@ -34,7 +34,7 @@ export class EUsrPreferenceBackend implements EUsrPreference {
 
   // We do a little trickery
   @Index()
-  @ManyToOne(() => EUserBackend, (user) => user.preferences, {
+  @ManyToOne(() => EUserBackend, {
     nullable: false,
     onDelete: 'CASCADE',
   })

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import { FileType2Mime } from 'picsur-shared/dist/dto/mimes.dto';
+import { ExternalStorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import {
   AsyncFailable,
   Fail,
@@ -10,7 +11,6 @@ import {
 } from 'picsur-shared/dist/types/failable';
 import { QueryFailedError, Repository } from 'typeorm';
 import { EImageDerivativeBackend } from '../../database/entities/images/image-derivative.entity.js';
-import { ExternalStorageDriver } from '../../config/early/storage.config.service.js';
 import { EImageFileBackend } from '../../database/entities/images/image-file.entity.js';
 import { ExternalStorage } from '../external-storage/external-storage.js';
 import { ExternalStorageService } from '../external-storage/external-storage.service.js';
@@ -196,7 +196,10 @@ export class ImageFileDBService {
     const loaded =
       derivative.data === null &&
       !this.storages.get(derivative.storage)?.isConfigured
-        ? Fail(FT.NotFound, 'Cached image is in storage that is not used')
+        ? Fail(
+            FT.NotFound,
+            'This converted version is in storage that is not used',
+          )
         : await this.load(derivative);
     if (HasFailed(loaded)) {
       // The object is gone, e.g. the bucket was cleaned up. Forget about it
@@ -339,7 +342,7 @@ export class ImageFileDBService {
       if (!storage?.isConfigured) continue;
       const result = await storage.delete(storageKeys);
       if (HasFailed(result)) {
-        result.print(this.logger, { prefix: 'Deleting cached images:' });
+        result.print(this.logger, { prefix: 'Deleting converted versions:' });
       }
     }
   }

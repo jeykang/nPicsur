@@ -1,4 +1,5 @@
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
+import type { ExternalStorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import {
   Check,
   Column,
@@ -9,7 +10,6 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import type { ExternalStorageDriver } from '../../../config/early/storage.config.service.js';
 import { EImageBackend } from './image.entity.js';
 
 @Entity()
@@ -23,7 +23,7 @@ export class EImageFileBackend {
 
   // We do a little trickery
   @Index()
-  @ManyToOne(() => EImageBackend, (image) => image.files, {
+  @ManyToOne(() => EImageBackend, {
     nullable: false,
     onDelete: 'CASCADE',
   })

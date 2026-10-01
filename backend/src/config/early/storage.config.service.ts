@@ -1,20 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { isAbsolute, resolve } from 'node:path';
 import { ServerSetting } from 'picsur-shared/dist/dto/server-settings.dto';
+import {
+  ExternalStorageDriver,
+  StorageDriver,
+} from 'picsur-shared/dist/dto/storage-driver.enum';
 import { ParseBool } from 'picsur-shared/dist/util/parse-simple';
 import { DefaultS3Region, GetServerSetting } from '../server-settings.js';
-
-export enum StorageDriver {
-  // Image data is stored in the database, next to everything else
-  Database = 'database',
-  // Image data is stored in an S3 compatible bucket
-  S3 = 's3',
-  // Image data is stored as files in a directory
-  Filesystem = 'filesystem',
-}
-
-// Storage other than the database, rows say which one their data is in
-export type ExternalStorageDriver = StorageDriver.S3 | StorageDriver.Filesystem;
 
 export interface FilesystemStorageConfig {
   // Absolute, without a slash at the end

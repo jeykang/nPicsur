@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import {
-  GetPreferenceResponse,
   MultiplePreferencesResponse,
   UpdatePreferenceRequest,
   UpdatePreferenceResponse,
@@ -63,7 +62,7 @@ export class UsrPrefService {
     if (!this.hasPermission)
       return Fail(
         FT.Permission,
-        'You do not have permission to edit user preferences',
+        'You do not have permission to change preferences',
       );
 
     const response = await this.api.get(
@@ -77,24 +76,6 @@ export class UsrPrefService {
     });
   }
 
-  public async getPreference(
-    key: string,
-  ): AsyncFailable<GetPreferenceResponse> {
-    if (!this.hasPermission)
-      return Fail(
-        FT.Permission,
-        'You do not have permission to edit user preferences',
-      );
-
-    const response = await this.api.get(
-      GetPreferenceResponse,
-      `/api/pref/usr/${key}`,
-    ).result;
-
-    if (!HasFailed(response)) this.updatePrefArray(response);
-    return response;
-  }
-
   public async setPreference(
     key: string,
     value: PrefValueType,
@@ -102,7 +83,7 @@ export class UsrPrefService {
     if (!this.hasPermission)
       return Fail(
         FT.Permission,
-        'You do not have permission to edit user preferences',
+        'You do not have permission to change preferences',
       );
 
     const response = await this.api.post(
@@ -134,7 +115,7 @@ export class UsrPrefService {
     this.usrprefObservable.next([]);
   }
 
-  // We want to flush on logout, because the syspreferences can contain sensitive information
+  // Flushed on logout, as they belong to the user
   @AutoUnsubscribe()
   private subscribePermissions() {
     return this.permissionsService.live

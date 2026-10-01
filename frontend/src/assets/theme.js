@@ -4,7 +4,9 @@
   var theme = 'dark';
   try {
     theme = localStorage.getItem('theme') || 'dark';
-  } catch (e) {}
+  } catch {
+    // Without storage, it is the default
+  }
   var light =
     theme === 'light' ||
     (theme === 'system' &&

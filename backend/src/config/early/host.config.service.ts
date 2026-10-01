@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ServerSetting } from 'picsur-shared/dist/dto/server-settings.dto';
 import {
   ParseBool,
   ParseInt,
@@ -8,6 +9,7 @@ import {
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { EnvPrefix, PackageRoot } from '../config.static.js';
+import { GetServerSettingBool } from '../server-settings.js';
 
 @Injectable()
 export class HostConfigService {
@@ -50,7 +52,7 @@ export class HostConfigService {
   }
 
   public isVerbose() {
-    return ParseBool(this.configService.get(`${EnvPrefix}VERBOSE`), false);
+    return GetServerSettingBool(ServerSetting.Verbose);
   }
 
   // Read from package.json, so it does not depend on being started through

@@ -18,7 +18,7 @@ import { ImageFullIdParam } from '../../decorators/image-id/image-full-id.decora
 import { ImageIdParam } from '../../decorators/image-id/image-id.decorator.js';
 import { RequiredPermissions } from '../../decorators/permissions.decorator.js';
 import { Returns } from '../../decorators/returns.decorator.js';
-import { ImageManagerService } from '../../managers/image/image.service.js';
+import { ImageManagerService } from '../../managers/image/image-manager.service.js';
 import type { ImageFullId } from '../../models/constants/image-full-id.const.js';
 import { Permission } from '../../models/constants/permissions.const.js';
 import { BrandMessageType, GetBrandMessage } from '../../util/branding.js';

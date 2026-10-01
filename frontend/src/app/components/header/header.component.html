@@ -85,7 +85,7 @@
       mat-stroked-button
       (click)="doLogin()"
     >
-      LOGIN
+      LOG IN
     </button>
   }
 
@@ -112,13 +112,13 @@
       @if (canUpload) {
         <button mat-menu-item (click)="doImages()">
           <mat-icon fontSet="material-icons-outlined">image</mat-icon>
-          <span>My Images</span>
+          <span>My images</span>
         </button>
       }
       @if (canManageImages) {
         <button mat-menu-item (click)="doAlbums()">
           <mat-icon fontSet="material-icons-outlined">photo_album</mat-icon>
-          <span>My Albums</span>
+          <span>My albums</span>
         </button>
       }
       @if (canAccessSettings) {
@@ -129,7 +129,7 @@
       }
       <button mat-menu-item (click)="doLogout()">
         <mat-icon fontSet="material-icons-outlined">logout</mat-icon>
-        <span>Logout</span>
+        <span>Log out</span>
       </button>
     </ng-template>
   </mat-menu>

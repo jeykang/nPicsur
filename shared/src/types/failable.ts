@@ -39,7 +39,7 @@ const FTProps: {
   [FT.Unknown]: {
     important: false,
     code: 500,
-    message: 'An unkown error occurred',
+    message: 'An unknown error occurred',
   },
   [FT.Internal]: {
     important: true,

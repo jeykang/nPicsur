@@ -6,7 +6,7 @@ import {
   SharpWorkerFinishOptions,
   SharpWorkerInitMessage,
   SharpWorkerOperationMessage,
-  SharpWorkerRecieveMessage,
+  SharpWorkerReceiveMessage,
   SharpWorkerSendMessage,
 } from './sharp.message.js';
 import {
@@ -104,7 +104,7 @@ export class SharpWorker {
   // Every conversion may use this much memory on top of what the worker holds
   // when it starts on it. How much Node itself reserves differs a lot between
   // versions (Node 24 starts out with about 10 times as much as Node 22), so
-  // the limit can not simply be an absolute number.
+  // the limit cannot simply be an absolute number.
   private limitMemory() {
     if (this.startMemory === null) return;
     const current = reservedMemory();
@@ -122,7 +122,7 @@ export class SharpWorker {
         soft: Math.min(current + this.memoryLimit, hard),
         hard,
       });
-    } catch (e) {
+    } catch {
       console.warn('Failed to set memory limit');
     }
   }
@@ -234,7 +234,7 @@ export class SharpWorker {
     setImmediate(() => collectGarbage?.());
   }
 
-  private sendMessage(message: SharpWorkerRecieveMessage): void {
+  private sendMessage(message: SharpWorkerReceiveMessage): void {
     if (process.send === undefined) {
       return this.purge('This is not a worker process');
     }

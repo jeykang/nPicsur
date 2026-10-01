@@ -28,7 +28,7 @@ export function NoteActivity() {
   lastActivity = Date.now();
 }
 
-// Returns a function to stop it, or null when node can not collect garbage on
+// Returns a function to stop it, or null when node cannot collect garbage on
 // request
 export function CollectGarbageWhenIdle(
   gc = (globalThis as { gc?: CollectGarbage }).gc,

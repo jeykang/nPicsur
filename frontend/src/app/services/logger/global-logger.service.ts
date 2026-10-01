@@ -57,10 +57,6 @@ export class GlobalLogger {
     this.sendLog(args, LoggerLevel.error, context);
   }
 
-  setLogLevels(levels: string[]) {
-    this.enabledLevels = levels;
-  }
-
   private sendLog(args: any[], level: LoggerLevel, context: LoggerContext) {
     if (!this.enabledLevels.includes(level)) {
       return;

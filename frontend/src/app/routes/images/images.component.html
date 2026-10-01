@@ -7,7 +7,7 @@
 }
 
 @if (images !== null && images.length > 0) {
-  <h1>Your Images</h1>
+  <h1>Your images</h1>
   <masonry [columns]="columns">
     @for (image of images; track image) {
       <ng-template masonry-item>
@@ -27,7 +27,7 @@
             <picsur-img
               mat-card-image
               [src]="getThumbnailUrl(image)"
-              alt="Image uploaded by you"
+              [alt]="image.file_name"
             >
             </picsur-img>
             <mat-card-actions>

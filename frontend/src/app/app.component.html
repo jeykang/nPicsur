@@ -14,10 +14,10 @@
   </mat-sidenav>
 
   <mat-sidenav-content>
-    <div class="sidenav-content" [class.container]="wrapContentWithContainer">
+    <div class="sidenav-content container">
       <div class="header-spacer"></div>
       @if (loadFailure) {
-        <div class="grow-full" [class.container]="wrapContentWithContainer">
+        <div class="grow-full container">
           <h1>Picsur could not be loaded</h1>
           <p>{{ loadFailure.getReason() }}. Trying again automatically.</p>
           <button
@@ -31,9 +31,8 @@
         </div>
       }
       <div
-        class="grow-full relative"
+        class="grow-full relative container"
         [class.d-none]="loadFailure"
-        [class.container]="wrapContentWithContainer"
         [@mainAnimation]="getRouteAnimData()"
       >
         <router-outlet></router-outlet>

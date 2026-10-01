@@ -143,8 +143,8 @@ export class ImagesComponent implements OnInit {
 
   async deleteImage(image: EImage) {
     const pressedButton = await this.dialogService.showDialog({
-      title: `Are you sure you want to delete the image?`,
-      description: 'This action cannot be undone.',
+      title: 'Delete this image?',
+      description: 'This cannot be undone.',
       buttons: [
         {
           name: 'cancel',

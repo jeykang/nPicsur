@@ -1,0 +1,13 @@
+<div class="content-border padded">
+  <div class="container centered">
+    @if (error === null) {
+      <h1>Logging in…</h1>
+    } @else {
+      <h1>Logging in did not work</h1>
+      <p>{{ error }}</p>
+      <a mat-raised-button color="primary" routerLink="/user/login">
+        BACK TO LOGIN
+      </a>
+    }
+  </div>
+</div>

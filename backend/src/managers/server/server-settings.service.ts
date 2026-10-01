@@ -1,10 +1,14 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import {
+  EnvironmentOption,
+  OidcTestResponse,
   ServerSettingsResponse,
   StorageStatusResponse,
   StorageTestResponse,
 } from 'picsur-shared/dist/dto/api/server.dto';
 import {
+  LiveServerSettings,
+  OidcSettings,
   SecretServerSettings,
   ServerSetting,
   ServerSettingEnvName,
@@ -12,6 +16,10 @@ import {
   ServerSettingValidators,
   StorageSettings,
 } from 'picsur-shared/dist/dto/server-settings.dto';
+import {
+  ExternalStorageDriver,
+  StorageDriver,
+} from 'picsur-shared/dist/dto/storage-driver.enum';
 import {
   AsyncFailable,
   Fail,
@@ -26,20 +34,29 @@ import {
 import { TestS3Storage } from '../../collections/object-storage/object-storage.service.js';
 import { ServerSettingsDbService } from '../../collections/server-settings-db/server-settings-db.service.js';
 import { SystemStateDbService } from '../../collections/system-state-db/system-state-db.service.js';
+import { EnvPrefix } from '../../config/config.static.js';
+import { GetDbConnectionOptions } from '../../config/db-connection.js';
+import { HostConfigService } from '../../config/early/host.config.service.js';
+import {
+  BuildLoginConfig,
+  LoginConfig,
+} from '../../config/early/login.config.service.js';
+import { ServeStaticConfigService } from '../../config/early/serve-static.config.service.js';
 import {
   BuildStorageConfig,
   ChangedStorageLocations,
-  ExternalStorageDriver,
   StorageConfig,
   StorageConfigService,
-  StorageDriver,
 } from '../../config/early/storage.config.service.js';
 import {
   EnvServerSetting,
   RunningStoredServerSettings,
+  SavedFirst,
   ServerSettingDefault,
   ServerSettingResolver,
+  ServerSettingsOrderState,
   StoredServerSettings,
+  UseSavedServerSettings,
 } from '../../config/server-settings.js';
 import {
   EncryptionKeyEnv,
@@ -50,12 +67,15 @@ import {
   UseGeneratedEncryptionKey,
 } from '../../config/settings-encryption.js';
 import { RequestRestart, RestartError, StartedAt } from '../../util/restart.js';
+import { TestOidc } from '../auth/oidc.js';
+import { OidcService } from '../auth/oidc.service.js';
 import { StorageMigrationService } from './storage-migration.service.js';
 
 interface PlannedChange {
   changes: Map<ServerSetting, string | null>;
   stored: StoredServerSettings;
   storage: StorageConfig;
+  login: LoginConfig;
 }
 
 // The server settings as the settings page shows and changes them
@@ -70,6 +90,9 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     private readonly migration: StorageMigrationService,
     private readonly storageConfig: StorageConfigService,
     private readonly diskStorage: DiskStorageService,
+    private readonly oidc: OidcService,
+    private readonly hostConfig: HostConfigService,
+    private readonly staticConfig: ServeStaticConfigService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -79,7 +102,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       );
     }
     await this.prepareEncryption();
-    await this.saveEnvironment();
+    await this.markSavedFirst();
   }
 
   // Makes sure there is a key to encrypt secrets with. Without
@@ -101,7 +124,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       }
       if (HasFailed(key) || key === null) {
         this.logger.error(
-          `There is no key to encrypt secrets with, they can not be saved on the settings page. Set ${EncryptionKeyEnv}.`,
+          `There is no key to encrypt secrets with, they cannot be saved on the settings page. Set ${EncryptionKeyEnv}.`,
         );
         return;
       }
@@ -134,44 +157,18 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     );
   }
 
-  // Settings from environment variables are saved as well, so the variables
-  // can be removed later without changing anything, and the settings changed
-  // on the settings page from then on
-  async saveEnvironment() {
-    const stored = await this.settingsDb.getAll();
-    if (HasFailed(stored)) {
-      stored.print(this.logger, { prefix: 'Saving environment settings:' });
+  // Settings saved from now on come before the environment. When the settings
+  // could not be read before Picsur started, as they are new, there are no
+  // copies of the environment to drop, see config/server-settings.ts.
+  async markSavedFirst() {
+    const order = await this.stateDb.get(ServerSettingsOrderState);
+    if (HasFailed(order)) {
+      order.print(this.logger);
       return;
     }
-
-    const changes = new Map<ServerSetting, string>();
-    for (const key of ServerSettingList) {
-      const value = EnvServerSetting(key);
-      if (value === undefined || stored.get(key) === value) continue;
-      if (!ServerSettingValidators[key].safeParse(value).success) {
-        this.logger.warn(
-          `${ServerSettingEnvName(key)} is not saved in the settings, the settings page does not accept its value`,
-        );
-        continue;
-      }
-      if (
-        SecretServerSettings.includes(key) &&
-        EncryptionKeySource() === null
-      ) {
-        continue;
-      }
-      changes.set(key, value);
-    }
-    if (changes.size === 0) return;
-
-    const updated = await this.settingsDb.update(changes);
-    if (HasFailed(updated)) {
-      updated.print(this.logger, { prefix: 'Saving environment settings:' });
-      return;
-    }
-    this.logger.log(
-      `Saved ${[...changes.keys()].map(ServerSettingEnvName).join(', ')} in the settings as well`,
-    );
+    if (order === SavedFirst) return;
+    const marked = await this.stateDb.set(ServerSettingsOrderState, SavedFirst);
+    if (HasFailed(marked)) marked.print(this.logger);
   }
 
   async describe(): AsyncFailable<ServerSettingsResponse> {
@@ -180,10 +177,13 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     return this.describeStored(stored);
   }
 
-  // Stores the given settings, which take effect when Picsur restarts. A
-  // value of null goes back to the default.
+  // Stores the given settings, which take effect when Picsur restarts, or
+  // right away for those in LiveServerSettings. A value of null removes what
+  // is saved, so the environment or the default applies again.
   async update(
     values: Record<string, string | null>,
+    // The admin making the changes
+    userId: string,
   ): AsyncFailable<ServerSettingsResponse> {
     const plan = await this.plan(values, true);
     if (HasFailed(plan)) return plan;
@@ -226,19 +226,41 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       if (HasFailed(tested)) return tested;
     }
 
+    // Like storage, a provider is only stored when it can be reached
+    const loginChanged = changed.some(
+      (key) =>
+        OidcSettings.includes(key) || key === ServerSetting.PasswordLogin,
+    );
+    if (
+      plan.login.oidc !== null &&
+      changed.some((key) => OidcSettings.includes(key))
+    ) {
+      const tested = await TestOidc(plan.login.oidc);
+      if (HasFailed(tested)) return tested;
+    }
+    if (!plan.login.password && loginChanged) {
+      const safe = await this.checkPasswordLoginCanBeOff(
+        plan.login,
+        userId,
+        changed.includes(ServerSetting.PasswordLogin),
+      );
+      if (HasFailed(safe)) return safe;
+    }
+
     const updated = await this.settingsDb.update(plan.changes);
     if (HasFailed(updated)) return updated;
+    UseSavedServerSettings(plan.stored);
     this.logger.log(
       `Changed server settings: ${[...plan.changes.keys()].join(', ')}`,
     );
 
-    // Cached conversions in the old bucket or directory would not be found
+    // Converted versions in the old bucket or directory would not be found
     // anymore, they are made again when needed
     for (const location of movedLocations) {
       await this.maintenance
         .dropDerivativesIn(location)
         .catch((e) =>
-          this.logger.warn(`Dropping cached conversions: ${String(e)}`),
+          this.logger.warn(`Dropping converted versions: ${String(e)}`),
         );
     }
 
@@ -248,7 +270,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
   // Tries out the bucket or directory the given changes would result in
   async testStorage(
     values: Record<string, string | null>,
-    storage: `${ExternalStorageDriver}`,
+    storage: ExternalStorageDriver,
   ): AsyncFailable<StorageTestResponse> {
     const plan = await this.plan(values);
     if (HasFailed(plan)) return plan;
@@ -280,11 +302,23 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     };
   }
 
+  // Tries out the provider the given changes would result in
+  async testOidc(
+    values: Record<string, string | null>,
+  ): AsyncFailable<OidcTestResponse> {
+    const plan = await this.plan(values);
+    if (HasFailed(plan)) return plan;
+    if (plan.login.oidc === null) {
+      return Fail(FT.BadRequest, 'Set an issuer and a client id first');
+    }
+    return TestOidc(plan.login.oidc);
+  }
+
   async restart(): AsyncFailable<Date> {
     if (this.migration.isRunning) {
       return Fail(
         FT.Conflict,
-        'Images are being moved to other storage, stop that or wait until it is done first',
+        'Images are being moved, wait for that or stop it first',
       );
     }
 
@@ -339,16 +373,6 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       const setting = key as ServerSetting;
       const value = raw === null || raw.trim() === '' ? null : raw.trim();
 
-      const fromEnv = EnvServerSetting(setting);
-      if (fromEnv !== undefined) {
-        // Sending back what the page shows is fine
-        if (value === fromEnv) continue;
-        return Fail(
-          FT.UsrValidation,
-          `${ServerSettingEnvName(setting)} is set in the environment, so it can only be changed there`,
-        );
-      }
-
       if (value !== null) {
         const valid = ServerSettingValidators[setting].safeParse(value);
         if (!valid.success) {
@@ -385,44 +409,120 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       return Fail(FT.UsrValidation, e instanceof Error ? e.message : e);
     }
 
-    return { changes, stored, storage };
+    // Settings that do not fit together are not stored, unless they already
+    // did not, for example because of the environment
+    const login = BuildLoginConfig(ServerSettingResolver(stored));
+    if (
+      saving &&
+      login.problem !== null &&
+      login.problem !== BuildLoginConfig(ServerSettingResolver(current)).problem
+    ) {
+      return Fail(FT.UsrValidation, login.problem);
+    }
+
+    return { changes, stored, storage, login: login.config };
+  }
+
+  // Turning off password login cannot leave anyone without a way to log in,
+  // the admin who does it in particular. Logins are linked to one provider,
+  // so changing that is only possible with password login on.
+  private async checkPasswordLoginCanBeOff(
+    login: LoginConfig,
+    userId: string,
+    // Whether it is being turned off now, or already was
+    turningOff: boolean,
+  ): AsyncFailable<true> {
+    const running = this.oidc.config;
+    if (
+      running === null ||
+      login.oidc === null ||
+      running.issuer !== login.oidc.issuer ||
+      running.clientId !== login.oidc.clientId
+    ) {
+      return Fail(
+        FT.Conflict,
+        turningOff
+          ? 'Save the provider, restart, and link your account before turning password login off'
+          : 'Turn password login on before changing the provider',
+      );
+    }
+
+    const linked = await this.oidc.linkedLogin(userId);
+    if (HasFailed(linked)) return linked;
+    if (linked === null) {
+      return Fail(
+        FT.Conflict,
+        `Link your own account to ${running.name} first`,
+      );
+    }
+    return true;
   }
 
   private describeStored(stored: StoredServerSettings): ServerSettingsResponse {
-    const running = RunningStoredServerSettings();
+    const now = ServerSettingResolver(stored);
+    const running = ServerSettingResolver(RunningStoredServerSettings());
 
     return {
       settings: ServerSettingList.map((key) => {
+        const saved = stored.get(key);
         const fromEnv = EnvServerSetting(key);
-        const value = fromEnv ?? stored.get(key);
+        const secret = SecretServerSettings.includes(key);
         return {
           key,
-          value:
-            value === undefined || SecretServerSettings.includes(key)
-              ? null
-              : value,
-          set: value !== undefined,
+          value: saved === undefined || secret ? null : saved,
+          saved: saved !== undefined,
+          env: ServerSettingEnvName(key),
+          env_value: fromEnv === undefined || secret ? null : fromEnv,
+          env_set: fromEnv !== undefined,
           default: ServerSettingDefault(key),
           source:
-            fromEnv !== undefined
-              ? 'environment'
-              : stored.has(key)
-                ? 'settings'
+            saved !== undefined
+              ? 'settings'
+              : fromEnv !== undefined
+                ? 'environment'
                 : 'default',
-          saved: stored.has(key) && stored.get(key) === value,
-          env: ServerSettingEnvName(key),
+          set: saved !== undefined || fromEnv !== undefined,
         };
       }),
-      // Settings from the environment are the same either way
+      environment: this.describeEnvironment(),
       restart_needed: ServerSettingList.some(
-        (key) =>
-          EnvServerSetting(key) === undefined &&
-          stored.get(key) !== running.get(key),
+        (key) => !LiveServerSettings.includes(key) && now(key) !== running(key),
       ),
       restart_error: RestartError(),
       started_at: StartedAt(),
       encryption_key: EncryptionKeySource(),
     };
+  }
+
+  // What can only be set with environment variables
+  private describeEnvironment(): EnvironmentOption[] {
+    const db = GetDbConnectionOptions((name) => process.env[name]);
+    const option = (
+      name: string,
+      value: string | number | boolean | null,
+    ): EnvironmentOption => ({
+      env: EnvPrefix + name,
+      value: value === null ? null : String(value),
+      set: !!process.env[EnvPrefix + name]?.trim(),
+    });
+
+    return [
+      option('HOST', this.hostConfig.getHost()),
+      option('PORT', this.hostConfig.getPort()),
+      option('DB_HOST', db.host),
+      option('DB_PORT', db.port),
+      option('DB_DATABASE', db.database),
+      option('DB_USERNAME', db.username),
+      option('DB_PASSWORD', null),
+      option('JWT_SECRET', null),
+      option('ENCRYPTION_KEY', null),
+      option('STATIC_FRONTEND_ROOT', this.staticConfig.getStaticDirectory()),
+      option('PRODUCTION', this.hostConfig.isProduction()),
+      option('DEMO', this.hostConfig.isDemo()),
+      ...(this.hostConfig.isDemo()
+        ? [option('DEMO_INTERVAL', this.hostConfig.getDemoInterval())]
+        : []),
+    ];
   }
 
   private runningStorage(): StorageConfig {
@@ -449,10 +549,9 @@ export class ServerSettingsService implements OnApplicationBootstrap {
       location === StorageDriver.S3
         ? `The bucket "${running.s3?.bucket}"`
         : `The directory "${running.filesystem?.path}"`;
-    const what = location === StorageDriver.S3 ? 'bucket' : 'directory';
     return Fail(
       FT.Conflict,
-      `${where} still holds ${files} image ${files === 1 ? 'file' : 'files'}. Move them elsewhere first: store new images somewhere else, restart, and move the existing images there. Then the ${what} can be changed.`,
+      `${where} still holds ${files} ${files === 1 ? 'image file, move it' : 'image files, move them'} elsewhere first`,
     );
   }
 }

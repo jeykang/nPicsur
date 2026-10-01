@@ -161,7 +161,7 @@ export class AlbumComponent implements OnInit {
   async deleteAlbum() {
     if (this.album === null) return;
     const pressed = await this.dialogService.showDialog({
-      title: `Are you sure you want to delete ${this.album.name}?`,
+      title: `Delete ${this.album.name}?`,
       description: 'The images in it are not deleted.',
       buttons: [
         { name: 'cancel', text: 'Cancel' },

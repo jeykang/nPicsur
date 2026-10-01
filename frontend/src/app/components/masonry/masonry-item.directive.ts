@@ -13,10 +13,6 @@ export class MasonryItemDirective {
 
   constructor(private template: TemplateRef<HTMLElement>) {}
 
-  public getTemplate(): TemplateRef<HTMLElement> {
-    return this.template;
-  }
-
   public getViewRef(): ViewRef {
     if (!this.viewRef || this.viewRef.destroyed) {
       this.viewRef = this.template.createEmbeddedView(null as any);

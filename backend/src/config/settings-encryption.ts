@@ -13,7 +13,7 @@ import { EnvPrefix } from './config.static.js';
 // and is then not stored anywhere, so neither the database nor its backups
 // reveal the secrets. Otherwise Picsur generates a key and keeps it in the
 // database, which keeps the secrets out of sight, but not from someone with a
-// copy of the database. The key can not come from the admin's password:
+// copy of the database. The key cannot come from the admin's password:
 // Picsur needs the secrets whenever it starts, also when nobody is logged in.
 export const EncryptionKeyEnv = `${EnvPrefix}ENCRYPTION_KEY`;
 
@@ -44,10 +44,6 @@ let generatedKey: string | null = null;
 
 export function UseGeneratedEncryptionKey(key: string | null) {
   generatedKey = key;
-}
-
-export function GeneratedEncryptionKey(): string | null {
-  return generatedKey;
 }
 
 export function NewEncryptionKey(): string {
@@ -129,7 +125,7 @@ export async function EncryptSetting(
     iv,
     { authTagLength: TagLength },
   );
-  // Ties the value to its setting, so it can not be passed off as another
+  // Ties the value to its setting, so it cannot be passed off as another
   cipher.setAAD(Buffer.from(setting));
   const encrypted = Buffer.concat([
     cipher.update(value, 'utf8'),

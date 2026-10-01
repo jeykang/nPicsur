@@ -33,7 +33,7 @@
   <div class="row">
     <div class="col-lg-6 col-12">
       <mat-form-field appearance="outline">
-        <mat-label>{{ editing ? 'New Password' : 'Password' }}</mat-label>
+        <mat-label>{{ editing ? 'New password' : 'Password' }}</mat-label>
         <input
           matInput
           type="password"
@@ -65,10 +65,10 @@
 
   <div class="row">
     <div class="col-12">
-      <h3>Effective Permissions</h3>
+      <h3>Effective permissions</h3>
     </div>
     <div class="col-12">
-      <mat-chip-listbox aria-label="User Permissions">
+      <mat-chip-listbox aria-label="User permissions">
         @for (permission of getEffectivePermissions(); track permission) {
           <mat-chip [disableRipple]="true">
             {{ permission }}

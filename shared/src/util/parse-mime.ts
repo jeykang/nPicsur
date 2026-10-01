@@ -1,5 +1,4 @@
 import {
-  Ext2FileType,
   FileType,
   Mime2FileType,
   SupportedAnimFileTypes,
@@ -19,12 +18,6 @@ export function ParseFileType(filetype: string): Failable<FileType> {
     };
 
   return Fail(FT.UsrValidation, 'Unsupported file type');
-}
-
-export function ParseExt2FileType(ext: string): Failable<FileType> {
-  const result = Ext2FileType(ext);
-  if (HasFailed(result)) return result;
-  return ParseFileType(result);
 }
 
 export function ParseMime2FileType(mime: string): Failable<FileType> {

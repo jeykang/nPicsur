@@ -6,27 +6,38 @@ import {
 } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup } from '@angular/forms';
 import {
+  EnvironmentOption,
   ServerSettingState,
   ServerSettingsResponse,
   StorageStatusResponse,
 } from 'picsur-shared/dist/dto/api/server.dto';
 import {
+  BoolServerSettings,
+  LiveServerSettings,
+  OidcSettings,
   SecretServerSettings,
   ServerSetting,
   ServerSettingList,
   ServerSettingValidators,
   StorageSettings,
 } from 'picsur-shared/dist/dto/server-settings.dto';
+import {
+  ExternalStorageDriver,
+  StorageDriver,
+  StorageDriverList,
+} from 'picsur-shared/dist/dto/storage-driver.enum';
 import { Failure, HasFailed } from 'picsur-shared/dist/types/failable';
-import { ServerSettingUI } from '../../../i18n/server-settings.i18n';
+import {
+  EnvironmentOptionUI,
+  ServerSettingUI,
+} from '../../../i18n/server-settings.i18n';
+import { InfoService } from '../../../services/api/info.service';
 import { ServerSettingsService } from '../../../services/api/server-settings.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { DialogService } from '../../../util/dialog-manager/dialog.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
 
 type SettingControls = { [key in ServerSetting]: FormControl<string> };
-type StorageDriver = 'database' | 's3' | 'filesystem';
-const StorageDrivers: StorageDriver[] = ['database', 's3', 'filesystem'];
 
 // The maximum upload size is shown in MB instead of bytes
 const BYTES_PER_MB = 1000 * 1000;
@@ -54,7 +65,10 @@ export function StorageName(driver: StorageDriver | null): string {
 }
 
 function AsDriver(value: string | null | undefined): StorageDriver {
-  return StorageDrivers.find((driver) => driver === value) ?? 'database';
+  return (
+    StorageDriverList.find((driver) => driver === value) ??
+    StorageDriver.Database
+  );
 }
 
 @Component({
@@ -67,6 +81,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
   private readonly logger = new Logger(SettingsServerComponent.name);
 
   public readonly S = ServerSetting;
+  public readonly Driver = StorageDriver;
   public readonly storageName = StorageName;
 
   public settings: ServerSettingsResponse | null = null;
@@ -76,17 +91,20 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
   public readonly form: FormGroup<SettingControls>;
   // What the form showed when the settings were loaded
   private initial: Partial<Record<ServerSetting, string>> = {};
-  // Whether the stored secret access key is removed on saving
-  public removeSecret = false;
+  // Saved secrets that are to be removed
+  public readonly removeSecrets = new Set<ServerSetting>();
+  // Settings whose saved value is to be removed, so the environment applies
+  private readonly useEnv = new Set<ServerSetting>();
   // Why the directory that was tested might not be safe for images
   public pathWarning: string | null = null;
 
   public busy: 'saving' | 'testing' | 'restarting' | 'migrating' | null = null;
-  public testing: 's3' | 'filesystem' | null = null;
+  public testing: ExternalStorageDriver | 'oidc' | null = null;
   private migrationTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly serverSettings: ServerSettingsService,
+    private readonly infoService: InfoService,
     private readonly dialogService: DialogService,
     private readonly errorService: ErrorService,
   ) {
@@ -136,65 +154,74 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     return ServerSettingUI[key].name;
   }
 
-  // Settings from the environment say where they come from instead, and
-  // secrets how they are protected
+  // The hint under a setting, with the variable that sets it when nothing is
+  // saved here, or will be once the form is saved
   public hint(key: ServerSetting): string {
-    if (this.locked(key)) return `Set with ${this.state(key)?.env}`;
-    const help = ServerSettingUI[key].helpText;
-    if (!SecretServerSettings.includes(key)) return help;
-
-    switch (this.settings?.encryption_key) {
-      case 'environment':
-        return `${help} It is saved encrypted with PICSUR_ENCRYPTION_KEY, which is not stored in the database.`;
-      case 'database':
-        return `${help} It is saved encrypted, but with a key kept in the database as well, so a copy of the database reveals it. Setting PICSUR_ENCRYPTION_KEY prevents that, see the README.`;
-      default:
-        return 'Secrets can not be saved right now, there is no key to encrypt them with. The server log says why.';
+    if (this.locked(key)) {
+      return 'Cannot be saved without an encryption key, see the server log';
     }
+    const state = this.state(key);
+    const fromEnv =
+      state?.env_set &&
+      (!state.saved || this.useEnv.has(key) || this.removeSecrets.has(key));
+    return [
+      ServerSettingUI[key].helpText,
+      fromEnv ? `Set with ${state.env}` : undefined,
+    ]
+      .filter((part) => part !== undefined)
+      .join('. ');
   }
 
-  // Environment variables whose values are saved as well, so they can be
-  // removed from Picsur's configuration
-  public get removableEnv(): string[] {
+  // What can only be set with environment variables, as shown on the page
+  public get environment(): { name: string; env: string; value: string }[] {
+    return (this.settings?.environment ?? []).map((option) => ({
+      name: EnvironmentOptionUI[option.env] ?? option.env,
+      env: option.env,
+      value: this.environmentValue(option),
+    }));
+  }
+
+  // Environment variables that are not used, as something is saved here for
+  // their settings
+  public get overriddenEnv(): string[] {
     return (this.settings?.settings ?? [])
-      .filter((s) => s.source === 'environment' && s.saved)
+      .filter((s) => s.saved && s.env_set)
       .map((s) => s.env);
-  }
-
-  // Environment variables that have to stay, with why
-  public get keptEnv(): { env: string; reason: string }[] {
-    return (this.settings?.settings ?? [])
-      .filter((s) => s.source === 'environment' && !s.saved)
-      .map((s) => ({
-        env: s.env,
-        reason:
-          SecretServerSettings.includes(s.key as ServerSetting) &&
-          this.settings?.encryption_key === null
-            ? 'there is no key to encrypt secrets with right now'
-            : 'this page does not accept its value',
-      }));
   }
 
   public state(key: ServerSetting): ServerSettingState | null {
     return this.settings?.settings.find((s) => s.key === key) ?? null;
   }
 
+  // Secrets can only be saved with a key to encrypt them with
   public locked(key: ServerSetting): boolean {
-    return this.state(key)?.source === 'environment';
+    return (
+      SecretServerSettings.includes(key) &&
+      this.settings?.encryption_key === null
+    );
+  }
+
+  public saved(key: ServerSetting): boolean {
+    return this.state(key)?.saved ?? false;
+  }
+
+  // What applies when nothing is saved here
+  private fallback(key: ServerSetting): string | null {
+    const state = this.state(key);
+    return state?.env_value ?? state?.default ?? null;
   }
 
   public placeholder(key: ServerSetting): string {
     const state = this.state(key);
     if (state === null) return '';
     if (SecretServerSettings.includes(key)) {
-      return state.source === 'settings' && !this.removeSecret
+      return state.saved && !this.removeSecrets.has(key)
         ? 'Saved, leave empty to keep it'
         : '';
     }
-    if (state.default === null) return '';
-    return key === ServerSetting.MaxFileSize
-      ? bytesToMb(state.default)
-      : state.default;
+    const fallback = this.fallback(key);
+    if (fallback === null) return '';
+    return key === ServerSetting.MaxFileSize ? bytesToMb(fallback) : fallback;
   }
 
   public error(key: ServerSetting): string {
@@ -224,8 +251,16 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     return this.driver === 'filesystem' || this.pathIsSet;
   }
 
-  public get secretIsSet(): boolean {
-    return this.state(ServerSetting.S3SecretAccessKey)?.set ?? false;
+  // Where the provider sends users back to, to be registered there
+  public get oidcRedirectUri(): string {
+    const override = this.infoService.snapshot.host_override;
+    let origin = window.location.origin;
+    try {
+      if (override) origin = new URL(override).origin;
+    } catch {
+      // The address of the page it is
+    }
+    return origin + '/user/oidc';
   }
 
   public get hasChanges(): boolean {
@@ -237,18 +272,14 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     const storage = this.storage;
     if (storage === null) return '';
 
-    const count = storage.files.database;
-    let text = `There ${count === 1 ? 'is' : 'are'} ${count} image ${count === 1 ? 'file' : 'files'} in the database`;
-    const others: string[] = [];
+    const counts = [`${storage.files.database} in the database`];
     if (storage.bucket !== null || storage.files.s3 > 0) {
-      others.push(`${storage.files.s3} in the bucket`);
+      counts.push(`${storage.files.s3} in the bucket`);
     }
     if (storage.path !== null || storage.files.filesystem > 0) {
-      others.push(`${storage.files.filesystem} in the directory`);
+      counts.push(`${storage.files.filesystem} in the directory`);
     }
-    if (others.length === 1) text += `, and ${others[0]}`;
-    if (others.length === 2) text += `, ${others[0]} and ${others[1]}`;
-    return text + '.';
+    return `Image files: ${counts.join(', ')}.`;
   }
 
   // Files that are not where new ones go
@@ -263,26 +294,62 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     return ((migration.moved + migration.failed) / migration.total) * 100;
   }
 
-  public toggleRemoveSecret() {
-    this.removeSecret = !this.removeSecret;
-    this.form.controls[ServerSetting.S3SecretAccessKey].setValue('');
+  // Removes what is saved for the settings environment variables set, so
+  // those apply again once saved
+  public useEnvironment() {
+    for (const env of this.overriddenEnv) {
+      const key = this.settings?.settings.find((s) => s.env === env)
+        ?.key as ServerSetting;
+      if (SecretServerSettings.includes(key)) {
+        this.removeSecrets.add(key);
+        this.form.controls[key].setValue('');
+        continue;
+      }
+      const control = this.form.controls[key];
+      control.setValue(
+        key === ServerSetting.StorageDriver || BoolServerSettings.includes(key)
+          ? (this.fallback(key) ?? '')
+          : '',
+      );
+      control.markAsDirty();
+      // Also when what is saved is what the environment sets
+      this.useEnv.add(key);
+    }
   }
 
-  // Empties all bucket settings, to be saved
+  public toggleRemoveSecret(key: ServerSetting) {
+    if (this.removeSecrets.has(key)) this.removeSecrets.delete(key);
+    else this.removeSecrets.add(key);
+    this.form.controls[key].setValue('');
+  }
+
+  public setToggle(key: ServerSetting, on: boolean) {
+    const control = this.form.controls[key];
+    control.setValue(on ? 'true' : 'false');
+    control.markAsDirty();
+  }
+
+  // Removes all saved bucket settings, to be saved
   public removeBucket() {
     for (const key of StorageSettings) {
       if (
         key === ServerSetting.StorageDriver ||
         key === ServerSetting.StoragePath ||
-        this.locked(key)
+        key === ServerSetting.S3SecretAccessKey
       ) {
         continue;
       }
       const control = this.form.controls[key];
-      control.setValue(key === ServerSetting.S3ForcePathStyle ? 'false' : '');
+      control.setValue(
+        key === ServerSetting.S3ForcePathStyle
+          ? (this.fallback(key) ?? 'false')
+          : '',
+      );
       control.markAsDirty();
     }
-    if (this.secretIsSet) this.removeSecret = true;
+    if (this.saved(ServerSetting.S3SecretAccessKey)) {
+      this.removeSecrets.add(ServerSetting.S3SecretAccessKey);
+    }
   }
 
   // Empties the directory setting, to be saved
@@ -309,14 +376,23 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     }
 
     this.showSettings(result);
-    if (!result.restart_needed) {
+    // Links to images use it
+    if (ServerSetting.HostOverride in changes) {
+      await this.infoService.updateInfo();
+    }
+    // Changes that take effect right away need no restart, even while
+    // earlier ones still wait for one
+    const restartFor = Object.keys(changes).some(
+      (key) => !LiveServerSettings.includes(key as ServerSetting),
+    );
+    if (!result.restart_needed || !restartFor) {
       this.errorService.success('Saved');
       return;
     }
     await this.promptRestart();
   }
 
-  async testStorage(storage: 's3' | 'filesystem') {
+  async testStorage(storage: ExternalStorageDriver) {
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
 
@@ -339,7 +415,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     if (result.driver === 'filesystem') this.pathWarning = result.warning;
     if (result.warning !== null) {
       this.errorService.warn(
-        `Images can be stored in ${where}, but look into the warning`,
+        `Images can be stored in ${where}, see the warning`,
         this.logger,
       );
       return;
@@ -351,17 +427,36 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     );
   }
 
+  async testOidc() {
+    this.form.markAllAsTouched();
+    if (this.form.invalid) return;
+
+    this.busy = 'testing';
+    this.testing = 'oidc';
+    const result = await this.serverSettings.testOidc(
+      this.changes(OidcSettings),
+    );
+    this.busy = null;
+    this.testing = null;
+    if (HasFailed(result)) {
+      return this.errorService.showFailure(result, this.logger);
+    }
+    this.errorService.success(`Found the provider ${result.issuer}`);
+  }
+
   async promptRestart() {
     if (this.settings === null || this.storage === null) return;
 
     // Where new images go once restarted
-    const next = AsDriver(this.state(ServerSetting.StorageDriver)?.value);
+    const next = AsDriver(
+      this.state(ServerSetting.StorageDriver)?.value ??
+        this.fallback(ServerSetting.StorageDriver),
+    );
     const toMove = next === this.storage.driver ? 0 : this.filesNotIn(next);
 
-    let description =
-      'Picsur is unavailable for a moment while it restarts, uploads in progress fail.';
+    let description = 'Picsur is unavailable for a moment while it restarts.';
     if (toMove > 0) {
-      description += ` There ${toMove === 1 ? 'is 1 image file' : `are ${toMove} image files`} stored elsewhere, which can be moved to ${StorageName(next)} after the restart.`;
+      description += ` ${toMove} image ${toMove === 1 ? 'file' : 'files'} can then be moved to ${StorageName(next)}.`;
     }
 
     const pressed = await this.dialogService.showDialog({
@@ -398,7 +493,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
     if (result.restart_error !== null) {
       this.errorService.warn(
-        'Picsur could not start with the new settings, it uses the previous ones',
+        'The restart failed, the previous settings are in use',
         this.logger,
       );
       return;
@@ -427,9 +522,27 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
   // Internals
 
+  private environmentValue(option: EnvironmentOption): string {
+    if (option.value !== null) {
+      return option.set ? option.value : `${option.value}, the default`;
+    }
+    // Secrets
+    if (option.set) return 'Set';
+    switch (option.env) {
+      case 'PICSUR_JWT_SECRET':
+        return 'Generated, kept in the database';
+      case 'PICSUR_ENCRYPTION_KEY':
+        return this.settings?.encryption_key === 'database'
+          ? 'Generated, kept in the database'
+          : 'None, secrets cannot be saved';
+      default:
+        return 'The default';
+    }
+  }
+
   private filesNotIn(driver: StorageDriver): number {
     if (this.storage === null) return 0;
-    return StorageDrivers.filter((other) => other !== driver).reduce(
+    return StorageDriverList.filter((other) => other !== driver).reduce(
       (total, other) => total + this.storage!.files[other],
       0,
     );
@@ -437,7 +550,8 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
   private showSettings(settings: ServerSettingsResponse) {
     this.settings = settings;
-    this.removeSecret = false;
+    this.removeSecrets.clear();
+    this.useEnv.clear();
     this.pathWarning = null;
     this.initial = {};
 
@@ -450,8 +564,8 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
       this.initial[key] = value;
       control.setValue(value);
       if (
-        state.source === 'environment' ||
-        (SecretServerSettings.includes(key) && settings.encryption_key === null)
+        SecretServerSettings.includes(key) &&
+        settings.encryption_key === null
       ) {
         control.disable();
       } else {
@@ -494,13 +608,15 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     this.migrationTimer = null;
   }
 
-  // What the form shows for a setting
+  // What the form shows for a setting: what is saved here, and for toggles
+  // (BoolServerSettings) and the select, which always have a value, what
+  // applies otherwise
   private formValue(key: ServerSetting, state: ServerSettingState): string {
+    const always = state.value ?? state.env_value ?? state.default ?? '';
+    if (BoolServerSettings.includes(key)) return always;
     switch (key) {
       case ServerSetting.StorageDriver:
-      case ServerSetting.S3ForcePathStyle:
-        // A select and a toggle, which always have a value
-        return state.value ?? state.default ?? '';
+        return always;
       case ServerSetting.MaxFileSize:
         return state.value === null ? '' : bytesToMb(state.value);
       default:
@@ -520,11 +636,13 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
       if (SecretServerSettings.includes(key)) {
         if (control.value !== '') changes[key] = control.value;
-        else if (this.removeSecret) changes[key] = null;
+        else if (this.removeSecrets.has(key)) changes[key] = null;
         continue;
       }
 
-      if (control.value === this.initial[key]) continue;
+      if (control.value === this.initial[key] && !this.useEnv.has(key)) {
+        continue;
+      }
       const input = control.value.trim();
       let value: string | null =
         input === ''
@@ -533,16 +651,17 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
             ? mbToBytes(input)
             : input;
 
-      // A select and a toggle can only go back to the default by choosing it
-      const state = this.state(key);
+      // The select and toggles show what applies without saving anything,
+      // choosing that saves nothing
       if (
         (key === ServerSetting.StorageDriver ||
-          key === ServerSetting.S3ForcePathStyle) &&
-        value === state?.default
+          BoolServerSettings.includes(key)) &&
+        value === this.fallback(key)
       ) {
         value = null;
       }
-      const stored = state?.source === 'settings' ? state.value : null;
+      const state = this.state(key);
+      const stored = state?.saved ? state.value : null;
       if (value !== stored) changes[key] = value;
     }
 

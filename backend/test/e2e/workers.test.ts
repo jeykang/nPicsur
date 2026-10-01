@@ -155,7 +155,7 @@ describe.skipIf(inject('dockerImage') !== null)('conversion workers', () => {
   });
 
   it.runIf(process.platform === 'linux')(
-    'can not use more memory than allowed',
+    'cannot use more memory than allowed',
     async () => {
       const pool = newPool();
       // Flipping needs the whole image in memory, 48 MB here

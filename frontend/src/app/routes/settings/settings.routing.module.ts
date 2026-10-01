@@ -22,7 +22,7 @@ const SettingsRoutes: PRoutes = [
         data: {
           permissions: [Permission.Settings],
           page: {
-            title: 'General',
+            title: 'Preferences',
             icon: 'settings',
             category: 'personal',
           },
@@ -48,7 +48,7 @@ const SettingsRoutes: PRoutes = [
         data: {
           permissions: [Permission.ApiKey],
           page: {
-            title: 'Api Keys',
+            title: 'API keys',
             icon: 'key',
             category: 'personal',
           },
@@ -93,18 +93,11 @@ const SettingsRoutes: PRoutes = [
           },
         },
       },
+      // The system settings are part of the server settings now
       {
         path: 'system',
-        loadChildren: () =>
-          import('./sys-pref/settings-sys-pref.module').then((m) => m.default),
-        data: {
-          permissions: [Permission.SysPrefAdmin],
-          page: {
-            title: 'System Settings',
-            icon: 'tune',
-            category: 'system',
-          },
-        },
+        pathMatch: 'full',
+        redirectTo: 'server',
       },
       {
         path: 'server',

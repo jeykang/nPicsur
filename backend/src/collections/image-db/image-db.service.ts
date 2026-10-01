@@ -144,14 +144,6 @@ export class ImageDBService {
     }
   }
 
-  public async count(): AsyncFailable<number> {
-    try {
-      return await this.imageRepo.count();
-    } catch (e) {
-      return Fail(FT.Database, e);
-    }
-  }
-
   public async update(
     id: string,
     userid: string | undefined,

@@ -4,6 +4,12 @@
 
 import { Logger, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import {
+  SecretServerSettings,
+  ServerSetting,
+  ServerSettingEnvName,
+  ServerSettingList,
+} from 'picsur-shared/dist/dto/server-settings.dto';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { ImageDBModule } from './collections/image-db/image-db.module.js';
 import { ImageDBService } from './collections/image-db/image-db.service.js';
@@ -16,7 +22,11 @@ import { ExternalStorageService } from './collections/external-storage/external-
 import { EarlyConfigModule } from './config/early/early-config.module.js';
 import { StorageConfigService } from './config/early/storage.config.service.js';
 import {
+  EnvServerSetting,
   LoadStoredServerSettings,
+  RemoveStoredServerSettings,
+  RunningStoredServerSettings,
+  ServerSettingDefault,
   UseStoredServerSettings,
 } from './config/server-settings.js';
 import { DatabaseModule } from './database/database.module.js';
@@ -27,7 +37,7 @@ Commands:
   storage status          Show where image data is stored
   storage migrate         Move image data to where new images are stored,
                           as set on the settings page or with
-                          PICSUR_STORAGE_DRIVER. Cached conversions stored
+                          PICSUR_STORAGE_DRIVER. Converted versions stored
                           elsewhere are dropped, they are made again when
                           needed. Can be run while Picsur is running.
   storage gc [--dry-run] [--min-age <seconds>]
@@ -39,12 +49,91 @@ Commands:
                           Delete the images of users that no longer exist.
                           Deleting a user deletes their images, but Picsur
                           0.5 kept them.
+  settings list           Show the server settings, and where each comes
+                          from: saved on the settings page, which comes
+                          first, an environment variable, or the default.
+  settings reset <setting>...
+                          Remove what is saved on the settings page for these
+                          settings, like password_login or
+                          PICSUR_PASSWORD_LOGIN, so their environment
+                          variable or default applies again. Takes effect
+                          when Picsur restarts.
 `;
 
 const commands: Record<string, string[]> = {
   storage: ['status', 'migrate', 'gc'],
   images: ['delete-orphaned'],
+  settings: ['list', 'reset'],
 };
+
+// Accepts both password_login and PICSUR_PASSWORD_LOGIN
+function settingByName(name: string): ServerSetting | null {
+  const key = name.toLowerCase().replace(/^picsur_/, '');
+  return ServerSettingList.find((setting) => setting === key) ?? null;
+}
+
+function listSettings() {
+  const saved = RunningStoredServerSettings();
+  const width = Math.max(...ServerSettingList.map((key) => key.length)) + 2;
+  for (const key of ServerSettingList) {
+    const env = ServerSettingEnvName(key);
+    const fromEnv = EnvServerSetting(key);
+    const secret = SecretServerSettings.includes(key);
+    const show = (value: string) => (secret ? '(secret)' : value);
+
+    let line: string;
+    if (saved.has(key)) {
+      line = `${show(saved.get(key)!)}, saved on the settings page`;
+      if (fromEnv !== undefined) line += `, before ${env}`;
+    } else if (fromEnv !== undefined) {
+      line = `${show(fromEnv)}, from ${env}`;
+    } else {
+      const fallback = ServerSettingDefault(key);
+      line = fallback === null ? 'not set' : `${fallback}, the default`;
+    }
+    console.log(key.padEnd(width) + line);
+  }
+}
+
+async function resetSettings(names: string[]): Promise<number> {
+  const keys: ServerSetting[] = [];
+  for (const name of names) {
+    const key = settingByName(name);
+    if (key === null) {
+      console.error(
+        `There is no setting "${name}", "settings list" shows them all`,
+      );
+      return 1;
+    }
+    keys.push(key);
+  }
+  if (keys.length === 0) {
+    console.log(usage);
+    return 1;
+  }
+
+  const removed = await RemoveStoredServerSettings(keys);
+  for (const key of keys) {
+    if (!removed.includes(key)) {
+      console.log(`${key}: nothing was saved`);
+      continue;
+    }
+    const fromEnv = EnvServerSetting(key);
+    const fallback = ServerSettingDefault(key);
+    console.log(
+      `${key}: removed, ` +
+        (fromEnv !== undefined
+          ? `${ServerSettingEnvName(key)} applies`
+          : fallback === null
+            ? 'it is not set'
+            : `the default (${fallback}) applies`),
+    );
+  }
+  if (removed.length > 0) {
+    console.log('Restart Picsur for this to take effect');
+  }
+  return 0;
+}
 
 @Module({
   imports: [EarlyConfigModule, DatabaseModule, ImageDBModule],
@@ -62,6 +151,14 @@ async function main(args: string[]): Promise<number> {
   }
 
   UseStoredServerSettings(await LoadStoredServerSettings());
+  if (group === 'settings') {
+    if (command === 'list') {
+      listSettings();
+      return 0;
+    }
+    return resetSettings(flags);
+  }
+
   const app = await NestFactory.createApplicationContext(CliModule, {
     logger: ['error', 'warn', 'log'],
   });
@@ -78,14 +175,14 @@ async function main(args: string[]): Promise<number> {
       const status = await maintenance.status();
       logger.log(`New images are stored in: ${driver}`);
       logger.log(`Image files: ${counted(status.files)}`);
-      logger.log(`Cached conversions: ${counted(status.derivatives)}`);
+      logger.log(`Converted versions: ${counted(status.derivatives)}`);
     } else if (command === 'migrate') {
       logger.log(`Moving all image data to: ${driver}`);
       const result = await maintenance.migrate();
       logger.log(
         `Done, moved ${result.moved} files (${formatBytes(
           result.movedBytes,
-        )}) and dropped ${result.droppedDerivatives} cached conversions`,
+        )}) and dropped ${result.droppedDerivatives} converted versions`,
       );
       if (result.failed > 0) {
         logger.error(

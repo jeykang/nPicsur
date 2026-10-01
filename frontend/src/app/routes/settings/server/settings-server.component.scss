@@ -44,10 +44,29 @@ h2 {
   margin-bottom: 16px;
 }
 
-.env-notice p {
-  margin: 0;
+.environment {
+  width: 100%;
+  margin-bottom: 24px;
+  border-collapse: collapse;
 
-  & + p {
-    margin-top: 8px;
+  th,
+  td {
+    padding: 8px 16px 8px 0;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+    overflow-wrap: anywhere;
+  }
+
+  th {
+    width: 50%;
+    font-weight: 500;
+  }
+
+  code {
+    display: block;
+    font-size: 12px;
+    font-weight: normal;
+    opacity: 0.7;
   }
 }

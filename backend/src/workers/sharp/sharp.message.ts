@@ -12,7 +12,6 @@ type MapSharpFunctions<T extends keyof Sharp> = T extends any
   : never;
 
 export type SupportedSharpWorkerFunctions =
-  | 'toColorspace'
   | 'resize'
   | 'rotate'
   | 'flip'
@@ -72,5 +71,5 @@ export type SharpWorkerSendMessage =
   | SharpWorkerOperationMessage
   | SharpWorkerFinishMessage;
 
-export type SharpWorkerRecieveMessage =
+export type SharpWorkerReceiveMessage =
   SharpWorkerResultMessage | SharpWorkerReadyMessage;

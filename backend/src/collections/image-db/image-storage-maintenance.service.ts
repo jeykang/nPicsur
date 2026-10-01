@@ -2,13 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import { FileType2Mime } from 'picsur-shared/dist/dto/mimes.dto';
-import { Failure, HasFailed } from 'picsur-shared/dist/types/failable';
-import { UUIDRegex } from 'picsur-shared/dist/util/common-regex';
-import { In, Repository } from 'typeorm';
 import {
   ExternalStorageDriver,
   StorageDriver,
-} from '../../config/early/storage.config.service.js';
+} from 'picsur-shared/dist/dto/storage-driver.enum';
+import { Failure, HasFailed } from 'picsur-shared/dist/types/failable';
+import { UUIDRegex } from 'picsur-shared/dist/util/common-regex';
+import { In, Repository } from 'typeorm';
 import { EImageDerivativeBackend } from '../../database/entities/images/image-derivative.entity.js';
 import { EImageFileBackend } from '../../database/entities/images/image-file.entity.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
@@ -176,7 +176,7 @@ export class ImageStorageMaintenanceService {
       return result;
     }
 
-    // Cached conversions stored elsewhere are dropped
+    // Converted versions stored elsewhere are dropped
     result.droppedDerivatives = await this.dropDerivatives(
       target === null
         ? 'storage IS NOT NULL'
@@ -186,7 +186,7 @@ export class ImageStorageMaintenanceService {
     return result;
   }
 
-  // Drops the cached conversions kept in this storage, when it is going to
+  // Drops the converted versions kept in this storage, when it is going to
   // be somewhere else
   public async dropDerivativesIn(
     driver: ExternalStorageDriver,
@@ -375,7 +375,7 @@ export class ImageStorageMaintenanceService {
       if (!storage?.isConfigured) continue;
       const deleted = await storage.delete(storageKeys);
       if (HasFailed(deleted)) {
-        deleted.print(this.logger, { prefix: 'Dropping derivatives:' });
+        deleted.print(this.logger, { prefix: 'Dropping converted versions:' });
       }
     }
 

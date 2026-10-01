@@ -65,7 +65,7 @@ describe('collecting garbage when idle', () => {
     expect(gc).toHaveBeenCalledTimes(2);
   });
 
-  it('does nothing when node can not collect garbage on request', () => {
+  it('does nothing when node cannot collect garbage on request', () => {
     const global = globalThis as { gc?: unknown };
     const exposed = global.gc;
     delete global.gc;

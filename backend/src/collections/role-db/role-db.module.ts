@@ -1,8 +1,6 @@
 import { Logger, Module, OnModuleInit } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
-import { EarlyConfigModule } from '../../config/early/early-config.module.js';
-import { HostConfigService } from '../../config/early/host.config.service.js';
 import { ERoleBackend } from '../../database/entities/users/role.entity.js';
 import {
   ImmutableRolesList,
@@ -12,35 +10,18 @@ import {
 import { RoleDbService } from './role-db.service.js';
 
 @Module({
-  imports: [EarlyConfigModule, TypeOrmModule.forFeature([ERoleBackend])],
+  imports: [TypeOrmModule.forFeature([ERoleBackend])],
   providers: [RoleDbService],
   exports: [RoleDbService],
 })
 export class RoleDbModule implements OnModuleInit {
   private readonly logger = new Logger(RoleDbModule.name);
 
-  constructor(
-    private readonly rolesService: RoleDbService,
-    private readonly hostConfig: HostConfigService,
-  ) {}
+  constructor(private readonly rolesService: RoleDbService) {}
 
   async onModuleInit() {
-    // Nuking roles in dev environment makes testing easier
-    // This ensures that the roles are always started with their default permissions
-    if (!this.hostConfig.isProduction()) {
-      //await this.nukeRoles();
-    }
-
     await this.ensureSystemRolesExist();
     await this.updateImmutableRoles();
-  }
-
-  private async nukeRoles() {
-    this.logger.warn('Nuking system roles');
-    const result = await this.rolesService.nukeSystemRoles(true);
-    if (HasFailed(result)) {
-      this.logger.error(`Failed to nuke roles because: ${result.getReason()}`);
-    }
   }
 
   private async ensureSystemRolesExist() {
@@ -67,7 +48,7 @@ export class RoleDbModule implements OnModuleInit {
   }
 
   private async updateImmutableRoles() {
-    // Immutable roles can not be updated via the gui
+    // Immutable roles cannot be updated via the gui
     // They therefore do have to be kept up to date from the backend
 
     for (const immutableRole of ImmutableRolesList) {

@@ -13,6 +13,7 @@ import { Fail, FT } from 'picsur-shared/dist/types/failable';
 import { debounceTime } from 'rxjs';
 import { ProcessingViewMeta } from '../../models/dto/processing-view-meta.dto';
 import { PermissionService } from '../../services/api/permission.service';
+import { UserService } from '../../services/api/user.service';
 import { Logger } from '../../services/logger/logger.service';
 import { ErrorService } from '../../util/error-manager/error.service';
 
@@ -32,8 +33,13 @@ export class UploadComponent implements OnInit {
   constructor(
     private readonly router: Router,
     private readonly permissionService: PermissionService,
+    private readonly userService: UserService,
     private readonly errorService: ErrorService,
   ) {}
+
+  public get loggedIn(): boolean {
+    return this.userService.isLoggedIn;
+  }
 
   ngOnInit(): void {
     this.onPermission();
@@ -44,7 +50,7 @@ export class UploadComponent implements OnInit {
   onFileChange() {
     return this.fileControl.valueChanges.subscribe((file) => {
       if (!file) return;
-      let files = Array.isArray(file) ? file : [file];
+      const files = Array.isArray(file) ? file : [file];
       const metadata: ProcessingViewMeta = new ProcessingViewMeta(files);
       this.router.navigate(['/processing'], { state: metadata });
     });

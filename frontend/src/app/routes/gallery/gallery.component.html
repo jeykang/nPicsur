@@ -5,10 +5,7 @@
 }
 
 @if (images !== null && images.length === 0) {
-  <p>
-    Nothing is shown here yet. Images show up here when whoever uploaded them
-    turns on "Show in the public gallery" while editing them.
-  </p>
+  <p>No images yet.</p>
 }
 
 @if (images !== null && images.length > 0) {
@@ -28,7 +25,7 @@
               mat-card-image
               class="clickable"
               [src]="getThumbnailUrl(image)"
-              alt="Image in the gallery"
+              [alt]="image.file_name"
               (click)="viewImage(image)"
             >
             </picsur-img>

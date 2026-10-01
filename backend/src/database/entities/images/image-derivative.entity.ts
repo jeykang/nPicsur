@@ -1,3 +1,4 @@
+import type { ExternalStorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import {
   Check,
   Column,
@@ -8,7 +9,6 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import type { ExternalStorageDriver } from '../../../config/early/storage.config.service.js';
 import { EImageBackend } from './image.entity.js';
 
 @Entity()
@@ -22,7 +22,7 @@ export class EImageDerivativeBackend {
 
   // We do a little trickery
   @Index()
-  @ManyToOne(() => EImageBackend, (image) => image.derivatives, {
+  @ManyToOne(() => EImageBackend, {
     nullable: false,
     onDelete: 'CASCADE',
   })
@@ -48,12 +48,12 @@ export class EImageDerivativeBackend {
   })
   last_read: Date;
 
-  // The converted image, when it is stored in the database. Never loaded
+  // The converted version, when it is stored in the database. Never loaded
   // unless explicitly asked for, it can be large.
   @Column({ type: 'bytea', nullable: true, select: false })
   data?: Buffer | null;
 
-  // Where the converted image is stored instead, when it is not in the
+  // Where the converted version is stored instead, when it is not in the
   // database: in which storage, and under which key there
   @Column({ type: 'varchar', nullable: true })
   storage: ExternalStorageDriver | null;

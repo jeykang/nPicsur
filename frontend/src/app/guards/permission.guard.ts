@@ -34,7 +34,7 @@ export class PermissionGuard implements CanActivate, CanActivateChild {
   private async can(route: ActivatedRouteSnapshot) {
     const requiredPermissions: string[] = this.nestedPermissions(route);
 
-    // This waits for as long as the server can not be reached
+    // This waits for as long as the server cannot be reached
     const ourPermissions = await this.permissionService.getLoadedSnapshot();
     const weHavePermission = requiredPermissions.every((permission) =>
       ourPermissions.includes(permission),

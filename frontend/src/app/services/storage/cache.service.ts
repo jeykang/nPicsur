@@ -55,7 +55,7 @@ export class CacheService {
         return data.data;
       }
       return null;
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -79,35 +79,6 @@ export class CacheService {
       this.set(key, result);
       return result;
     }
-
-    return finalFallback;
-  }
-
-  public getFallbackSync<T>(
-    key: string,
-    finalFallback: T,
-    ...fallbacks: Array<(key: string) => AsyncFailable<T> | Failable<T>>
-  ): T {
-    const cached = this.get<T>(key);
-    if (cached !== null) {
-      return cached;
-    }
-
-    const background = async () => {
-      for (const fallback of fallbacks) {
-        const result = await fallback(key);
-        if (HasFailed(result)) {
-          continue;
-        }
-
-        this.set(key, result);
-        return result;
-      }
-
-      return finalFallback;
-    };
-
-    background().catch((e) => this.logger.error(e));
 
     return finalFallback;
   }

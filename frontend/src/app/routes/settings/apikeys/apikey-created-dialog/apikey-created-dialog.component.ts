@@ -30,11 +30,11 @@ export class ApiKeyCreatedDialogComponent {
   async copy() {
     if (!(await this.clipboard.copy(this.data.key))) {
       return this.errorService.showFailure(
-        Fail(FT.Internal, 'Failed to copy api key to clipboard'),
+        Fail(FT.Internal, 'Failed to copy the API key to the clipboard'),
         this.logger,
       );
     }
-    this.errorService.success('Api key copied to clipboard');
+    this.errorService.success('API key copied to the clipboard');
   }
 
   close() {

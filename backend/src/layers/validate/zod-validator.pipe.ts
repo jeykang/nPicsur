@@ -13,17 +13,14 @@ import { Fail, FT } from 'picsur-shared/dist/types/failable';
 import { ZodDtoStatic } from 'picsur-shared/dist/util/create-zod-dto';
 
 export interface ZodValidationPipeOptions {
-  strict?: boolean;
   validateCustom?: boolean;
 }
 
 @Injectable()
 export class ZodValidationPipe implements PipeTransform {
-  private strict: boolean;
   private validateCustom: boolean;
 
   constructor(@Optional() options?: ZodValidationPipeOptions) {
-    this.strict = options?.strict ?? true;
     this.validateCustom = options?.validateCustom ?? false;
   }
 

@@ -3,8 +3,6 @@ import {
   ApiKeyCreateResponse,
   ApiKeyDeleteRequest,
   ApiKeyDeleteResponse,
-  ApiKeyInfoRequest,
-  ApiKeyInfoResponse,
   ApiKeyListRequest,
   ApiKeyListResponse,
   ApiKeyUpdateRequest,
@@ -34,17 +32,6 @@ export class ApiKeysService {
         count,
         page,
         user_id: userID,
-      },
-    ).result;
-  }
-
-  public async getApiKey(id: string): AsyncFailable<EApiKey> {
-    return await this.api.post(
-      ApiKeyInfoRequest,
-      ApiKeyInfoResponse,
-      '/api/apikeys/info',
-      {
-        id,
       },
     ).result;
   }

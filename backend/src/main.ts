@@ -20,7 +20,9 @@ import {
   SaveStoredServerSettings,
   StoredServerSettings,
   UseStoredServerSettings,
+  WithLiveServerSettings,
 } from './config/server-settings.js';
+import { MigrateDatabase } from './database/migrate.js';
 import { MainExceptionFilter } from './layers/exception/exception.filter.js';
 import { registerFrontend } from './layers/http/frontend.js';
 import { registerImageHeaders } from './layers/http/image-headers.js';
@@ -128,13 +130,19 @@ async function shutdown(app: NestFastifyApplication) {
   }
 }
 
+// The database is brought up to date first, as migrations can move settings
+async function loadSettings(): Promise<StoredServerSettings> {
+  await MigrateDatabase();
+  return LoadStoredServerSettings();
+}
+
 // Starts Picsur, and starts it again with the stored settings whenever that
 // is asked for on the settings page
 async function main() {
   const logger = new Logger('Picsur');
   CollectGarbageWhenIdle();
 
-  let settings = await LoadStoredServerSettings();
+  let settings = await loadSettings();
   let app = await bootstrap(settings);
 
   for (;;) {
@@ -143,20 +151,24 @@ async function main() {
     await shutdown(app);
 
     const previous = settings;
+    let next: StoredServerSettings | undefined;
     try {
-      settings = await LoadStoredServerSettings();
-      app = await bootstrap(settings);
+      next = await loadSettings();
+      app = await bootstrap(next);
+      settings = next;
       SetRestartError(null);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       logger.error(
         `Could not start with the new server settings, going back to the previous ones: ${message}`,
       );
-      settings = previous;
-      await SaveStoredServerSettings(previous).catch((saveError) =>
+      // Those that take effect when saved were in use already, they stay
+      settings =
+        next === undefined ? previous : WithLiveServerSettings(previous, next);
+      await SaveStoredServerSettings(settings).catch((saveError) =>
         logger.error(`Could not store the previous settings: ${saveError}`),
       );
-      app = await bootstrap(previous);
+      app = await bootstrap(settings);
       SetRestartError(message);
     }
   }

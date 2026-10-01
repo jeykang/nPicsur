@@ -1,9 +1,4 @@
 <h1>Server</h1>
-<p>
-  Where images are stored, and other settings of the server itself. Changes take
-  effect when Picsur restarts, which can be done from here. Settings made with
-  environment variables can only be changed there.
-</p>
 
 <!-- A text field for a setting -->
 <ng-template #field let-key let-type="type" let-mode="inputmode">
@@ -27,11 +22,27 @@
     @if (locked(key)) {
       <mat-icon matSuffix>lock</mat-icon>
     }
-    <mat-hint>{{ hint(key) }}</mat-hint>
+    @if (hint(key); as text) {
+      <mat-hint>{{ text }}</mat-hint>
+    }
     @if (control(key).invalid) {
       <mat-error>{{ error(key) }}</mat-error>
     }
   </mat-form-field>
+</ng-template>
+
+<!-- A toggle for a setting that is true or false -->
+<ng-template #toggle let-key>
+  <mat-slide-toggle
+    [checked]="control(key).value === 'true'"
+    [disabled]="locked(key)"
+    (change)="setToggle(key, $event.checked)"
+  >
+    {{ name(key) }}
+  </mat-slide-toggle>
+  @if (hint(key); as text) {
+    <p class="hint">{{ text }}</p>
+  }
 </ng-template>
 
 @if (loadFailure) {
@@ -49,9 +60,7 @@
     <mat-card appearance="outlined" class="notice">
       <mat-card-content class="notice-content">
         <mat-icon>restart_alt</mat-icon>
-        <span class="grow">
-          Some changes take effect when Picsur restarts.
-        </span>
+        <span class="grow">Restart Picsur to apply the changes.</span>
         <button
           mat-raised-button
           color="primary"
@@ -69,58 +78,39 @@
       <mat-card-content class="notice-content">
         <mat-icon color="warn">error_outline</mat-icon>
         <span class="grow">
-          Picsur could not start with the last changes, so it went back to the
-          settings it had before: {{ settings.restart_error }}
+          The last restart failed, the previous settings are in use:
+          {{ settings.restart_error }}
         </span>
       </mat-card-content>
     </mat-card>
   }
 
-  @if (removableEnv.length > 0 || keptEnv.length > 0) {
-    <mat-card appearance="outlined" class="notice env-notice">
+  @if (overriddenEnv.length > 0) {
+    <mat-card appearance="outlined" class="notice">
       <mat-card-content class="notice-content">
         <mat-icon>settings_suggest</mat-icon>
-        <div class="grow">
-          @if (removableEnv.length > 0) {
-            <p>
-              Settings from environment variables are saved here as well, so
-              these variables can be removed from Picsur's configuration:
-              @for (env of removableEnv; track env; let last = $last) {
-                <code>{{ env }}</code
-                >{{ last ? '.' : ', ' }}
-              }
-              Once they are removed and the container is restarted, these
-              settings can be changed on this page.
-            </p>
+        <span class="grow">
+          Saved here instead of the environment:
+          @for (env of overriddenEnv; track env; let last = $last) {
+            <code>{{ env }}</code
+            >{{ last ? '' : ', ' }}
           }
-          @for (kept of keptEnv; track kept.env) {
-            <p>
-              Keep <code>{{ kept.env }}</code
-              >, {{ kept.reason }}.
-            </p>
-          }
-        </div>
+        </span>
+        <button
+          mat-stroked-button
+          type="button"
+          [disabled]="busy !== null"
+          (click)="useEnvironment()"
+        >
+          USE THE ENVIRONMENT
+        </button>
       </mat-card-content>
     </mat-card>
   }
 
   <form (ngSubmit)="save()">
     <h2>Image storage</h2>
-    <p>
-      New images are stored in
-      @switch (storage.driver) {
-        @case ('s3') {
-          the bucket "{{ storage.bucket }}".
-        }
-        @case ('filesystem') {
-          the directory "{{ storage.path }}".
-        }
-        @default {
-          the database.
-        }
-      }
-      {{ fileCounts }}
-    </p>
+    <p>{{ fileCounts }}</p>
 
     @if (storage.warning) {
       <mat-card appearance="outlined" class="notice">
@@ -168,9 +158,8 @@
             <mat-icon>drive_file_move</mat-icon>
             <span class="grow">
               {{ filesElsewhere }} image
-              {{ filesElsewhere === 1 ? 'file is' : 'files are' }} still stored
-              elsewhere. They can be moved to {{ storageName(storage.driver) }},
-              Picsur keeps working in the meantime.
+              {{ filesElsewhere === 1 ? 'file is' : 'files are' }} stored
+              elsewhere.
             </span>
             <button
               mat-raised-button
@@ -179,7 +168,7 @@
               [disabled]="busy !== null"
               (click)="startMigration()"
             >
-              MOVE THEM
+              MOVE TO {{ storageName(storage.driver) | uppercase }}
             </button>
           </mat-card-content>
         </mat-card>
@@ -195,18 +184,14 @@
             <mat-option value="s3">S3 compatible object storage</mat-option>
             <mat-option value="filesystem">A directory on disk</mat-option>
           </mat-select>
-          <mat-hint>{{ hint(S.StorageDriver) }}</mat-hint>
         </mat-form-field>
       </div>
     </div>
 
     @if (showBucket) {
       @if (driver !== 's3' && bucketIsSet) {
-        <p>
-          Images stored in this bucket before can still be viewed. Once they are
-          moved elsewhere, the bucket can be removed.
-        </p>
-        @if (!locked(S.S3Bucket)) {
+        <p>Still used for the images stored there.</p>
+        @if (saved(S.S3Bucket)) {
           <button
             mat-stroked-button
             type="button"
@@ -251,32 +236,34 @@
               context: { $implicit: S.S3SecretAccessKey, type: 'password' }
             "
           ></ng-container>
-          @if (secretIsSet && !locked(S.S3SecretAccessKey)) {
-            <button mat-button type="button" (click)="toggleRemoveSecret()">
-              {{ removeSecret ? 'KEEP THE SAVED SECRET' : 'REMOVE THE SECRET' }}
+          @if (saved(S.S3SecretAccessKey) && !locked(S.S3SecretAccessKey)) {
+            <button
+              mat-button
+              type="button"
+              (click)="toggleRemoveSecret(S.S3SecretAccessKey)"
+            >
+              {{
+                removeSecrets.has(S.S3SecretAccessKey)
+                  ? 'KEEP THE SAVED SECRET'
+                  : 'REMOVE THE SAVED SECRET'
+              }}
             </button>
           }
         </div>
         <div class="col-12 toggle">
-          <mat-slide-toggle
-            [checked]="control(S.S3ForcePathStyle).value === 'true'"
-            [disabled]="locked(S.S3ForcePathStyle)"
-            (change)="
-              control(S.S3ForcePathStyle).setValue(
-                $event.checked ? 'true' : 'false'
-              )
+          <ng-container
+            *ngTemplateOutlet="
+              toggle;
+              context: { $implicit: S.S3ForcePathStyle }
             "
-          >
-            {{ name(S.S3ForcePathStyle) }}
-          </mat-slide-toggle>
-          <p class="hint">{{ hint(S.S3ForcePathStyle) }}</p>
+          ></ng-container>
         </div>
       </div>
       <button
         mat-stroked-button
         type="button"
         [disabled]="busy !== null"
-        (click)="testStorage('s3')"
+        (click)="testStorage(Driver.S3)"
       >
         {{ testing === 's3' ? 'TESTING...' : 'TEST THE BUCKET' }}
       </button>
@@ -284,11 +271,8 @@
 
     @if (showPath) {
       @if (driver !== 'filesystem' && pathIsSet) {
-        <p>
-          Images stored in this directory before can still be viewed. Once they
-          are moved elsewhere, Picsur can stop using the directory.
-        </p>
-        @if (!locked(S.StoragePath)) {
+        <p>Still used for the images stored there.</p>
+        @if (saved(S.StoragePath)) {
           <button
             mat-stroked-button
             type="button"
@@ -319,7 +303,7 @@
         mat-stroked-button
         type="button"
         [disabled]="busy !== null"
-        (click)="testStorage('filesystem')"
+        (click)="testStorage(Driver.Filesystem)"
       >
         {{ testing === 'filesystem' ? 'TESTING...' : 'TEST THE DIRECTORY' }}
       </button>
@@ -354,13 +338,167 @@
           "
         ></ng-container>
       </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: { $implicit: S.ConversionTimeLimit }
+          "
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: {
+              $implicit: S.ConversionMemoryLimit,
+              inputmode: 'numeric',
+            }
+          "
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: { $implicit: S.RemoveDerivativesAfter }
+          "
+        ></ng-container>
+      </div>
+      <div class="col-12 toggle">
+        <ng-container
+          *ngTemplateOutlet="toggle; context: { $implicit: S.AllowEditing }"
+        ></ng-container>
+      </div>
     </div>
 
     <h2>Network</h2>
     <div class="row">
       <div class="col-12">
         <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.HostOverride }"
+        ></ng-container>
+      </div>
+      <div class="col-12">
+        <ng-container
           *ngTemplateOutlet="field; context: { $implicit: S.TrustProxy }"
+        ></ng-container>
+      </div>
+    </div>
+
+    <h2>Logging in</h2>
+    <div class="row">
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.JwtExpiry }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: { $implicit: S.BCryptStrength, inputmode: 'numeric' }
+          "
+        ></ng-container>
+      </div>
+    </div>
+    <h3>OpenID Connect</h3>
+    <p>
+      Redirect URI for the provider: <code>{{ oidcRedirectUri }}</code>
+    </p>
+    <div class="row">
+      <div class="col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.OidcIssuer }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.OidcClientId }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12 secret">
+        <ng-container
+          *ngTemplateOutlet="
+            field;
+            context: { $implicit: S.OidcClientSecret, type: 'password' }
+          "
+        ></ng-container>
+        @if (saved(S.OidcClientSecret) && !locked(S.OidcClientSecret)) {
+          <button
+            mat-button
+            type="button"
+            (click)="toggleRemoveSecret(S.OidcClientSecret)"
+          >
+            {{
+              removeSecrets.has(S.OidcClientSecret)
+                ? 'KEEP THE SAVED SECRET'
+                : 'REMOVE THE SAVED SECRET'
+            }}
+          </button>
+        }
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.OidcName }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.OidcScope }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.OidcUsernameClaim }"
+        ></ng-container>
+      </div>
+      <div class="col-12 toggle">
+        <ng-container
+          *ngTemplateOutlet="toggle; context: { $implicit: S.OidcAutoRegister }"
+        ></ng-container>
+      </div>
+      <div class="col-12 toggle">
+        <ng-container
+          *ngTemplateOutlet="toggle; context: { $implicit: S.OidcAutoLaunch }"
+        ></ng-container>
+      </div>
+      <div class="col-12 toggle">
+        <ng-container
+          *ngTemplateOutlet="toggle; context: { $implicit: S.PasswordLogin }"
+        ></ng-container>
+      </div>
+    </div>
+    <div>
+      <button
+        mat-stroked-button
+        type="button"
+        [disabled]="busy !== null"
+        (click)="testOidc()"
+      >
+        {{ testing === 'oidc' ? 'TESTING...' : 'TEST THE PROVIDER' }}
+      </button>
+    </div>
+
+    <h2>Counting visits</h2>
+    <div class="row">
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.TrackingUrl }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.TrackingId }"
+        ></ng-container>
+      </div>
+    </div>
+
+    <h2>Logging</h2>
+    <div class="row">
+      <div class="col-12 toggle">
+        <ng-container
+          *ngTemplateOutlet="toggle; context: { $implicit: S.Verbose }"
         ></ng-container>
       </div>
     </div>
@@ -378,4 +516,17 @@
       </div>
     </div>
   </form>
+
+  <h2>Set with environment variables</h2>
+  <table class="environment">
+    @for (option of environment; track option.env) {
+      <tr>
+        <th scope="row">
+          {{ option.name }}
+          <code>{{ option.env }}</code>
+        </th>
+        <td>{{ option.value }}</td>
+      </tr>
+    }
+  </table>
 }

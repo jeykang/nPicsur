@@ -75,9 +75,9 @@ export class RegisterComponent implements OnInit {
         return this.errorService.showFailure(loginResult, this.logger);
       }
 
-      this.errorService.success('Register successful');
+      this.errorService.success('Registered and logged in');
     } else {
-      this.errorService.success('Register successful, did not log in');
+      this.errorService.success('Registered, log in to continue');
     }
 
     this.loading = false;

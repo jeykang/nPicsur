@@ -11,7 +11,7 @@ import { dirname, join } from 'node:path';
 import pg from 'pg';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { spawnBackend } from './helpers/backend.js';
+import { cli } from './helpers/cli.js';
 import {
   Client,
   createUser,
@@ -51,21 +51,6 @@ const prefix = (env['PICSUR_S3_PREFIX'] ?? '')
   .replace(/^(.+?)\/*$/, '$1/');
 
 // Runs the command line tool against the test database and bucket
-function cli(args: string[], envOverrides: Record<string, string> = {}) {
-  return new Promise<{ code: number; output: string }>((done) => {
-    const child = spawnBackend(
-      'cli',
-      args,
-      { ...env, ...envOverrides },
-      inject('dockerImage'),
-    );
-    let output = '';
-    child.stdout.on('data', (d) => (output += d));
-    child.stderr.on('data', (d) => (output += d));
-    child.on('close', (code) => done({ code: code ?? -1, output }));
-  });
-}
-
 describe('image storage', () => {
   let db: pg.Client;
   let s3: S3Client;
@@ -187,7 +172,7 @@ describe('image storage', () => {
     }
   });
 
-  it('stores originals and cached conversions the same way', async () => {
+  it('stores originals and converted versions the same way', async () => {
     const user = await Client.admin();
     expectSuccess(
       await user.post('/api/pref/usr/keep_original', { value: true }),
@@ -258,7 +243,7 @@ describe('image storage', () => {
     expect(await derivativeRows(still.id)).toEqual([]);
   });
 
-  it('keeps at most 50 cached conversions per image', async () => {
+  it('keeps at most 50 converted versions per image', async () => {
     const { id } = await client.uploadOk(await makePng(20, 20));
     for (let width = 1; width <= 55; width++) {
       const res = await Client.guest().get(`/i/${id}.png?width=${width}`);
@@ -358,7 +343,7 @@ describe('image storage', () => {
   }
 
   it.runIf(s3IsTarget || (diskIsTarget && diskConfigured))(
-    'makes cached conversions again when their data went missing',
+    'makes converted versions again when their data went missing',
     async () => {
       const { id } = await client.uploadOk(await makePng(40, 20));
       const first = await Client.guest().get(`/i/${id}.png?width=20`);
@@ -412,7 +397,7 @@ describe('image storage', () => {
           in_db: true,
           storage_key: null,
         });
-        // Cached conversions in the bucket were dropped
+        // Converted versions in the bucket were dropped
         expect(await derivativeRows(id)).toEqual([]);
         expect(await objectKeys(id)).toEqual([]);
       }

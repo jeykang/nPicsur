@@ -4,12 +4,13 @@
 
 ### New
 
-- A settings page for the server itself, under Settings → Server: where images are stored, including the S3 connection and a way to test it, the upload size, the conversion limits and the trusted proxies. Picsur restarts itself to apply them, and goes back to the settings it had before when it can not start with the new ones. Environment variables still work and take precedence, the page shows those settings but can not change them.
-- Settings made with environment variables are saved on that page as well, so the variables can be removed to manage the settings there instead, without anything changing. The page lists the variables that can go.
+- A settings page for the server itself, under Settings → Server: where images are stored, including the S3 connection and a way to test it, the upload size, the conversion limits and the trusted proxies. Picsur restarts itself to apply them, and goes back to the settings it had before when it cannot start with the new ones. Environment variables still work, for what is not saved on the page: what is saved there comes first. The page lists the variables that are not used because of that, and can go back to them.
+- `node dist/cli.js settings list` shows where each of those settings comes from, and `node dist/cli.js settings reset <setting>` removes what is saved for it, so its environment variable or default applies again.
 - Secrets saved on that page are encrypted. By default with a generated key that is kept in the database. The new `PICSUR_ENCRYPTION_KEY` keeps the key out of the database, which protects secrets from copies of it as well. Secrets saved before it was set are encrypted with it when Picsur starts.
 - Images can be moved between the database and S3 from that page, which shows how far along it is. Picsur keeps working in the meantime.
 - The command line tool uses the settings from the page as well.
 - APNG, ICO and TGA images can be uploaded, and any image can be converted to them. Animated PNGs stay animated, also when converted to GIF or WebP and the other way around, and are kept as they were uploaded, like PNG images. Icons are read from their largest image, and written with images of at most 256 pixels. TGA images are read in all their variants, including run length encoded and color-mapped ones.
+- Logging in with an OpenID Connect provider, like Authelia, Authentik or Keycloak, set up on the settings page or with `PICSUR_OIDC_*` variables. Users link their account at the provider to their account here, or get an account the first time they log in when that is turned on. Password login can be turned off once the admin's own account is linked, and turned on again with `node dist/cli.js settings reset password_login`. See [Logging in with OpenID Connect](README.md#logging-in-with-openid-connect).
 - Images can be stored as files in a directory, besides the database and S3, with `PICSUR_STORAGE_DRIVER=filesystem` and `PICSUR_STORAGE_PATH`, or on the settings page. The Docker image has `/picsur/images` ready for a volume, and the settings page warns when the directory is not on one. Images can be moved between any of the three, and `storage gc` cleans up the directory too.
 
 ### Faster
@@ -23,8 +24,22 @@
 
 - Picsur gives back the memory it took while it was busy once it is idle again, instead of keeping it until it restarts, and takes less of it while busy. Measured with the Docker image: 120 MB when idle instead of 160 MB, about 250 MB instead of 390 MB while handling a lot of requests, and back to about 140 MB within half a minute after. Outside the Docker image, this needs Node to be started with `--expose-gc`, see the `start:prod` script.
 
+### Changed
+
+- The System Settings page is part of Settings → Server, which has every setting of the server now, and what was set on it is moved over when Picsur first starts. Each of these can be set with an environment variable as well: `PICSUR_CONVERSION_TIME_LIMIT`, `PICSUR_CONVERSION_MEMORY_LIMIT`, `PICSUR_ALLOW_EDITING`, `PICSUR_REMOVE_DERIVATIVES_AFTER`, `PICSUR_HOST_OVERRIDE`, `PICSUR_BCRYPT_STRENGTH`, `PICSUR_TRACKING_URL` and `PICSUR_TRACKING_ID`. They take effect as soon as they are saved, as before, and so does how long logins last, which used to need a restart.
+- What is saved on the settings page comes before `PICSUR_JWT_EXPIRY` as well, which used to come first. `PICSUR_VERBOSE` can be set on the page too.
+- The settings page shows what can only be set with environment variables, like the database connection.
+- Settings that are true or false take `yes`, `no`, `1` and `0` in the environment as well, like `PICSUR_VERBOSE` always did.
+- Visits are only counted with Ackee when both its address and the website id are set. The setting to turn counting on did nothing, and is gone.
+
 ### Fixed
 
+- Images set to expire after 6 hours expired after 2.
+- Role names that were not accepted were refused with the messages for usernames, like "Username is too short".
+- The upload page asked users who were logged in, but not allowed to upload, to log in.
+- Images had no alt text for screen readers. They now have their title as alt text, and album covers say which album they are the cover of.
+- In the customize dialog, a width, height or quality the server does not accept left every option out of the address, instead of only that one.
+- Link previews of the pages of an instance said they were picsur.org, with the logo from there.
 - Photos were shown sideways when their EXIF orientation said to turn them, like phones do for photos taken upright. Animations are turned as well, each frame by itself. Images uploaded before stay as they are.
 - Conversion memory limits above about 1.5 GB were not applied as set: depending on the value, conversions had no memory limit at all, a much lower one, or could not run at all.
 - Animations could not be turned a quarter with `rotate=90` or `rotate=270` in the url, and turning them upside down with `rotate=180` or mirroring them with `flipy` played them backwards.

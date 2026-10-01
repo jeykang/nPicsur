@@ -23,7 +23,6 @@ import { ParseMime2FileType } from 'picsur-shared/dist/util/parse-mime';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { z } from 'zod';
 import { ApiBuffer } from '../../models/dto/api-buffer.dto';
-import { ApiError } from '../../models/dto/api-error.dto';
 import { MultiPartRequest } from '../../models/dto/multi-part-request.dto';
 import { Logger } from '../logger/logger.service';
 import { KeyStorageService } from '../storage/key-storage.service';
@@ -63,7 +62,7 @@ function ApiFailure(type: string, message: string): Failure {
 // proxy in front of it
 function DescribeStatus(status: number): string {
   if (status === 413) return 'The file is too large';
-  if (status >= 502 && status <= 504) return 'The server can not be reached';
+  if (status >= 502 && status <= 504) return 'The server cannot be reached';
   return `The server answered with status ${status}`;
 }
 
@@ -74,7 +73,6 @@ function CreateFailedRunningRequest<R>(failure: Failure) {
     uploadProgress: subject.asObservable(),
     downloadProgress: subject.asObservable(),
     result: Promise.resolve(failure),
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     cancel: () => {},
   } as RunningRequest<R>;
 }
@@ -84,12 +82,6 @@ function CreateFailedRunningRequest<R>(failure: Failure) {
 })
 export class ApiService {
   private readonly logger = new Logger(ApiService.name);
-
-  private errorSubject = new Subject<ApiError>();
-
-  public get networkErrors() {
-    return this.errorSubject.asObservable();
-  }
 
   constructor(
     private readonly keyService: KeyStorageService,
@@ -137,6 +129,13 @@ export class ApiService {
     url: string,
   ): RunningRequest<z.infer<T>> {
     return this.fetchSafeJson(type, url, { method: 'POST' });
+  }
+
+  public delete<T extends z.AnyZodObject>(
+    type: ZodDtoStatic<T>,
+    url: string,
+  ): RunningRequest<z.infer<T>> {
+    return this.fetchSafeJson(type, url, { method: 'DELETE' });
   }
 
   public postForm<T extends z.AnyZodObject>(

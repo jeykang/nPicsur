@@ -37,14 +37,13 @@ export class AppComponent implements OnInit {
   loading = false;
   private loadingTimeout: number | null = null;
 
-  wrapContentWithContainer = true;
   sidebarPortal: Portal<any> | undefined = undefined;
 
   isDesktop = false;
   hasSidebar = false;
 
   // Nothing works without knowing what we are allowed to do, so the page is
-  // replaced by an error while that can not be loaded
+  // replaced by an error while that cannot be loaded
   loadFailure: Failure | null = null;
   retrying = false;
 
@@ -53,10 +52,9 @@ export class AppComponent implements OnInit {
     private readonly activatedRoute: ActivatedRoute,
     private readonly bootstrapService: BootstrapService,
     private readonly permissionService: PermissionService,
-    usageService: UsageService,
-  ) {
-    usageService;
-  }
+    // Not used here, injecting it is what starts it
+    private readonly usageService: UsageService,
+  ) {}
 
   public async retry() {
     this.retrying = true;
@@ -115,7 +113,6 @@ export class AppComponent implements OnInit {
 
   private async onNavigationEnd() {
     const data = this.routeData;
-    this.wrapContentWithContainer = !data.noContainer;
 
     if (data._sidebar_portal !== undefined) {
       this.sidebarPortal = data._sidebar_portal;

@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import {
+  OidcTestRequest,
+  OidcTestResponse,
   ServerRestartResponse,
   ServerSettingsResponse,
   ServerSettingsUpdateRequest,
@@ -7,6 +9,7 @@ import {
   StorageTestRequest,
   StorageTestResponse,
 } from 'picsur-shared/dist/dto/api/server.dto';
+import { ExternalStorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import {
   AsyncFailable,
   Fail,
@@ -40,17 +43,28 @@ export class ServerSettingsService {
     ).result;
   }
 
-  // Tries out the storage the given changes would result in
-  // Tries out the bucket or the directory
+  // Tries out the bucket or the directory the given changes would result in
   public testStorage(
     values: Record<string, string | null>,
-    storage: 's3' | 'filesystem',
+    storage: ExternalStorageDriver,
   ): AsyncFailable<StorageTestResponse> {
     return this.api.post(
       StorageTestRequest,
       StorageTestResponse,
       '/api/server/settings/test-storage',
       { values, storage },
+    ).result;
+  }
+
+  // Tries out the OpenID Connect provider the given changes would result in
+  public testOidc(
+    values: Record<string, string | null>,
+  ): AsyncFailable<OidcTestResponse> {
+    return this.api.post(
+      OidcTestRequest,
+      OidcTestResponse,
+      '/api/server/settings/test-oidc',
+      { values },
     ).result;
   }
 

@@ -12,7 +12,7 @@ import { SharpWorkerPool, SharpWorkerProcess } from './sharp.pool.js';
 import {
   SharpWorkerFinishOptions,
   SharpWorkerOperation,
-  SharpWorkerRecieveMessage,
+  SharpWorkerReceiveMessage,
   SharpWorkerResultMessage,
   SharpWorkerSendMessage,
   SupportedSharpWorkerFunctions,
@@ -139,7 +139,7 @@ export class SharpWrapper {
         }
       };
 
-      const onMessage = (message: SharpWorkerRecieveMessage) => {
+      const onMessage = (message: SharpWorkerReceiveMessage) => {
         if (message.type === 'result') done(null, message);
         else done(new Error(`Unexpected message from worker: ${message.type}`));
       };

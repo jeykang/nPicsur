@@ -1,17 +1,19 @@
 import { Injectable } from '@angular/core';
-import { decodeToken } from '@leteu/jwt-decoder';
 import {
   UserChangePasswordRequest,
   UserChangePasswordResponse,
   UserCheckNameRequest,
   UserCheckNameResponse,
+  UserLoginMethodsResponse,
   UserLoginRequest,
   UserLoginResponse,
   UserMeResponse,
+  UserOidcCallbackRequest,
+  UserOidcCallbackResponse,
+  UserOidcStartResponse,
   UserRegisterRequest,
   UserRegisterResponse,
 } from 'picsur-shared/dist/dto/api/user.dto';
-import { JwtDataSchema } from 'picsur-shared/dist/dto/jwt.dto';
 import { EUser } from 'picsur-shared/dist/entities/user.entity';
 import {
   AsyncFailable,
@@ -126,8 +128,9 @@ export class UserService {
     ).result;
   }
 
+  // Users without a password set one without a current one
   public async changePassword(
-    currentPassword: string,
+    currentPassword: string | null,
     newPassword: string,
   ): AsyncFailable<true> {
     const response = await this.api.post(
@@ -135,7 +138,7 @@ export class UserService {
       UserChangePasswordResponse,
       '/api/user/me/password',
       {
-        current_password: currentPassword,
+        current_password: currentPassword ?? undefined,
         new_password: newPassword,
       },
     ).result;
@@ -144,6 +147,53 @@ export class UserService {
     // The old token no longer works
     this.key.set(response.jwt_token);
     return true;
+  }
+
+  // Where to send the browser to log in with the OpenID Connect provider
+  public async startOidcLogin(): AsyncFailable<string> {
+    return Open(
+      await this.api.postEmpty(UserOidcStartResponse, '/api/user/oidc/login')
+        .result,
+      'url',
+    );
+  }
+
+  // Where to send the browser to link a login at the provider to the account
+  public async startOidcLink(): AsyncFailable<string> {
+    return Open(
+      await this.api.postEmpty(UserOidcStartResponse, '/api/user/me/oidc')
+        .result,
+      'url',
+    );
+  }
+
+  // Finishes logging in, or linking a login, with the url the provider sent
+  // the browser back to
+  public async finishOidc(url: string): AsyncFailable<{ linked: boolean }> {
+    const response = await this.api.post(
+      UserOidcCallbackRequest,
+      UserOidcCallbackResponse,
+      '/api/user/oidc/callback',
+      { url },
+    ).result;
+    if (HasFailed(response)) return response;
+    if (response.jwt_token === null) return { linked: true };
+
+    this.key.set(response.jwt_token);
+    const user = await this.fetchUser();
+    if (HasFailed(user)) return user;
+    this.userSubject.next(user);
+    return { linked: false };
+  }
+
+  public async getLoginMethods(): AsyncFailable<UserLoginMethodsResponse> {
+    return await this.api.get(UserLoginMethodsResponse, '/api/user/me/login')
+      .result;
+  }
+
+  public async unlinkOidc(): AsyncFailable<UserLoginMethodsResponse> {
+    return await this.api.delete(UserLoginMethodsResponse, '/api/user/me/oidc')
+      .result;
   }
 
   public async logout(): AsyncFailable<EUser> {
@@ -157,24 +207,6 @@ export class UserService {
     } else {
       return value;
     }
-  }
-
-  // This extracts the available userdata from the jwt token
-  private async extractUserID(token: string): AsyncFailable<string> {
-    let decoded: any;
-    try {
-      decoded = decodeToken(token);
-    } catch (e) {
-      return Fail(FT.UsrValidation, 'Invalid token');
-    }
-
-    const result = JwtDataSchema.safeParse(decoded);
-    if (!result.success) {
-      this.logger.error(result.error);
-      return Fail(FT.UsrValidation, 'Invalid token data');
-    }
-
-    return result.data.uid;
   }
 
   // This actually fetches up to date information from the server

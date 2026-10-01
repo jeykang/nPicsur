@@ -4,6 +4,7 @@ import { ExternalStorageModule } from '../../collections/external-storage/extern
 import { ServerSettingsDbModule } from '../../collections/server-settings-db/server-settings-db.module.js';
 import { SystemStateDbModule } from '../../collections/system-state-db/system-state-db.module.js';
 import { EarlyConfigModule } from '../../config/early/early-config.module.js';
+import { AuthManagerModule } from '../auth/auth-manager.module.js';
 import { ServerSettingsService } from './server-settings.service.js';
 import { StorageMigrationService } from './storage-migration.service.js';
 
@@ -14,6 +15,7 @@ import { StorageMigrationService } from './storage-migration.service.js';
     SystemStateDbModule,
     ImageDBModule,
     ExternalStorageModule,
+    AuthManagerModule,
   ],
   providers: [ServerSettingsService, StorageMigrationService],
   exports: [ServerSettingsService, StorageMigrationService],

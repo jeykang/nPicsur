@@ -1,36 +1,58 @@
 import { z } from 'zod';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { IsPosInt } from '../../validators/positive-int.validator.js';
+import {
+  ExternalStorageDriverSchema,
+  StorageDriverSchema,
+} from '../storage-driver.enum.js';
 
 // ServerSettings
 
+// A setting is what is saved on the settings page, and otherwise what its
+// environment variable sets, and otherwise its default
 export const ServerSettingStateSchema = z.object({
   key: z.string(),
-  // Null when it is not set, and always for secrets
+  // What is saved, null when nothing is, and always for secrets
   value: z.string().nullable(),
-  // Whether it has a value, also for secrets
-  set: z.boolean(),
-  // What is used when it is not set
-  default: z.string().nullable(),
-  // Settings from the environment can not be changed here
-  source: z.enum(['environment', 'settings', 'default']),
-  // Whether the value is saved in the settings. Values from the environment
-  // are saved as well, so the variable can be removed later.
+  // Whether something is saved, also for secrets
   saved: z.boolean(),
+  // The environment variable for it
   env: z.string(),
+  // Its value, null when it is not set, and always for secrets
+  env_value: z.string().nullable(),
+  // Whether it is set, also for secrets
+  env_set: z.boolean(),
+  // What is used when neither is set, null when it is left out then
+  default: z.string().nullable(),
+  // Where the value in use comes from
+  source: z.enum(['settings', 'environment', 'default']),
+  // Whether it is saved or set in the environment, also for secrets
+  set: z.boolean(),
 });
 export type ServerSettingState = z.infer<typeof ServerSettingStateSchema>;
 
+// What can only be set with environment variables, as Picsur needs it before
+// it can read its settings
+export const EnvironmentOptionSchema = z.object({
+  env: z.string(),
+  // What applies, null for secrets
+  value: z.string().nullable(),
+  // Whether it is set, otherwise the default applies
+  set: z.boolean(),
+});
+export type EnvironmentOption = z.infer<typeof EnvironmentOptionSchema>;
+
 export const ServerSettingsResponseSchema = z.object({
   settings: z.array(ServerSettingStateSchema),
-  // Settings changed since Picsur started, they take effect when it restarts
+  environment: z.array(EnvironmentOptionSchema),
+  // Settings changed since Picsur started that take effect when it restarts
   restart_needed: z.boolean(),
   // Why the last restart went back to the settings before it, if it did
   restart_error: z.string().nullable(),
   started_at: z.preprocess((data: any) => new Date(data), z.date()),
   // Where the key that encrypts saved secrets is kept: in the environment
   // (PICSUR_ENCRYPTION_KEY), or generated and kept in the database. Null when
-  // there is none, and secrets can not be saved.
+  // there is none, and secrets cannot be saved.
   encryption_key: z.enum(['environment', 'database']).nullable(),
 });
 export class ServerSettingsResponse extends createZodDto(
@@ -38,8 +60,8 @@ export class ServerSettingsResponse extends createZodDto(
 ) {}
 
 export const ServerSettingsUpdateRequestSchema = z.object({
-  // A value to use, or null to go back to the default. Secrets left out stay
-  // as they are.
+  // A value to save, or null to remove what is saved, so the environment or
+  // the default applies again. Secrets left out stay as they are.
   values: z.record(z.string(), z.string().nullable()),
 });
 export class ServerSettingsUpdateRequest extends createZodDto(
@@ -51,14 +73,14 @@ export class ServerSettingsUpdateRequest extends createZodDto(
 export const StorageTestRequestSchema =
   ServerSettingsUpdateRequestSchema.extend({
     // The bucket, or the directory
-    storage: z.enum(['s3', 'filesystem']),
+    storage: ExternalStorageDriverSchema,
   });
 export class StorageTestRequest extends createZodDto(
   StorageTestRequestSchema,
 ) {}
 
 export const StorageTestResponseSchema = z.object({
-  driver: z.enum(['s3', 'filesystem']),
+  driver: ExternalStorageDriverSchema,
   // The bucket, or the directory
   location: z.string(),
   // Whether it did not exist yet
@@ -80,8 +102,6 @@ export class ServerRestartResponse extends createZodDto(
 ) {}
 
 // StorageStatus
-
-const StorageDriverSchema = z.enum(['database', 's3', 'filesystem']);
 
 const LocationCountsSchema = z.object({
   database: IsPosInt(),
@@ -120,3 +140,14 @@ export const StorageStatusResponseSchema = z.object({
 export class StorageStatusResponse extends createZodDto(
   StorageStatusResponseSchema,
 ) {}
+
+// OidcTest, of the provider the given changes would result in
+
+export const OidcTestRequestSchema = ServerSettingsUpdateRequestSchema;
+export class OidcTestRequest extends createZodDto(OidcTestRequestSchema) {}
+
+export const OidcTestResponseSchema = z.object({
+  // What the provider calls itself
+  issuer: z.string(),
+});
+export class OidcTestResponse extends createZodDto(OidcTestResponseSchema) {}

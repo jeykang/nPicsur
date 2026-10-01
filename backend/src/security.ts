@@ -10,7 +10,7 @@ export const HelmetOptions: FastifyHelmetOptions = {
       'frame-ancestors': ["'self'"],
       'img-src': ["'self'", 'data:', 'blob:'],
       'object-src': ["'none'"],
-      // No inline scripts, so injected markup can not run any. The frontend is
+      // No inline scripts, so injected markup cannot run any. The frontend is
       // built without inlining its critical css, which needs one.
       'script-src': ["'self'"],
       'style-src': ["'self'", "'unsafe-inline'"],

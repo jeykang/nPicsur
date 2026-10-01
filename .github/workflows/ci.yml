@@ -62,6 +62,7 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec prettier --check .
+      - run: pnpm exec eslint .
       - run: pnpm --filter picsur-shared build
       - run: pnpm --filter picsur-backend build
       - run: pnpm --filter picsur-backend typecheck:test

@@ -8,14 +8,3 @@ export function CombineFCDecorators(...decorators: FCDecorator[]) {
     });
   };
 }
-
-// P = Property
-export const CombinePDecorators = (
-  ...decorators: PropertyDecorator[]
-): (() => PropertyDecorator) => {
-  return () => {
-    return (target: object, propertyKey: string | symbol): void => {
-      decorators.forEach((decorator) => decorator(target, propertyKey));
-    };
-  };
-};

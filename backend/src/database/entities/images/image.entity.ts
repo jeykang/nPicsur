@@ -1,13 +1,5 @@
 import { EImage } from 'picsur-shared/dist/entities/image.entity';
-import {
-  Column,
-  Entity,
-  Index,
-  OneToMany,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
-import { EImageDerivativeBackend } from './image-derivative.entity.js';
-import { EImageFileBackend } from './image-file.entity.js';
+import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class EImageBackend implements EImage {
@@ -49,10 +41,4 @@ export class EImageBackend implements EImage {
   @Index()
   @Column({ nullable: false, default: false })
   listed: boolean;
-
-  @OneToMany(() => EImageDerivativeBackend, (derivative) => derivative.image_id)
-  derivatives: EImageDerivativeBackend[];
-
-  @OneToMany(() => EImageFileBackend, (file) => file.image_id)
-  files: EImageFileBackend[];
 }

@@ -104,7 +104,7 @@ describe('user management', () => {
       'permission',
     );
 
-    // The admin can not be demoted
+    // The admin cannot be demoted
     const updated = expectSuccess(
       await admin.post('/api/user/update', { id: adminUser.id, roles: [] }),
     );

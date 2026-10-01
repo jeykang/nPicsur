@@ -1,14 +1,11 @@
-<h1>Your Albums</h1>
+<h1>Your albums</h1>
 
 @if (albums === null) {
   <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
 }
 
 @if (albums !== null && albums.length === 0) {
-  <p>
-    You have no albums yet. Create one with the button below, or from the page
-    of an image.
-  </p>
+  <p>No albums yet.</p>
 }
 
 @if (albums !== null && albums.length > 0) {
@@ -26,7 +23,11 @@
               </mat-card-subtitle>
             </mat-card-header>
             @if (getCoverUrl(album); as cover) {
-              <picsur-img mat-card-image [src]="cover"></picsur-img>
+              <picsur-img
+                mat-card-image
+                [src]="cover"
+                [alt]="'Cover of ' + album.name"
+              ></picsur-img>
             } @else {
               <div class="no-cover">
                 <mat-icon fontSet="material-icons-outlined"

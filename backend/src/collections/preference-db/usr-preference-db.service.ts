@@ -76,13 +76,12 @@ export class UsrPreferenceDbService {
 
     // See the comment in 'mutex-fallback.ts' for why we are using a mutex here
     return MutexFallBack(
-      'fetchUsrPrefrence',
+      'fetchUsrPreference',
       async () => {
         let existing: EUsrPreferenceBackend | null;
         try {
           existing = await this.usrPreferenceRepository.findOne({
             where: { key: validatedKey as UsrPreference, user_id: userid },
-            cache: 60000,
           });
           if (!existing) return null;
         } catch (e) {
@@ -204,13 +203,13 @@ export class UsrPreferenceDbService {
       return Fail(FT.UsrValidation, undefined, valueValidated.error);
     }
 
-    const verifySysPreference = new EUsrPreferenceBackend();
-    verifySysPreference.key = validated.key;
-    verifySysPreference.value = validated.value;
-    verifySysPreference.user_id = userid;
+    const verifyUsrPreference = new EUsrPreferenceBackend();
+    verifyUsrPreference.key = validated.key;
+    verifyUsrPreference.value = validated.value;
+    verifyUsrPreference.user_id = userid;
 
     // It should already be valid, but these two validators might go out of sync
-    const result = EUsrPreferenceSchema.safeParse(verifySysPreference);
+    const result = EUsrPreferenceSchema.safeParse(verifyUsrPreference);
     if (!result.success) {
       return Fail(FT.UsrValidation, result.error);
     }

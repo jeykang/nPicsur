@@ -1,12 +1,8 @@
 <h1>Create a ShareX target config</h1>
-<p>
-  Choose the file format you'd like when sharing. Exporting creates a new api
-  key named "ShareX" for the config, delete it under Api Keys to stop the config
-  from working.
-</p>
+<p>Exporting creates an API key named "ShareX" for the config.</p>
 <div class="row">
   <mat-form-field class="col-12 col-md-4 col-xl-3" appearance="outline">
-    <mat-label>Image Format</mat-label>
+    <mat-label>Image format</mat-label>
     <mat-select [(value)]="selectedFormat">
       @for (format of formatOptions; track format) {
         <mat-option [value]="format.key">
@@ -24,7 +20,7 @@
       [disabled]="exporting"
       (click)="onExport()"
     >
-      {{ exporting ? 'Exporting...' : 'Export Config' }}
+      {{ exporting ? 'EXPORTING...' : 'EXPORT CONFIG' }}
     </button>
   </div>
 </div>

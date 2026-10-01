@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 export enum TrackingState {
   Disabled = 'disabled',
-  Normal = 'normal',
   Detailed = 'detailed',
 }
 

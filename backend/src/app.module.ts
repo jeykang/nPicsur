@@ -4,8 +4,8 @@ import semver from 'semver';
 import { DatabaseModule } from './database/database.module.js';
 import { PicsurLayersModule } from './layers/PicsurLayers.module.js';
 import { PicsurLoggerModule } from './logger/logger.module.js';
-import { AuthManagerModule } from './managers/auth/auth.module.js';
-import { DemoManagerModule } from './managers/demo/demo.module.js';
+import { AuthManagerModule } from './managers/auth/auth-manager.module.js';
+import { DemoManagerModule } from './managers/demo/demo-manager.module.js';
 import { PicsurRoutesModule } from './routes/routes.module.js';
 
 const supportedNodeVersions = ['>=22.12.0'];

@@ -9,6 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
+import { StorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import { FT, HasFailed } from 'picsur-shared/dist/types/failable';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -16,10 +17,7 @@ import {
   MountOf,
   TestDiskStorage,
 } from '../../src/collections/disk-storage/disk-storage.service.js';
-import {
-  StorageConfigService,
-  StorageDriver,
-} from '../../src/config/early/storage.config.service.js';
+import { StorageConfigService } from '../../src/config/early/storage.config.service.js';
 
 const ImageId = '0b6f0bb5-3b3f-4a6e-9f55-8a4b1d0c1e2f';
 const OtherId = '6f1c2b7e-0a1d-4c1e-8b2a-3d4e5f6a7b8c';
@@ -173,7 +171,7 @@ describe('testing a directory', () => {
     expect(!HasFailed(again) && again.created).toBe(false);
   });
 
-  it('refuses files and directories it can not write to', async () => {
+  it('refuses files and directories it cannot write to', async () => {
     const file = join(root, 'file');
     await writeFile(file, 'x');
     const notDirectory = await TestDiskStorage({ path: file });
@@ -187,7 +185,7 @@ describe('testing a directory', () => {
 
   // Root may write anywhere
   it.skipIf(process.getuid?.() === 0)(
-    'refuses directories it can not write to',
+    'refuses directories it cannot write to',
     async () => {
       await chmod(root, 0o500);
       const tested = await TestDiskStorage({ path: root });

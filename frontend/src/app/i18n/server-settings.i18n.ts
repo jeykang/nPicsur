@@ -1,71 +1,112 @@
 import { ServerSetting } from 'picsur-shared/dist/dto/server-settings.dto';
 
+// A hint only when the name alone does not say enough: a format, a unit, or a
+// consequence worth knowing before changing it
 export const ServerSettingUI: {
   [key in ServerSetting]: {
     name: string;
-    helpText: string;
+    helpText?: string;
   };
 } = {
-  [ServerSetting.StorageDriver]: {
-    name: 'Store new images in',
-    helpText:
-      'Images that are already stored stay where they are, until they are moved.',
-  },
+  [ServerSetting.StorageDriver]: { name: 'Store new images in' },
   [ServerSetting.StoragePath]: {
     name: 'Directory',
-    helpText:
-      'Where the images are stored, like /picsur/images. In Docker, mount a volume there. Created when it does not exist yet.',
+    helpText: 'Like /picsur/images',
   },
   [ServerSetting.S3Endpoint]: {
     name: 'Endpoint',
-    helpText:
-      'Address of the S3 compatible service, like http://minio:9000. Leave empty for Amazon S3.',
+    helpText: 'Leave empty for Amazon S3',
   },
-  [ServerSetting.S3Region]: {
-    name: 'Region',
-    helpText: 'Most self hosted services accept any region.',
-  },
-  [ServerSetting.S3Bucket]: {
-    name: 'Bucket',
-    helpText: 'Created when it does not exist yet.',
-  },
+  [ServerSetting.S3Region]: { name: 'Region' },
+  [ServerSetting.S3Bucket]: { name: 'Bucket' },
   [ServerSetting.S3Prefix]: {
     name: 'Prefix',
-    helpText:
-      'Stores everything under this path in the bucket, to share it with other things.',
+    helpText: 'Optional path in the bucket, like picsur/',
   },
   [ServerSetting.S3ForcePathStyle]: {
     name: 'Path style addressing',
-    helpText:
-      'Reach the bucket at endpoint/bucket instead of bucket.endpoint. MinIO and most other self hosted services need this.',
+    helpText: 'Needed by MinIO and most self hosted services',
   },
-  [ServerSetting.S3AccessKeyId]: {
-    name: 'Access key id',
-    helpText:
-      'Leave the access key and secret empty to use the credentials of the environment, like AWS_ACCESS_KEY_ID or an instance role.',
-  },
-  [ServerSetting.S3SecretAccessKey]: {
-    name: 'Secret access key',
-    helpText: 'It is never shown again once it is saved.',
-  },
+  [ServerSetting.S3AccessKeyId]: { name: 'Access key id' },
+  [ServerSetting.S3SecretAccessKey]: { name: 'Secret access key' },
 
-  [ServerSetting.MaxFileSize]: {
-    name: 'Maximum upload size (MB)',
-    helpText: 'Larger uploads are refused.',
-  },
-  [ServerSetting.MaxConcurrentConversions]: {
-    name: 'Conversions at once',
-    helpText:
-      'How many images are converted or edited at the same time, others wait for their turn. Defaults to the number of CPU cores.',
-  },
+  [ServerSetting.MaxFileSize]: { name: 'Maximum upload size (MB)' },
+  [ServerSetting.MaxConcurrentConversions]: { name: 'Conversions at once' },
   [ServerSetting.ConversionRateLimit]: {
     name: 'Conversions per visitor per minute',
-    helpText:
-      'How many new sizes or formats one visitor may have made per minute. 0 turns the limit off.',
+    helpText: '0 for no limit',
+  },
+  [ServerSetting.ConversionTimeLimit]: { name: 'Conversion time limit' },
+  [ServerSetting.ConversionMemoryLimit]: {
+    name: 'Conversion memory limit (MB)',
+  },
+  [ServerSetting.AllowEditing]: {
+    name: 'Allow customizing images',
+    helpText: 'Resizing, rotating and other changes in the image URL',
+  },
+  [ServerSetting.RemoveDerivativesAfter]: {
+    name: 'Keep converted versions for',
+    helpText: '0 keeps them',
   },
   [ServerSetting.TrustProxy]: {
     name: 'Trusted proxies',
     helpText:
-      'Which reverse proxies may pass on the address of visitors, for rate limiting. Addresses and ranges separated by commas, or true for any and false for none.',
+      'Comma separated addresses or ranges, true for any, false for none',
   },
+  [ServerSetting.HostOverride]: {
+    name: 'Public address',
+    helpText: "Leave empty to use the browser's address",
+  },
+
+  [ServerSetting.OidcIssuer]: {
+    name: 'Issuer',
+    helpText: 'Like https://auth.example.com',
+  },
+  [ServerSetting.OidcClientId]: { name: 'Client id' },
+  [ServerSetting.OidcClientSecret]: { name: 'Client secret' },
+  [ServerSetting.OidcScope]: { name: 'Scopes' },
+  [ServerSetting.OidcName]: {
+    name: 'Provider name',
+    helpText: 'Shown on the login button',
+  },
+  [ServerSetting.OidcUsernameClaim]: { name: 'Username claim' },
+  [ServerSetting.OidcAutoRegister]: {
+    name: 'Create accounts for new users',
+    helpText: 'Anyone who can log in at the provider gets an account',
+  },
+  [ServerSetting.OidcAutoLaunch]: {
+    name: 'Go to the provider right away',
+    helpText: '/user/login?local still shows the login page',
+  },
+  [ServerSetting.PasswordLogin]: {
+    name: 'Password login',
+    helpText: 'To turn it back on: settings reset password_login',
+  },
+  [ServerSetting.JwtExpiry]: { name: 'Logins last' },
+  [ServerSetting.BCryptStrength]: { name: 'Password hashing strength' },
+
+  [ServerSetting.TrackingUrl]: { name: 'Ackee server' },
+  [ServerSetting.TrackingId]: { name: 'Ackee website id' },
+
+  [ServerSetting.Verbose]: {
+    name: 'Verbose logging',
+    helpText: 'Can include sensitive data',
+  },
+};
+
+// What can only be set with environment variables
+export const EnvironmentOptionUI: Record<string, string> = {
+  PICSUR_HOST: 'Listens on',
+  PICSUR_PORT: 'Port',
+  PICSUR_DB_HOST: 'Database server',
+  PICSUR_DB_PORT: 'Database port',
+  PICSUR_DB_DATABASE: 'Database',
+  PICSUR_DB_USERNAME: 'Database user',
+  PICSUR_DB_PASSWORD: 'Database password',
+  PICSUR_JWT_SECRET: 'Login signing secret',
+  PICSUR_ENCRYPTION_KEY: 'Encryption key',
+  PICSUR_STATIC_FRONTEND_ROOT: 'Frontend files',
+  PICSUR_PRODUCTION: 'Production mode',
+  PICSUR_DEMO: 'Demo mode',
+  PICSUR_DEMO_INTERVAL: 'Demo resets every (ms)',
 };

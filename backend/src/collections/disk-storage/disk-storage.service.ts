@@ -15,6 +15,7 @@ import {
 } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
+import { StorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import {
   AsyncFailable,
   Fail,
@@ -25,7 +26,6 @@ import {
 import {
   FilesystemStorageConfig,
   StorageConfigService,
-  StorageDriver,
 } from '../../config/early/storage.config.service.js';
 import {
   ExternalStorage,
@@ -271,7 +271,7 @@ export async function TestDiskStorage(
       return Fail(FT.BadRequest, `"${path}" is not a directory`);
     }
   } catch (e) {
-    if (!IsNotFound(e)) return failure(`Can not access "${path}"`, e);
+    if (!IsNotFound(e)) return failure(`Cannot access "${path}"`, e);
     try {
       await mkdir(path, { recursive: true });
       created = true;
@@ -288,7 +288,7 @@ export async function TestDiskStorage(
       return Fail(FT.BadRequest, `Files in "${path}" do not read back right`);
     }
   } catch (e) {
-    return failure(`Can not store files in "${path}"`, e);
+    return failure(`Cannot store files in "${path}"`, e);
   } finally {
     await rm(test, { force: true }).catch(() => undefined);
   }

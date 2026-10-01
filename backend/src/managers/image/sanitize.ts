@@ -11,7 +11,7 @@ import { ExifOrientation, OrientationOnlyExif } from './exif.js';
 // image, like the video of a motion photo. Colour profiles stay, and so does
 // the orientation of JPEGs, which browsers and conversions both apply.
 //
-// Returns null for files that can not be kept like this, those are converted
+// Returns null for files that cannot be kept like this, those are converted
 // to a lossless master instead.
 export function SanitizeImage(data: Buffer, filetype: string): Buffer | null {
   try {
@@ -187,7 +187,7 @@ const PngKeep = new Set([
   'bKGD',
 ]);
 
-// Animations keep the chunks with their frames, still images can not have them
+// Animations keep the chunks with their frames, still images cannot have them
 function SanitizePng(data: Buffer, animated: boolean): Buffer | null {
   if (!data.subarray(0, 8).equals(PngSignature)) return null;
   let sawAnimation = false;

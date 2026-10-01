@@ -10,8 +10,6 @@ import { AppRoutingModule } from './app.routing.module';
 import { FooterModule } from './components/footer/footer.module';
 import { HeaderModule } from './components/header/header.module';
 import { GuardsModule } from './guards/guards.module';
-import { ApiErrorManagerModule } from './util/api-error-manager/api-error-manager.module';
-import { CompatibilityManagerModule } from './util/compatibilitiy-manager/compatibility-manager.module';
 import { SnackBarManagerModule } from './util/snackbar-manager/snackbar-manager.module';
 
 @NgModule({
@@ -24,8 +22,6 @@ import { SnackBarManagerModule } from './util/snackbar-manager/snackbar-manager.
     MatButtonModule,
 
     SnackBarManagerModule.forRoot(),
-    CompatibilityManagerModule,
-    ApiErrorManagerModule,
 
     GuardsModule,
     AppRoutingModule,

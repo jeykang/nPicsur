@@ -10,5 +10,5 @@ export const UsrPreferenceHelpText: {
   [key in UsrPreference]: string;
 } = {
   [UsrPreference.KeepOriginal]:
-    'Store the original files you upload to the service, this way no data will be lost. This will also store exif data.',
+    'Keeps your uploads exactly as uploaded, including metadata like where a photo was taken.',
 };

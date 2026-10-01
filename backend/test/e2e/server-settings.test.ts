@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { spawnBackend } from './helpers/backend.js';
+import { cli } from './helpers/cli.js';
 import {
   Client,
   createUser,
@@ -18,10 +18,11 @@ import {
   expectSuccess,
 } from './helpers/client.js';
 import { makePng } from './helpers/images.js';
+import { getSettings, restart, setting, update } from './helpers/settings.js';
 
 const env = inject('serverEnv');
 const s3TestEnv = inject('s3TestEnv');
-// Storage set with environment variables can not be changed on the page
+// Storage set with environment variables
 const storageFromEnv = Object.keys(env).some(
   (key) =>
     key === 'PICSUR_STORAGE_DRIVER' ||
@@ -29,24 +30,6 @@ const storageFromEnv = Object.keys(env).some(
     key.startsWith('PICSUR_S3_'),
 );
 const dockerImage = inject('dockerImage');
-
-interface SettingState {
-  key: string;
-  value: string | null;
-  set: boolean;
-  default: string | null;
-  source: 'environment' | 'settings' | 'default';
-  saved: boolean;
-  env: string;
-}
-
-interface SettingsResponse {
-  settings: SettingState[];
-  restart_needed: boolean;
-  restart_error: string | null;
-  started_at: string;
-  encryption_key: 'environment' | 'database' | null;
-}
 
 type Location = 'database' | 's3' | 'filesystem';
 
@@ -68,38 +51,8 @@ interface StorageResponse {
   };
 }
 
-function setting(settings: SettingsResponse, key: string): SettingState {
-  const state = settings.settings.find((s) => s.key === key);
-  if (state === undefined) throw new Error(`No setting ${key}`);
-  return state;
-}
-
-async function getSettings(client: Client): Promise<SettingsResponse> {
-  return expectSuccess(await client.get('/api/server/settings'));
-}
-
 async function getStorage(client: Client): Promise<StorageResponse> {
   return expectSuccess(await client.get('/api/server/storage'));
-}
-
-async function update(client: Client, values: Record<string, string | null>) {
-  return client.post('/api/server/settings', { values });
-}
-
-// Restarts the server, and waits until it is back
-async function restart(client: Client): Promise<SettingsResponse> {
-  const before = expectSuccess(await client.post('/api/server/restart'))
-    .started_at as string;
-
-  const deadline = Date.now() + 60_000;
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 250));
-    const res = await client.get('/api/server/settings').catch(() => null);
-    if (res?.json?.success && res.json.data.started_at !== before) {
-      return res.json.data;
-    }
-  }
-  throw new Error('Picsur did not come back after restarting');
 }
 
 async function migrate(client: Client): Promise<StorageResponse> {
@@ -115,17 +68,6 @@ async function migrate(client: Client): Promise<StorageResponse> {
 
 function serverLog(): string {
   return readFileSync(inject('serverLog'), 'utf8');
-}
-
-// Runs the command line tool against the test database
-function cli(args: string[]) {
-  return new Promise<{ code: number; output: string }>((done) => {
-    const child = spawnBackend('cli', args, env, inject('dockerImage'));
-    let output = '';
-    child.stdout.on('data', (d) => (output += d));
-    child.stderr.on('data', (d) => (output += d));
-    child.on('close', (code) => done({ code: code ?? -1, output }));
-  });
 }
 
 describe('server settings', () => {
@@ -182,31 +124,37 @@ describe('server settings', () => {
 
     // Set by the test setup
     expect(setting(settings, 'max_file_size')).toMatchObject({
-      value: env['PICSUR_MAX_FILE_SIZE'],
-      set: true,
-      source: 'environment',
-      saved: true,
+      value: null,
+      saved: false,
       env: 'PICSUR_MAX_FILE_SIZE',
+      env_value: env['PICSUR_MAX_FILE_SIZE'],
+      env_set: true,
+      source: 'environment',
+      set: true,
     });
     expect(setting(settings, 'max_concurrent_conversions')).toMatchObject({
       value: null,
-      set: false,
-      source: 'default',
       saved: false,
+      env_set: false,
+      source: 'default',
+      set: false,
     });
     expect(setting(settings, 's3_region').default).toBe('us-east-1');
     // Generated, since the tests do not set PICSUR_ENCRYPTION_KEY
     expect(settings.encryption_key).toBe('database');
   });
 
-  it('saves settings from the environment, to take them over later', async () => {
-    expect(await storedValue('max_file_size')).toBe(
-      env['PICSUR_MAX_FILE_SIZE'],
+  async function settingsOrder(): Promise<string | null> {
+    const result = await db.query(
+      `SELECT "value" FROM e_system_state_backend WHERE "key" = 'server_settings_order'`,
     );
-    expect(await storedValue('conversion_rate_limit')).toBe(
-      env['PICSUR_CONVERSION_RATE_LIMIT'],
-    );
-    expect(await storedValue('max_concurrent_conversions')).toBeNull();
+    return result.rows[0]?.value ?? null;
+  }
+
+  it('does not save settings from the environment', async () => {
+    expect(await storedValue('max_file_size')).toBeNull();
+    expect(await storedValue('conversion_rate_limit')).toBeNull();
+    expect(await settingsOrder()).toBe('saved-first');
   });
 
   it('never shows secrets, and only saves them encrypted', async () => {
@@ -215,11 +163,9 @@ describe('server settings', () => {
 
     const fromEnv = env['PICSUR_S3_SECRET_ACCESS_KEY'];
     expect(secret.set).toBe(fromEnv !== undefined);
-    if (fromEnv !== undefined) {
-      const stored = await storedValue('s3_secret_access_key');
-      expect(stored).toMatch(/^enc:v1:db:/);
-      expect(stored).not.toContain(fromEnv);
-    }
+    expect(secret.env_set).toBe(fromEnv !== undefined);
+    expect(secret.env_value).toBeNull();
+    expect(await storedValue('s3_secret_access_key')).toBeNull();
 
     // The generated key they are encrypted with
     const key = await db.query(
@@ -228,16 +174,96 @@ describe('server settings', () => {
     expect(key.rows).toHaveLength(1);
   });
 
-  it('can not change settings from the environment', async () => {
-    const res = await update(admin, { max_file_size: '1000000' });
-    expectFailure(res, 400, 'usrvalidation');
-    expect(res.json.data.message).toContain('PICSUR_MAX_FILE_SIZE');
+  it('come before the environment once saved here', async () => {
+    const size = String(Number(env['PICSUR_MAX_FILE_SIZE']) + 1000);
+    const saved = expectSuccess(await update(admin, { max_file_size: size }));
+    expect(saved.restart_needed).toBe(true);
+    expect(setting(saved, 'max_file_size')).toMatchObject({
+      value: size,
+      saved: true,
+      env_value: env['PICSUR_MAX_FILE_SIZE'],
+      env_set: true,
+      source: 'settings',
+    });
+    expect((await restart(admin)).restart_needed).toBe(false);
+    expect(serverLog()).toContain(`Max file size: ${size}`);
+    expect(await storedValue('max_file_size')).toBe(size);
 
-    // Sending back what is shown is fine
-    const settings = expectSuccess(
-      await update(admin, { max_file_size: env['PICSUR_MAX_FILE_SIZE'] }),
+    // Removing what is saved uses the environment again
+    const removed = expectSuccess(await update(admin, { max_file_size: null }));
+    expect(setting(removed, 'max_file_size').source).toBe('environment');
+    expect(removed.restart_needed).toBe(true);
+    expect((await restart(admin)).restart_needed).toBe(false);
+  });
+
+  it('drops copies of the environment saved when it came first, once', async () => {
+    // What versions where the environment came first left behind: copies of
+    // it, next to settings saved on the page
+    await db.query(
+      `DELETE FROM e_system_state_backend WHERE "key" = 'server_settings_order'`,
     );
-    expect(settings.restart_needed).toBe(false);
+    await db.query(
+      'INSERT INTO e_server_setting_backend ("key", "value") VALUES ($1, $2), ($3, $4)',
+      [
+        'max_file_size',
+        env['PICSUR_MAX_FILE_SIZE'],
+        'max_concurrent_conversions',
+        '2',
+      ],
+    );
+
+    await restart(admin);
+    expect(await storedValue('max_file_size')).toBeNull();
+    expect(await storedValue('max_concurrent_conversions')).toBe('2');
+    expect(await settingsOrder()).toBe('saved-first');
+    expect(serverLog()).toContain(
+      'PICSUR_MAX_FILE_SIZE were saved as well when the environment came first',
+    );
+
+    expectSuccess(await update(admin, { max_concurrent_conversions: null }));
+    expect((await restart(admin)).restart_needed).toBe(false);
+  });
+
+  it('can be listed and reset on the command line', async () => {
+    expectSuccess(await update(admin, { max_concurrent_conversions: '5' }));
+    const listed = await cli(['settings', 'list']);
+    expect(listed.code, listed.output).toBe(0);
+    expect(listed.output).toMatch(
+      /max_concurrent_conversions\s+5, saved on the settings page/,
+    );
+    expect(listed.output).toMatch(
+      new RegExp(
+        `max_file_size\\s+${env['PICSUR_MAX_FILE_SIZE']}, from PICSUR_MAX_FILE_SIZE`,
+      ),
+    );
+    expect(listed.output).toMatch(/s3_region\s+us-east-1, the default/);
+    // Secrets are never shown
+    if (env['PICSUR_S3_SECRET_ACCESS_KEY'] !== undefined) {
+      expect(listed.output).toMatch(
+        /s3_secret_access_key\s+\(secret\), from PICSUR_S3_SECRET_ACCESS_KEY/,
+      );
+    }
+
+    // Takes environment variable names as well
+    const reset = await cli([
+      'settings',
+      'reset',
+      'PICSUR_MAX_CONCURRENT_CONVERSIONS',
+    ]);
+    expect(reset.code, reset.output).toBe(0);
+    expect(reset.output).toContain('max_concurrent_conversions: removed');
+    expect(await storedValue('max_concurrent_conversions')).toBeNull();
+    expect((await getSettings(admin)).restart_needed).toBe(false);
+
+    const unknown = await cli(['settings', 'reset', 'not_a_setting']);
+    expect(unknown.code).toBe(1);
+    expect(unknown.output).toContain('There is no setting "not_a_setting"');
+
+    // Like other environment variables, true and false can be yes and no too
+    const no = await cli(['settings', 'list'], { PICSUR_ALLOW_EDITING: 'no' });
+    expect(no.output).toMatch(
+      /allow_editing\s+false, from PICSUR_ALLOW_EDITING/,
+    );
   });
 
   it('checks values', async () => {
@@ -249,6 +275,164 @@ describe('server settings', () => {
     ]) {
       expectFailure(await update(admin, values), 400, 'usrvalidation');
     }
+    expect((await getSettings(admin)).restart_needed).toBe(false);
+  });
+
+  it('checks values of the settings that were system settings', async () => {
+    for (const [key, value] of [
+      ['bcrypt_strength', '40'],
+      ['bcrypt_strength', '1'],
+      ['conversion_memory_limit', '0'],
+      ['jwt_expiry', '1s'],
+      ['conversion_time_limit', '5h'],
+      ['conversion_time_limit', '0'],
+      ['remove_derivatives_after', 'not a duration'],
+      ['allow_editing', 'yes'],
+      ['host_override', 'javascript:alert(1)'],
+      ['host_override', 'not a url at all https://example.com'],
+      ['tracking_url', 'ftp://example.com'],
+      ['tracking_id', 'not an id'],
+      ['verbose', 'loud'],
+    ]) {
+      expectFailure(
+        await update(admin, { [key]: value }),
+        400,
+        'usrvalidation',
+      );
+    }
+
+    // These take effect right away
+    const saved = expectSuccess(
+      await update(admin, {
+        host_override: 'https://img.example.com',
+        remove_derivatives_after: '0',
+        bcrypt_strength: '11',
+      }),
+    );
+    expect(saved.restart_needed).toBe(false);
+    const info = () => Client.guest().get('/api/info');
+    expect(expectSuccess(await info()).host_override).toBe(
+      'https://img.example.com',
+    );
+    expectSuccess(
+      await update(admin, {
+        host_override: null,
+        remove_derivatives_after: null,
+        bcrypt_strength: null,
+      }),
+    );
+    expect(expectSuccess(await info()).host_override).toBeUndefined();
+  });
+
+  it('applies how long logins last to new logins', async () => {
+    const lasts = (token: string | undefined) => {
+      const payload = JSON.parse(
+        Buffer.from(token!.split('.')[1], 'base64url').toString(),
+      );
+      return payload.exp - payload.iat;
+    };
+    expect(lasts((await Client.admin()).jwt)).toBe(7 * 24 * 60 * 60);
+
+    const saved = expectSuccess(await update(admin, { jwt_expiry: '2h' }));
+    expect(saved.restart_needed).toBe(false);
+    try {
+      expect(lasts((await Client.admin()).jwt)).toBe(2 * 60 * 60);
+    } finally {
+      expectSuccess(await update(admin, { jwt_expiry: null }));
+    }
+  });
+
+  it('lists what can only be set with environment variables', async () => {
+    const settings = await getSettings(admin);
+    const option = (name: string) =>
+      settings.environment.find((option) => option.env === name);
+
+    expect(option('PICSUR_DB_DATABASE')).toEqual({
+      env: 'PICSUR_DB_DATABASE',
+      value: env['PICSUR_DB_DATABASE'],
+      set: true,
+    });
+    expect(option('PICSUR_PRODUCTION')).toEqual({
+      env: 'PICSUR_PRODUCTION',
+      value: 'true',
+      set: true,
+    });
+    expect(option('PICSUR_DEMO')).toMatchObject({ value: 'false', set: false });
+    // Secrets only say whether they are set
+    expect(option('PICSUR_JWT_SECRET')).toEqual({
+      env: 'PICSUR_JWT_SECRET',
+      value: null,
+      set: true,
+    });
+    expect(option('PICSUR_ENCRYPTION_KEY')).toMatchObject({
+      value: null,
+      set: false,
+    });
+    expect(option('PICSUR_DB_PASSWORD')?.value).toBeNull();
+    expect(JSON.stringify(settings)).not.toContain(env['PICSUR_JWT_SECRET']);
+  });
+
+  it('moves the system settings of earlier versions over', async () => {
+    // What earlier versions left: the system settings in a table of their
+    // own, which this version moves when it first starts
+    await db.query(
+      `CREATE TABLE "e_sys_preference_backend" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "key" character varying NOT NULL UNIQUE, "value" character varying NOT NULL, PRIMARY KEY ("id"))`,
+    );
+    await db.query(
+      `INSERT INTO "e_sys_preference_backend" ("key", "value") VALUES
+        ('allow_editing', 'false'),
+        ('jwt_expires_in', '2d'),
+        ('remove_derivatives_after', '0s'),
+        ('host_override', 'https://old.example.com'),
+        ('bcrypt_strength', '10'),
+        ('conversion_time_limit', '0'),
+        ('tracking_url', ''),
+        ('enable_tracking', 'true'),
+        ('jwt_secret', 'a secret the database had, long enough for logins')`,
+    );
+    await db.query(
+      `DELETE FROM "migrations" WHERE "name" = 'V070D1790915263104'`,
+    );
+
+    const restarted = await restart(admin);
+    expect(restarted.restart_needed).toBe(false);
+    expect(restarted.restart_error).toBeNull();
+    expect(await storedValue('allow_editing')).toBe('false');
+    expect(await storedValue('jwt_expiry')).toBe('2d');
+    expect(await storedValue('remove_derivatives_after')).toBe('0');
+    expect(await storedValue('host_override')).toBe('https://old.example.com');
+    // Defaults were saved as well, those keep following the default
+    expect(await storedValue('bcrypt_strength')).toBeNull();
+    expect(await storedValue('conversion_time_limit')).toBeNull();
+    expect(await storedValue('tracking_url')).toBeNull();
+    expect(await storedValue('enable_tracking')).toBeNull();
+    // The saved secret was a copy of PICSUR_JWT_SECRET, which still applies
+    const secret = await db.query(
+      `SELECT "value" FROM e_system_state_backend WHERE "key" = 'jwt_secret'`,
+    );
+    expect(secret.rows).toHaveLength(0);
+    const table = await db.query(
+      `SELECT to_regclass('e_sys_preference_backend') AS "table"`,
+    );
+    expect(table.rows[0].table).toBeNull();
+    expect(serverLog()).toContain(
+      'The system settings are server settings now: ',
+    );
+
+    // In use from the start, logins included
+    expect(
+      expectSuccess(await Client.guest().get('/api/info')).host_override,
+    ).toBe('https://old.example.com');
+    expectSuccess(await admin.get('/api/server/settings'));
+
+    expectSuccess(
+      await update(admin, {
+        allow_editing: null,
+        jwt_expiry: null,
+        remove_derivatives_after: null,
+        host_override: null,
+      }),
+    );
     expect((await getSettings(admin)).restart_needed).toBe(false);
   });
 
@@ -292,17 +476,24 @@ describe('server settings', () => {
   });
 
   describe.skipIf(!storageFromEnv)('with storage from the environment', () => {
-    it('can not change the storage', async () => {
-      // One of the settings the environment sets
-      const [key, value] =
-        env['PICSUR_S3_BUCKET'] !== undefined
-          ? ['s3_bucket', 'another-bucket']
-          : env['PICSUR_STORAGE_PATH'] !== undefined
-            ? ['storage_path', '/somewhere/else']
-            : ['storage_driver', 'database'];
-      const res = await update(admin, { [key]: value });
-      expectFailure(res, 400, 'usrvalidation');
-      expect(res.json.data.message).toContain(`PICSUR_${key.toUpperCase()}`);
+    it('can change the storage here as well', async () => {
+      const saved = expectSuccess(
+        await update(admin, { storage_driver: 'database' }),
+      );
+      expect(setting(saved, 'storage_driver')).toMatchObject({
+        value: 'database',
+        saved: true,
+        env_value: env['PICSUR_STORAGE_DRIVER'],
+        env_set: true,
+        source: 'settings',
+      });
+      expect(saved.restart_needed).toBe(true);
+
+      const removed = expectSuccess(
+        await update(admin, { storage_driver: null }),
+      );
+      expect(setting(removed, 'storage_driver').source).toBe('environment');
+      expect(removed.restart_needed).toBe(false);
     });
   });
 
@@ -357,7 +548,7 @@ describe('server settings', () => {
       });
       expectFailure(tested, 500, 'network');
       expect(tested.json.data.message).toContain(
-        'Can not access bucket "picsur-unreachable"',
+        'Cannot access bucket "picsur-unreachable"',
       );
 
       expectFailure(await update(admin, unreachable), 500, 'network');
@@ -383,7 +574,7 @@ describe('server settings', () => {
 
       const restarted = await restart(admin);
       expect(restarted.restart_error).toContain(
-        'Can not access bucket "picsur-unreachable"',
+        'Cannot access bucket "picsur-unreachable"',
       );
       expect(restarted.restart_needed).toBe(false);
       expect(setting(restarted, 'storage_driver').source).toBe('default');

@@ -11,8 +11,8 @@ import {
   SupportedImageFileTypes,
 } from 'picsur-shared/dist/dto/mimes.dto';
 import { TrackingState } from 'picsur-shared/dist/dto/tracking-state.enum';
-import { FallbackIfFailed } from 'picsur-shared/dist/types/failable';
 import { HostConfigService } from '../../../config/early/host.config.service.js';
+import { LoginConfigService } from '../../../config/early/login.config.service.js';
 import { InfoConfigService } from '../../../config/late/info.config.service.js';
 import { UsageConfigService } from '../../../config/late/usage.config.service.js';
 import { NoPermissions } from '../../../decorators/permissions.decorator.js';
@@ -26,15 +26,15 @@ export class InfoController {
     private readonly hostConfig: HostConfigService,
     private readonly infoConfig: InfoConfigService,
     private readonly usageService: UsageConfigService,
+    private readonly loginConfig: LoginConfigService,
   ) {}
 
   @Get()
   @Returns(InfoResponse)
   async getInfo(): Promise<InfoResponse> {
-    const trackingID =
-      FallbackIfFailed(await this.usageService.getTrackingID(), null) ??
-      undefined;
-    const hostOverride = await this.infoConfig.getHostnameOverride();
+    const trackingID = this.usageService.getTrackingID() ?? undefined;
+    const hostOverride = this.infoConfig.getHostnameOverride();
+    const oidc = this.loginConfig.oidc;
 
     return {
       demo: this.hostConfig.isDemo(),
@@ -44,6 +44,10 @@ export class InfoController {
       tracking: {
         id: trackingID,
         state: TrackingState.Detailed,
+      },
+      login: {
+        password: this.loginConfig.password,
+        oidc: oidc && { name: oidc.name, auto_launch: oidc.autoLaunch },
       },
     };
   }

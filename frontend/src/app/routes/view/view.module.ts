@@ -20,7 +20,7 @@ import { CopyFieldModule } from '../../components/copy-field/copy-field.module';
 import { FabModule } from '../../components/fab/fab.module';
 import { PicsurImgModule } from '../../components/picsur-img/picsur-img.module';
 import { PipesModule } from '../../pipes/pipes.module';
-import { DownloadManagerModule } from '../../util/download-manager/dialog-manager.module';
+import { DownloadManagerModule } from '../../util/download-manager/download-manager.module';
 import { ErrorManagerModule } from '../../util/error-manager/error-manager.module';
 
 @NgModule({

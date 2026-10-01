@@ -1,14 +1,11 @@
-import { EApiKeySchema } from 'picsur-shared/dist/entities/apikey.entity';
+import { EApiKey } from 'picsur-shared/dist/entities/apikey.entity';
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { z } from 'zod';
 import { EUserBackend } from './users/user.entity.js';
 
-const OverriddenEApiKeySchema = EApiKeySchema.omit({ user: true }).merge(
-  z.object({
-    user: z.string().or(z.object({})),
-  }),
-);
-type OverriddenEApiKey = z.infer<typeof OverriddenEApiKeySchema>;
+// The user is its id, or the user itself when that is loaded
+type OverriddenEApiKey = Omit<EApiKey, 'user'> & {
+  user: string | EUserBackend;
+};
 
 @Entity()
 export class EApiKeyBackend<
@@ -17,7 +14,7 @@ export class EApiKeyBackend<
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // Only a hash of the key is stored, so the keys can not be taken from the
+  // Only a hash of the key is stored, so the keys cannot be taken from the
   // database
   @Column({
     nullable: false,
@@ -29,7 +26,7 @@ export class EApiKeyBackend<
   @Column({ nullable: false })
   key_hint: string;
 
-  @ManyToOne(() => EUserBackend, (user) => user.apikeys, {
+  @ManyToOne(() => EUserBackend, {
     nullable: false,
     onDelete: 'CASCADE',
   })

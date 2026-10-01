@@ -252,7 +252,7 @@ export function APNGcompose(
     // What the area looked like before this frame, to put it back after
     let before: Buffer | null = null;
     const dispose =
-      // The first frame can not go back to before it
+      // The first frame cannot go back to before it
       index === 0 && frame.dispose === APNGDispose.Previous
         ? APNGDispose.Background
         : frame.dispose;

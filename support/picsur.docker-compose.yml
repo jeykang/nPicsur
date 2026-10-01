@@ -18,42 +18,65 @@ services:
       ## the first time Picsur starts
       # PICSUR_ADMIN_PASSWORD: CHANGE_ME
 
-      ## Optional, random secret will be generated if not set
+      ## Signs logins, whoever knows it can log in as anyone. When not set, a
+      ## random secret is generated and kept in the database. At least 32
+      ## random characters, like: openssl rand -base64 32
       # PICSUR_JWT_SECRET: CHANGE_ME
-      # PICSUR_JWT_EXPIRY: 7d
 
       ## No need to touch this, unless you use a custom frontend
       # PICSUR_STATIC_FRONTEND_ROOT: "/picsur/frontend/dist"
-
-      ## Warning: Verbose mode might log sensitive data
-      # PICSUR_VERBOSE: "true"
 
       ## Secrets saved in the web interface, like the S3 secret access key,
       ## are encrypted with a generated key that is kept in the database. This
       ## key is kept out of the database, so copies of it do not reveal them.
       ## Any long random value, like: openssl rand -base64 32
-      ## Keep it, secrets saved with it can not be read without it.
+      ## Keep it, secrets saved with it cannot be read without it.
       # PICSUR_ENCRYPTION_KEY: CHANGE_ME
 
       ## The settings below can also be changed in the web interface, under
-      ## Settings -> Server. When set here, they can not be changed there.
-      ## Their values are saved there as well, so they can be removed from
-      ## here later to change them in the web interface instead.
+      ## Settings -> Server. What is saved there comes first, these only set
+      ## what is not saved there.
 
       ## Maximum accepted size for uploads in bytes
       # PICSUR_MAX_FILE_SIZE: 128000000
 
       ## Proxies allowed to pass on the visitor's address, used for rate
-      ## limiting. By default any private address, like a reverse proxy in
-      ## the same docker network. Can be "true", "false", or a comma separated
-      ## list of addresses and ranges.
+      ## limiting. By default loopback and private IPv4 addresses, like a
+      ## reverse proxy in the same docker network. Can be "true", "false", or a
+      ## comma separated list of addresses, ranges, and the names loopback,
+      ## linklocal and uniquelocal.
       # PICSUR_TRUST_PROXY: "172.16.0.0/12"
+
+      ## The address Picsur is reached at, for links to images and logging in
+      ## with a provider. By default the address in the browser.
+      # PICSUR_HOST_OVERRIDE: https://images.example.com
 
       ## Converting images is expensive, these limit how many conversions run
       ## at once (default: the number of CPUs), and how many new ones a single
       ## visitor may start per minute (default: 120, 0 for no limit)
       # PICSUR_MAX_CONCURRENT_CONVERSIONS: 4
       # PICSUR_CONVERSION_RATE_LIMIT: 120
+      ## And how long converting one image may take, and how much memory in MB
+      # PICSUR_CONVERSION_TIME_LIMIT: 15s
+      # PICSUR_CONVERSION_MEMORY_LIMIT: 512
+      ## Whether the address of an image can ask for another size, a rotation
+      ## or other changes
+      # PICSUR_ALLOW_EDITING: "true"
+      ## Converted versions not asked for this long are removed, 0 keeps them
+      # PICSUR_REMOVE_DERIVATIVES_AFTER: 7d
+
+      ## How long someone stays logged in without opening Picsur
+      # PICSUR_JWT_EXPIRY: 7d
+      ## Every step makes passwords harder to find from a copy of the database,
+      ## and doubles the time logging in takes
+      # PICSUR_BCRYPT_STRENGTH: 10
+
+      ## Count visits with Ackee
+      # PICSUR_TRACKING_URL: https://ackee.example.com
+      # PICSUR_TRACKING_ID: CHANGE_ME
+
+      ## Warning: Verbose mode might log sensitive data
+      # PICSUR_VERBOSE: "true"
 
       ## Store images as files in a directory instead of the database, with
       ## the volume below. Existing images can be moved over on the settings
@@ -73,6 +96,25 @@ services:
       # PICSUR_S3_SECRET_ACCESS_KEY: CHANGE_ME
       ## Keep Picsur's objects under this path in the bucket
       # PICSUR_S3_PREFIX: picsur/
+
+      ## Logging in with an OpenID Connect provider, like Authelia, Authentik
+      ## or Keycloak. Register https://<your picsur>/user/oidc with it.
+      # PICSUR_OIDC_ISSUER: https://auth.example.com
+      # PICSUR_OIDC_CLIENT_ID: picsur
+      # PICSUR_OIDC_CLIENT_SECRET: CHANGE_ME
+      ## The login button says "Log in with" this
+      # PICSUR_OIDC_NAME: Authelia
+      ## What Picsur asks the provider for, openid is needed
+      # PICSUR_OIDC_SCOPE: openid profile email
+      ## The claim new accounts are named after
+      # PICSUR_OIDC_USERNAME_CLAIM: preferred_username
+      ## Give everyone who can log in at the provider an account here
+      # PICSUR_OIDC_AUTO_REGISTER: "false"
+      ## Skip the login page and go to the provider right away
+      # PICSUR_OIDC_AUTO_LAUNCH: "true"
+      ## Only allow logging in at the provider, once your own account is
+      ## linked. Remove it to turn password login on again.
+      # PICSUR_PASSWORD_LOGIN: "false"
     ## For storing images in a directory
     # volumes:
     #   - picsur-images:/picsur/images

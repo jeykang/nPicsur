@@ -72,8 +72,8 @@ export class SettingsRolesComponent implements OnInit, AfterViewInit {
 
   async deleteRole(role: ERole) {
     const pressedButton = await this.dialogService.showDialog({
-      title: `Are you sure you want to delete ${role.name}?`,
-      description: 'This action cannot be undone.',
+      title: `Delete ${role.name}?`,
+      description: 'This cannot be undone.',
       buttons: [
         {
           name: 'cancel',

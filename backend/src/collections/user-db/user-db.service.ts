@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt-ts';
-import { SysPreference } from 'picsur-shared/dist/dto/sys-preferences.enum';
+import { ServerSetting } from 'picsur-shared/dist/dto/server-settings.dto';
 import {
   AsyncFailable,
   Fail,
@@ -13,6 +13,7 @@ import { FindResult } from 'picsur-shared/dist/types/find-result';
 import { generateRandomString } from 'picsur-shared/dist/util/random';
 import { makeUnique } from 'picsur-shared/dist/util/unique';
 import { Repository } from 'typeorm';
+import { GetServerSettingNumber } from '../../config/server-settings.js';
 import { EUserBackend } from '../../database/entities/users/user.entity.js';
 import { Permissions } from '../../models/constants/permissions.const.js';
 import {
@@ -27,7 +28,6 @@ import {
 import { GetCols } from '../../util/collection.js';
 import { ImageDBService } from '../image-db/image-db.service.js';
 import { ImageFileDBService } from '../image-db/image-file-db.service.js';
-import { SysPreferenceDbService } from '../preference-db/sys-preference-db.service.js';
 import { RoleDbService } from '../role-db/role-db.service.js';
 
 @Injectable()
@@ -38,16 +38,16 @@ export class UserDbService {
     @InjectRepository(EUserBackend)
     private readonly usersRepository: Repository<EUserBackend>,
     private readonly rolesService: RoleDbService,
-    private readonly prefService: SysPreferenceDbService,
     private readonly imageDB: ImageDBService,
     private readonly imageFiles: ImageFileDBService,
   ) {}
 
   // Creation and deletion
 
+  // Users without a password can only log in with OpenID Connect
   public async create(
     username: string,
-    password: string,
+    password: string | null,
     roles?: string[],
     // Add option to create "invalid" users, should only be used by system
     byPassRoleCheck?: boolean,
@@ -55,12 +55,12 @@ export class UserDbService {
     if (await this.exists(username))
       return Fail(FT.Conflict, 'User already exists');
 
-    const strength = await this.getBCryptStrength();
-    const hashedPassword = await bcrypt.hash(password, strength);
-
     const user = new EUserBackend();
     user.username = username;
-    user.hashed_password = hashedPassword;
+    user.hashed_password =
+      password === null
+        ? null
+        : await bcrypt.hash(password, this.getBCryptStrength());
     if (byPassRoleCheck) {
       const rolesToAdd = roles ?? [];
       user.roles = makeUnique(rolesToAdd);
@@ -176,7 +176,7 @@ export class UserDbService {
     let userToModify = await this.findOne(uuid);
     if (HasFailed(userToModify)) return userToModify;
 
-    const strength = await this.getBCryptStrength();
+    const strength = this.getBCryptStrength();
     userToModify.hashed_password = await bcrypt.hash(password, strength);
     userToModify.tokens_valid_after = new Date();
 
@@ -189,24 +189,45 @@ export class UserDbService {
     return userToModify;
   }
 
-  // For users changing their own password, which takes the current one
+  // For users changing their own password, which takes the current one.
+  // Users without one, who log in with OpenID Connect, can set one.
   public async changePassword(
     uuid: string,
-    currentPassword: string,
+    currentPassword: string | undefined,
     newPassword: string,
   ): AsyncFailable<EUserBackend> {
     const user = await this.findOne(uuid);
     if (HasFailed(user)) return user;
+    const hasPassword = await this.hasPassword(uuid);
+    if (HasFailed(hasPassword)) return hasPassword;
 
-    const verified = await this.authenticate(user.username, currentPassword);
-    if (HasFailed(verified)) {
-      if (verified.getType() === FT.Authentication) {
-        return Fail(FT.Authentication, 'The current password is wrong');
+    if (hasPassword) {
+      const verified = await this.authenticate(
+        user.username,
+        currentPassword ?? '',
+      );
+      if (HasFailed(verified)) {
+        if (verified.getType() === FT.Authentication) {
+          return Fail(FT.Authentication, 'The current password is wrong');
+        }
+        return verified;
       }
-      return verified;
     }
 
     return await this.updatePassword(uuid, newPassword);
+  }
+
+  public async hasPassword(uuid: string): AsyncFailable<boolean> {
+    try {
+      const found = await this.usersRepository.findOne({
+        where: { id: uuid },
+        select: ['id', 'hashed_password'],
+      });
+      if (!found) return Fail(FT.NotFound, 'User not found');
+      return !!found.hashed_password;
+    } catch (e) {
+      return Fail(FT.Database, e);
+    }
   }
 
   // Authentication
@@ -234,7 +255,13 @@ export class UserDbService {
       return Fail(FT.Authentication, 'Wrong username or password');
     }
 
-    if (!(await bcrypt.compare(password, user.hashed_password ?? '')))
+    // Users who only log in with OpenID Connect have no password, which takes
+    // as long to find out as a wrong one
+    if (!user.hashed_password) {
+      await bcrypt.compare(password, await this.getDummyHash());
+      return Fail(FT.Authentication, 'Wrong username or password');
+    }
+    if (!(await bcrypt.compare(password, user.hashed_password)))
       return Fail(FT.Authentication, 'Wrong username or password');
 
     return await this.findOne(user.id ?? '');
@@ -316,14 +343,6 @@ export class UserDbService {
     }
   }
 
-  public async count(): AsyncFailable<number> {
-    try {
-      return await this.usersRepository.count();
-    } catch (e) {
-      return Fail(FT.Database, e);
-    }
-  }
-
   public async exists(username: string): Promise<boolean> {
     return HasSuccess(await this.findByUsername(username));
   }
@@ -334,7 +353,7 @@ export class UserDbService {
   private dummyHashStrength: number | undefined;
 
   private async getDummyHash(): Promise<string> {
-    const strength = await this.getBCryptStrength();
+    const strength = this.getBCryptStrength();
     if (this.dummyHash === undefined || this.dummyHashStrength !== strength) {
       this.dummyHashStrength = strength;
       this.dummyHash = bcrypt.hash(generateRandomString(32), strength);
@@ -350,13 +369,7 @@ export class UserDbService {
     return filteredRoles;
   }
 
-  private async getBCryptStrength(): Promise<number> {
-    const result = await this.prefService.getNumberPreference(
-      SysPreference.BCryptStrength,
-    );
-    if (HasFailed(result)) {
-      return 12;
-    }
-    return result;
+  private getBCryptStrength(): number {
+    return GetServerSettingNumber(ServerSetting.BCryptStrength);
   }
 }

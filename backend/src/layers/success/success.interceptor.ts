@@ -4,7 +4,6 @@ import {
   Injectable,
   Logger,
   NestInterceptor,
-  Optional,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FastifyReply } from 'fastify';
@@ -15,23 +14,11 @@ import { map, Observable } from 'rxjs';
 
 // This interceptor will neatly wrap any json response made within nest
 
-export interface ZodValidationInterceptorOptions {
-  strict?: boolean;
-}
-
 @Injectable()
 export class SuccessInterceptor implements NestInterceptor {
   private readonly logger = new Logger();
 
-  // TODO: make work
-  private strict: boolean;
-
-  constructor(
-    private readonly reflector: Reflector,
-    @Optional() options?: ZodValidationInterceptorOptions,
-  ) {
-    this.strict = options?.strict ?? true;
-  }
+  constructor(private readonly reflector: Reflector) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     return next.handle().pipe(

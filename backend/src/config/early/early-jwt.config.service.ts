@@ -8,14 +8,9 @@ export class EarlyJwtConfigService {
   constructor(private readonly configService: ConfigService) {}
 
   public getJwtSecret(): string | undefined {
-    return (
-      ParseString(this.configService.get(`${EnvPrefix}JWT_SECRET`)) ?? undefined
+    const secret = ParseString(
+      this.configService.get(`${EnvPrefix}JWT_SECRET`),
     );
-  }
-
-  public getJwtExpiresIn(): string | undefined {
-    return (
-      ParseString(this.configService.get(`${EnvPrefix}JWT_EXPIRY`)) ?? undefined
-    );
+    return secret?.trim() ? secret : undefined;
   }
 }

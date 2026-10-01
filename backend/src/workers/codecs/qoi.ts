@@ -3,7 +3,7 @@
 //
 // Picsur stores the master copy of every still image as QOI. This used to be
 // done by a native addon, which stopped compiling on newer Node versions. The
-// format is simple enough that plain TypeScript is fast enough, and it can not
+// format is simple enough that plain TypeScript is fast enough, and it cannot
 // corrupt memory when fed a malicious file.
 
 export interface QOIImage {

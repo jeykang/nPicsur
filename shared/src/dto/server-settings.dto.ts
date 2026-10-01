@@ -3,7 +3,8 @@ import { IsHttpUrl } from '../validators/url.validator.js';
 
 // Settings of the server itself, which take effect when Picsur (re)starts.
 // Each can also be set with the environment variable of the same name,
-// PICSUR_ followed by the key in capitals, which then takes precedence.
+// PICSUR_ followed by the key in capitals, which applies when nothing is
+// saved for it on the settings page.
 export enum ServerSetting {
   StorageDriver = 'storage_driver',
   StoragePath = 'storage_path',

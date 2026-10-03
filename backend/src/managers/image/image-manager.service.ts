@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { fileTypeFromBuffer, FileTypeResult } from 'file-type';
 import { Readable } from 'node:stream';
+import { ImageListFilters } from 'picsur-shared/dist/dto/api/image-manage.dto';
 import { ImageRequestParams } from 'picsur-shared/dist/dto/api/image.dto';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import {
@@ -68,8 +69,9 @@ export class ImageManagerService {
     count: number,
     page: number,
     userid: string | undefined,
+    filters?: ImageListFilters,
   ): AsyncFailable<FindResult<EImageBackend>> {
-    return await this.imagesService.findMany(count, page, userid);
+    return await this.imagesService.findMany(count, page, userid, filters);
   }
 
   public async update(

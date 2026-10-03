@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ImageListFilters } from 'picsur-shared/dist/dto/api/image-manage.dto';
+import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import { AsyncFailable, Fail, FT } from 'picsur-shared/dist/types/failable';
 import { FindResult } from 'picsur-shared/dist/types/find-result';
 import { generateRandomString } from 'picsur-shared/dist/util/random';
 import { EntityManager, In, LessThan, Repository } from 'typeorm';
+import { EAlbumImageBackend } from '../../database/entities/albums/album-image.entity.js';
+import { EImageFileBackend } from '../../database/entities/images/image-file.entity.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
 import { EUserBackend } from '../../database/entities/users/user.entity.js';
 import { ImageFileDBService } from './image-file-db.service.js';
@@ -63,19 +67,63 @@ export class ImageDBService {
     count: number,
     page: number,
     userid: string | undefined,
+    filters: ImageListFilters = {},
   ): AsyncFailable<FindResult<EImageBackend>> {
     if (count < 1 || page < 0) return Fail(FT.UsrValidation, 'Invalid page');
     if (count > 100) return Fail(FT.UsrValidation, 'Too many results');
 
-    try {
-      const [found, amount] = await this.imageRepo.findAndCount({
-        skip: count * page,
-        take: count,
-        order: { created: 'DESC' },
-        where: {
-          user_id: userid,
-        },
+    // Every image has one master and is in an album once, so the joins below
+    // never repeat an image
+    const query = this.imageRepo
+      .createQueryBuilder('image')
+      .orderBy('image.created', 'DESC')
+      // Images uploaded at the same moment stay on their page
+      .addOrderBy('image.id', 'DESC')
+      .offset(count * page)
+      .limit(count);
+    if (userid !== undefined) {
+      query.andWhere('image.user_id = :userid', { userid });
+    }
+    if (filters.search !== undefined) {
+      // The name has to contain it as it is, % and _ included
+      const escaped = filters.search.replace(/[\\%_]/g, '\\$&');
+      query.andWhere('image.file_name ILIKE :search', {
+        search: `%${escaped}%`,
       });
+    }
+    if (filters.filetypes !== undefined) {
+      query
+        .innerJoin(
+          EImageFileBackend,
+          'master',
+          'master.image_id = image.id AND master.variant = :master',
+          { master: ImageEntryVariant.MASTER },
+        )
+        .andWhere('master.filetype IN (:...filetypes)', {
+          filetypes: filters.filetypes,
+        });
+    }
+    if (filters.album_id !== undefined) {
+      query.innerJoin(
+        EAlbumImageBackend,
+        'entry',
+        'entry.image_id = image.id AND entry.album_id = :album',
+        { album: filters.album_id },
+      );
+    }
+    if (filters.uploaded_after !== undefined) {
+      query.andWhere('image.created >= :after', {
+        after: filters.uploaded_after,
+      });
+    }
+    if (filters.uploaded_before !== undefined) {
+      query.andWhere('image.created < :before', {
+        before: filters.uploaded_before,
+      });
+    }
+
+    try {
+      const [found, amount] = await query.getManyAndCount();
 
       if (found === undefined) return Fail(FT.NotFound, 'Images not found');
 

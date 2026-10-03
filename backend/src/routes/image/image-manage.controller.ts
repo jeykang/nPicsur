@@ -85,8 +85,9 @@ export class ImageManageController {
       body.user_id = userid;
     }
 
+    const { count, page, user_id, ...filters } = body;
     const found = ThrowIfFailed(
-      await this.imagesService.findMany(body.count, body.page, body.user_id),
+      await this.imagesService.findMany(count, page, user_id, filters),
     );
 
     return found;

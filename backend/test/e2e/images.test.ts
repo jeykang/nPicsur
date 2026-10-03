@@ -1066,6 +1066,98 @@ describe('image management', () => {
     );
   });
 
+  it('finds images by name, type, album and date', async () => {
+    const dave = await createUser(admin);
+    const list = async (filters: object) =>
+      expectSuccess(
+        await dave.client.post('/api/image/list', {
+          count: 50,
+          page: 0,
+          ...filters,
+        }),
+      );
+    const names = (found: any) =>
+      found.results.map((i: any) => i.file_name).sort();
+
+    const beach = await dave.client.uploadOk(png, 'Beach day.png');
+    const party = await dave.client.uploadOk(
+      await makeJpeg(),
+      'party_2026.jpg',
+    );
+    const done = await dave.client.uploadOk(png, '100% done.png');
+    await dave.client.uploadOk(png, '100 done.png');
+    await bob.client.uploadOk(png, 'beach of bob.png');
+
+    // Part of the name, in any case, with % and _ as they are
+    expect(names(await list({ search: 'BEACH' }))).toEqual(['Beach day']);
+    expect(names(await list({ search: '100%' }))).toEqual(['100% done']);
+    expect(names(await list({ search: '0_d' }))).toEqual([]);
+    expect(names(await list({ search: 'y_2' }))).toEqual(['party_2026']);
+
+    // How they are stored
+    expect(names(await list({ filetypes: ['image:jpeg'] }))).toEqual([
+      'party_2026',
+    ]);
+    expect(
+      names(await list({ filetypes: ['image:png', 'image:jpeg'] })),
+    ).toHaveLength(4);
+
+    const album = expectSuccess(
+      await dave.client.post('/api/album/create', { name: 'Trip' }),
+    );
+    expectSuccess(
+      await dave.client.post('/api/album/images/add', {
+        id: album.id,
+        image_ids: [beach.id, party.id],
+      }),
+    );
+    expect(names(await list({ album_id: album.id }))).toEqual([
+      'Beach day',
+      'party_2026',
+    ]);
+    // Every filter applies
+    expect(
+      names(await list({ album_id: album.id, filetypes: ['image:png'] })),
+    ).toEqual(['Beach day']);
+
+    const meta = expectSuccess(await dave.client.get(`/i/meta/${done.id}`));
+    const created = new Date(meta.image.created).toISOString();
+    expect(names(await list({ uploaded_after: created }))).toEqual([
+      '100 done',
+      '100% done',
+    ]);
+    expect(names(await list({ uploaded_before: created }))).toEqual([
+      'Beach day',
+      'party_2026',
+    ]);
+
+    // Counted after filtering
+    expect(await list({ search: 'done', count: 1 })).toMatchObject({
+      total: 2,
+      pages: 2,
+    });
+
+    for (const filters of [
+      { filetypes: ['image:exe'] },
+      { search: '  ' },
+      // Dates need a time and its offset, so they mean the same everywhere
+      { uploaded_after: null },
+      { uploaded_after: Date.now() },
+      { uploaded_after: '2026-10-03' },
+      { uploaded_before: '2026-10-03T12:00:00' },
+    ]) {
+      expectFailure(
+        await dave.client.post('/api/image/list', {
+          count: 10,
+          page: 0,
+          ...filters,
+        }),
+        400,
+        'usrvalidation',
+      );
+    }
+  });
+
   it('renames images and sets an expiry date', async () => {
     const { id } = await alice.client.uploadOk(png, 'before.png');
     const expires = new Date(Date.now() + 60 * 60 * 1000);

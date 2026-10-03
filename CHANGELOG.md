@@ -23,6 +23,7 @@
 
 - Images set to expire could be shown from a browser's cache for a month, also after they were deleted. They are now cached until they expire at most.
 - A HEAD request for an image in a format, like `/i/<id>.png`, was answered as if the image existed, also when it did not.
+- An address that is no page, like a mistyped one, showed an empty page with a loading bar that never stopped, instead of the page that says it was not found. A page that could not be loaded, like right after an update, left the loading bar running as well.
 
 ## 0.7.0
 

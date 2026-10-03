@@ -50,4 +50,9 @@ export const AppRoutes: PRoutes = [
     path: 'error',
     loadChildren: () => import('./routes/errors/errors.routes'),
   },
+  // Any other address, like a mistyped one
+  {
+    path: '**',
+    redirectTo: '/error/404',
+  },
 ];

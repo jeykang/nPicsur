@@ -12,6 +12,7 @@ import {
 } from '@angular/material/sidenav';
 import {
   ActivatedRoute,
+  NavigationCancel,
   NavigationEnd,
   NavigationError,
   NavigationStart,
@@ -105,11 +106,16 @@ export class AppComponent implements OnInit {
       if (event instanceof NavigationStart) {
         this.loadingStart();
       }
-      if (event instanceof NavigationEnd) {
+      // Also when it failed or was replaced by another one, which would
+      // otherwise leave the loading bar running
+      if (
+        event instanceof NavigationEnd ||
+        event instanceof NavigationCancel ||
+        event instanceof NavigationError
+      ) {
         this.loadingEnd();
       }
       if (event instanceof NavigationEnd) this.onNavigationEnd();
-      if (event instanceof NavigationError) this.onNavigationError(event);
     });
   }
 
@@ -119,13 +125,6 @@ export class AppComponent implements OnInit {
       this.isDesktop = state;
       this.updateSidebar();
     });
-  }
-
-  private async onNavigationError(event: NavigationError) {
-    // 404 handler
-    const error: Error = event.error;
-    if (error.message.startsWith('Cannot match any routes'))
-      this.router.navigate(['/error/404'], { replaceUrl: true });
   }
 
   private async onNavigationEnd() {

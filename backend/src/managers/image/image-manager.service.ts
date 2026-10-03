@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { fileTypeFromBuffer, FileTypeResult } from 'file-type';
+import { Readable } from 'node:stream';
 import { ImageRequestParams } from 'picsur-shared/dist/dto/api/image.dto';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import {
@@ -24,6 +25,7 @@ import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
 import { ImageDBService } from '../../collections/image-db/image-db.service.js';
 import {
   ImageFileDBService,
+  ReadImageData,
   StoredImage,
 } from '../../collections/image-db/image-file-db.service.js';
 import { UsrPreferenceDbService } from '../../collections/preference-db/usr-preference-db.service.js';
@@ -155,6 +157,13 @@ export class ImageManagerService {
     return imageEntity;
   }
 
+  // What the image converted to this file type with these options is cached
+  // under. Only the options that are applied count, so it changes when
+  // editing is turned on or off.
+  public getConvertKey(fileType: string, options: ImageRequestParams): string {
+    return this.getConvertHash(fileType, this.getEffectiveOptions(options));
+  }
+
   // Client identifies who asked for it, for rate limiting
   public async getConverted(
     imageId: string,
@@ -165,16 +174,11 @@ export class ImageManagerService {
     const targetFileType = ParseFileType(fileType);
     if (HasFailed(targetFileType)) return targetFileType;
 
-    const allow_editing = GetServerSettingBool(ServerSetting.AllowEditing);
-
     // The cache key has to match what is actually rendered, otherwise an
     // unedited image would be cached for the edited parameters while editing
     // is disabled.
-    const effectiveOptions: ImageRequestParams = allow_editing ? options : {};
-    const converted_key = this.getConvertHash({
-      mime: fileType,
-      ...effectiveOptions,
-    });
+    const effectiveOptions = this.getEffectiveOptions(options);
+    const converted_key = this.getConvertHash(fileType, effectiveOptions);
 
     return MutexFallBack(
       `${imageId}-${converted_key}`,
@@ -186,7 +190,10 @@ export class ImageManagerService {
         if (HasFailed(masterImage)) return masterImage;
 
         const sourceFileType = ParseFileType(masterImage.filetype);
-        if (HasFailed(sourceFileType)) return sourceFileType;
+        if (HasFailed(sourceFileType)) {
+          if (masterImage.data instanceof Readable) masterImage.data.destroy();
+          return sourceFileType;
+        }
 
         // Nothing to convert, serve the master as it is instead of storing
         // another copy of it. A still WebP is as much a .webp as an animated
@@ -199,10 +206,10 @@ export class ImageManagerService {
           return masterImage;
         }
 
-        const sizeAllowed = this.checkOutputSize(
-          masterImage.data,
-          effectiveOptions,
-        );
+        const masterData = await ReadImageData(masterImage);
+        if (HasFailed(masterData)) return masterData;
+
+        const sizeAllowed = this.checkOutputSize(masterData, effectiveOptions);
         if (HasFailed(sizeAllowed)) return sizeAllowed;
 
         const clientAllowed = this.conversionLimiter.checkClient(client);
@@ -210,7 +217,7 @@ export class ImageManagerService {
 
         const startTime = Date.now();
         const convertResult = await this.convertService.convert(
-          masterImage.data,
+          masterData,
           sourceFileType,
           targetFileType,
           effectiveOptions,
@@ -231,6 +238,7 @@ export class ImageManagerService {
           return {
             filetype: convertResult.filetype,
             data: convertResult.image,
+            size: convertResult.image.length,
           };
         }
 
@@ -355,9 +363,13 @@ export class ImageManagerService {
     return ParseFileType(filetype);
   }
 
-  private getConvertHash(options: object) {
+  private getEffectiveOptions(options: ImageRequestParams): ImageRequestParams {
+    return GetServerSettingBool(ServerSetting.AllowEditing) ? options : {};
+  }
+
+  private getConvertHash(fileType: string, options: ImageRequestParams) {
     // Return a sha256 hash of the stringified options
-    const stringified = JSON.stringify(options);
+    const stringified = JSON.stringify({ mime: fileType, ...options });
     const hash = createHash('sha256');
     hash.update(stringified);
     const digest = hash.digest('hex');

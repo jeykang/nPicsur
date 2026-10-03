@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Faster
+
+- Browsers and proxies that already have an image get a short answer that it did not change, instead of the image again, and Picsur does not read the image for that. Images are sent with an `ETag` and a `Last-Modified` header for this.
+
+### Lighter
+
+- Images stored in S3 or in a directory are sent while they are read, instead of being read into memory completely first. Measured with Picsur started like the Docker image starts it, while 64 visitors downloaded 4.6 MB photos at about 2 MB/s each: about 245 MB instead of 430 MB with images in a directory, and 250 MB instead of 515 MB with images in S3. Visitors on the same machine, which download as fast as they can, took about 10% less memory than before, and got images from S3 16% faster and from a directory 12% slower.
+- Picsur no longer limits how many connections to the bucket it opens at once, which was 50. Images that visitors download slowly keep theirs open, and would make everything else wait.
+
+### Fixed
+
+- Images set to expire could be shown from a browser's cache for a month, also after they were deleted. They are now cached until they expire at most.
+- A HEAD request for an image in a format, like `/i/<id>.png`, was answered as if the image existed, also when it did not.
+
 ## 0.7.0
 
 ### New

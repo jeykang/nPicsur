@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { Readable } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import { FileType2Mime } from 'picsur-shared/dist/dto/mimes.dto';
 import { ExternalStorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
@@ -17,10 +19,25 @@ import { ExternalStorageService } from '../external-storage/external-storage.ser
 
 const A_DAY_IN_SECONDS = 24 * 60 * 60;
 
-// An image file or derivative together with its data, wherever it is stored
+// An image file or derivative together with its data, wherever it is stored.
+// Data in a bucket or a directory is read while it is used, like while it is
+// sent, so it does not have to fit in memory all at once. A stream has to be
+// read or destroyed.
 export interface StoredImage {
   filetype: string;
-  data: Buffer;
+  data: Buffer | Readable;
+  // In bytes, when known
+  size: number | null;
+}
+
+// All of the data of an image at once, like for converting it
+export async function ReadImageData(image: StoredImage): AsyncFailable<Buffer> {
+  if (Buffer.isBuffer(image.data)) return image.data;
+  try {
+    return await buffer(image.data);
+  } catch (e) {
+    return Fail(FT.Internal, 'Could not load image', e);
+  }
 }
 
 interface StoredRow {
@@ -167,7 +184,7 @@ export class ImageFileDBService {
       return Fail(FT.Database, e);
     }
 
-    return { filetype, data: file };
+    return { filetype, data: file, size: file.length };
   }
 
   // Returns null when derivative is not found
@@ -192,6 +209,22 @@ export class ImageFileDBService {
     }
     if (!derivative) return null;
 
+    // Keep track of when it was last read with a precision of a day, so
+    // not every view has to write to the database. Only the timestamp is
+    // written, saving the entity would write the whole image again. Done
+    // first, as nothing may fail anymore once its data is being read.
+    const yesterday = new Date(Date.now() - A_DAY_IN_SECONDS * 1000);
+    if (derivative.last_read < yesterday) {
+      try {
+        await this.imageDerivativeRepo.update(
+          { image_id: imageId, key },
+          { last_read: new Date() },
+        );
+      } catch (e) {
+        return Fail(FT.Database, e);
+      }
+    }
+
     // Also when it is in storage that is not configured anymore
     const loaded =
       derivative.data === null &&
@@ -211,21 +244,6 @@ export class ImageFileDBService {
         return null;
       }
       return loaded;
-    }
-
-    // Keep track of when it was last read with a precision of a day, so
-    // not every view has to write to the database. Only the timestamp is
-    // written, saving the entity would write the whole image again.
-    const yesterday = new Date(Date.now() - A_DAY_IN_SECONDS * 1000);
-    if (derivative.last_read < yesterday) {
-      try {
-        await this.imageDerivativeRepo.update(
-          { image_id: imageId, key },
-          { last_read: new Date() },
-        );
-      } catch (e) {
-        return Fail(FT.Database, e);
-      }
     }
 
     return loaded;
@@ -308,7 +326,7 @@ export class ImageFileDBService {
 
   private async load(row: StoredRow): AsyncFailable<StoredImage> {
     if (row.data !== null && row.data !== undefined) {
-      return { filetype: row.filetype, data: row.data };
+      return { filetype: row.filetype, data: row.data, size: row.data.length };
     }
     if (row.storage_key === null) {
       return Fail(FT.Internal, 'Image data is missing');
@@ -324,9 +342,9 @@ export class ImageFileDBService {
         `Image data is stored in ${row.storage}, which is not configured`,
       );
     }
-    const data = await storage.get(row.storage_key);
-    if (HasFailed(data)) return data;
-    return { filetype: row.filetype, data };
+    const stored = await storage.getStream(row.storage_key);
+    if (HasFailed(stored)) return stored;
+    return { filetype: row.filetype, data: stored.stream, size: stored.size };
   }
 
   // Deletes what is stored outside the database for these rows

@@ -11,6 +11,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import { StorageDriver } from 'picsur-shared/dist/dto/storage-driver.enum';
 import {
@@ -26,6 +27,7 @@ import {
 import {
   ExternalStorage,
   StoredObject,
+  StoredStream,
 } from '../external-storage/external-storage.js';
 
 // DeleteObjects accepts at most this many keys per request
@@ -141,6 +143,27 @@ export class ObjectStorageService
       );
       if (!result.Body) return Fail(FT.NotFound, 'Image not found');
       return Buffer.from(await result.Body.transformToByteArray());
+    } catch (e) {
+      if (IsNotFound(e)) {
+        return Fail(FT.NotFound, 'Image not found', `Missing object ${key}`);
+      }
+      return Fail(FT.Network, 'Could not load image', DescribeS3Error(e));
+    }
+  }
+
+  public async getStream(key: string): AsyncFailable<StoredStream> {
+    const { client, config } = this.assertConfigured();
+
+    try {
+      const result = await client.send(
+        new GetObjectCommand({ Bucket: config.bucket, Key: key }),
+      );
+      if (!result.Body) return Fail(FT.NotFound, 'Image not found');
+      // Always a stream in Node
+      if (!(result.Body instanceof Readable)) {
+        return Fail(FT.Internal, 'Could not load image', 'Unexpected body');
+      }
+      return { stream: result.Body, size: result.ContentLength ?? null };
     } catch (e) {
       if (IsNotFound(e)) {
         return Fail(FT.NotFound, 'Image not found', `Missing object ${key}`);
@@ -310,7 +333,17 @@ function CreateS3Client(
             throwOnRequestTimeout: true,
           },
         }
-      : {}),
+      : {
+          // An image that is sent on as it is read keeps its connection for
+          // as long as the visitor takes to download it. With the SDK's
+          // limit of 50, slow visitors would make everything else that uses
+          // the bucket wait, uploads included. A request uses one connection
+          // at a time, so the requests being handled limit them instead.
+          requestHandler: {
+            httpAgent: { maxSockets: Infinity },
+            httpsAgent: { maxSockets: Infinity },
+          },
+        }),
   });
 }
 

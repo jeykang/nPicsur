@@ -1,6 +1,9 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import pg from 'pg';
 import sharp from 'sharp';
-import { beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import {
   Client,
   createUser,
@@ -379,6 +382,259 @@ describe('image editing parameters', () => {
     }
     const meta = await fetchMeta('width=16');
     expect(meta.width).toBe(16);
+  });
+});
+
+describe('caching', () => {
+  const Month = 'public, max-age=2592000';
+  const env = inject('serverEnv');
+  // The directory is only reachable from here when the server is not in a
+  // container
+  const diskPath = env['PICSUR_STORAGE_PATH'] ?? '';
+  const onDisk =
+    env['PICSUR_STORAGE_DRIVER'] === 'filesystem' &&
+    diskPath !== '' &&
+    inject('dockerImage') === null;
+  let admin: Client;
+  let user: Awaited<ReturnType<typeof createUser>>;
+  let png: Buffer;
+  let imageId: string;
+  let db: pg.Client;
+
+  beforeAll(async () => {
+    admin = await Client.admin();
+    user = await createUser(admin);
+    png = await makePng(64, 48);
+    imageId = (await user.client.uploadOk(png)).id;
+    db = new pg.Client({
+      host: env['PICSUR_DB_HOST'],
+      port: Number(env['PICSUR_DB_PORT']),
+      user: env['PICSUR_DB_USERNAME'],
+      password: env['PICSUR_DB_PASSWORD'],
+      database: env['PICSUR_DB_DATABASE'],
+    });
+    await db.connect();
+  });
+
+  afterAll(async () => {
+    await db.end();
+  });
+
+  const derivatives = async (id: string) =>
+    Number(
+      (
+        await db.query(
+          'SELECT COUNT(*) AS count FROM e_image_derivative_backend WHERE image_id = $1',
+          [id],
+        )
+      ).rows[0].count,
+    );
+
+  const get = (path: string, headers: Record<string, string> = {}) =>
+    Client.guest().get(path, { headers });
+
+  it('says how long images may be kept, and how to check them', async () => {
+    const meta = expectSuccess(await get(`/i/meta/${imageId}`));
+    // Served as it was uploaded, converted, and converted with options
+    for (const path of ['.png', '.webp', '.png?width=32']) {
+      const res = await get(`/i/${imageId}${path}`);
+      expect(res.status, path).toBe(200);
+      expect(res.headers.get('cache-control'), path).toBe(Month);
+      expect(res.headers.get('etag'), path).toMatch(
+        new RegExp(`^W/"${imageId}-[0-9a-f]{16}"$`),
+      );
+      expect(res.headers.get('last-modified'), path).toBe(
+        new Date(meta.image.created).toUTCString(),
+      );
+      expect(Number(res.headers.get('content-length')), path).toBe(
+        res.body.length,
+      );
+    }
+  });
+
+  it('answers 304 when the copy is still current', async () => {
+    const first = await get(`/i/${imageId}.webp`);
+    const etag = first.headers.get('etag')!;
+
+    const tagged = await get(`/i/${imageId}.webp`, { 'If-None-Match': etag });
+    expect(tagged.status).toBe(304);
+    expect(tagged.body.length).toBe(0);
+    expect(tagged.headers.get('etag')).toBe(etag);
+    expect(tagged.headers.get('cache-control')).toBe(Month);
+
+    const dated = await get(`/i/${imageId}.webp`, {
+      'If-Modified-Since': first.headers.get('last-modified')!,
+    });
+    expect(dated.status).toBe(304);
+  });
+
+  it('answers 304 without converting the image', async () => {
+    const { id } = await user.client.uploadOk(png);
+    // HEAD tells the tag without converting either
+    const head = await Client.guest().head(`/i/${id}.webp?width=33`);
+    expect(head.status).toBe(200);
+    const etag = head.headers.get('etag')!;
+
+    const current = await get(`/i/${id}.webp?width=33`, {
+      'If-None-Match': etag,
+    });
+    expect(current.status).toBe(304);
+    expect(await derivatives(id)).toBe(0);
+
+    // Which is not because converting is not counted
+    const full = await get(`/i/${id}.webp?width=33`);
+    expect(full.status).toBe(200);
+    expect(full.headers.get('etag')).toBe(etag);
+    expect(await derivatives(id)).toBe(1);
+  });
+
+  it.runIf(onDisk)('does not cache a failure to read the image', async () => {
+    const { id } = await user.client.uploadOk(png);
+    // The stored file becomes a directory, which opens but cannot be read
+    const [file] = (
+      await readdir(join(diskPath, 'images', id), {
+        recursive: true,
+        withFileTypes: true,
+      })
+    ).filter((entry) => entry.isFile());
+    const path = join(file!.parentPath, file!.name);
+    const data = await readFile(path);
+    await rm(path);
+    await mkdir(path);
+
+    try {
+      // Sent as it is stored, so read from the start
+      const res = await get(`/i/${id}.png`);
+      expect(res.status).toBe(500);
+      expect(res.headers.get('cache-control') ?? '').not.toContain('max-age');
+      expect(res.headers.get('etag')).toBeNull();
+      expect(res.headers.get('content-type')).toContain('application/json');
+      expect(res.json.success).toBe(false);
+    } finally {
+      // Other tests move every stored file
+      await rm(path, { recursive: true });
+      await writeFile(path, data);
+    }
+    expect((await get(`/i/${id}.png`)).body.equals(data)).toBe(true);
+  });
+
+  it('sends the image when the copy is not current', async () => {
+    const tagged = await get(`/i/${imageId}.webp`, {
+      'If-None-Match': `W/"${imageId}-0000000000000000"`,
+    });
+    expect(tagged.status).toBe(200);
+    expect((await metadata(tagged.body)).format).toBe('webp');
+    // Converted before, so sent from where it is stored
+    expect(Number(tagged.headers.get('content-length'))).toBe(
+      tagged.body.length,
+    );
+
+    const dated = await get(`/i/${imageId}.webp`, {
+      'If-Modified-Since': new Date(Date.now() - 60 * 60 * 1000).toUTCString(),
+    });
+    expect(dated.status).toBe(200);
+  });
+
+  it('tags every format and set of options differently', async () => {
+    const paths = ['.png', '.webp', '.png?width=32', '.png?width=16'];
+    const tags = await Promise.all(
+      paths.map(async (path) =>
+        (await get(`/i/${imageId}${path}`)).headers.get('etag'),
+      ),
+    );
+    expect(new Set(tags).size).toBe(paths.length);
+
+    const again = await get(`/i/${imageId}.png?width=32`);
+    expect(again.headers.get('etag')).toBe(tags[2]);
+  });
+
+  it('answers HEAD requests with the headers of GET requests', async () => {
+    const full = await get(`/i/${imageId}.png`);
+    const head = await Client.guest().head(`/i/${imageId}.png`);
+    expect(head.status).toBe(200);
+    for (const header of [
+      'etag',
+      'last-modified',
+      'cache-control',
+      'content-type',
+    ]) {
+      expect(head.headers.get(header), header).toBe(full.headers.get(header));
+    }
+
+    const current = await Client.guest().head(`/i/${imageId}.png`, {
+      headers: { 'If-None-Match': full.headers.get('etag')! },
+    });
+    expect(current.status).toBe(304);
+
+    const unknown = await Client.guest().head(`/i/${randomUUID()}.png`);
+    expect(unknown.status).toBe(404);
+    expect(unknown.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('does not answer 304 for images that were deleted', async () => {
+    const { id } = await user.client.uploadOk(png);
+    const etag = (await get(`/i/${id}.png`)).headers.get('etag')!;
+    expectSuccess(await user.client.post('/api/image/delete', { ids: [id] }));
+
+    const gone = await get(`/i/${id}.png`, { 'If-None-Match': etag });
+    expect(gone.status).toBe(404);
+    expect(gone.headers.get('etag')).toBeNull();
+    expect(gone.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('changes the tag when editing is turned off', async () => {
+    const edited = await get(`/i/${imageId}.png?width=16`);
+    const unedited = await get(`/i/${imageId}.png`);
+
+    expectSuccess(await update(admin, { allow_editing: 'false' }));
+    try {
+      const res = await get(`/i/${imageId}.png?width=16`, {
+        'If-None-Match': edited.headers.get('etag')!,
+      });
+      expect(res.status).toBe(200);
+      expect(res.headers.get('etag')).toBe(unedited.headers.get('etag'));
+    } finally {
+      expectSuccess(await update(admin, { allow_editing: null }));
+    }
+  });
+
+  it('is kept no longer than until the image expires', async () => {
+    const { id } = await user.client.uploadOk(png);
+    expectSuccess(
+      await user.client.post('/api/image/update', {
+        id,
+        expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      }),
+    );
+
+    const res = await get(`/i/${id}.png`);
+    const maxAge = Number(
+      /^public, max-age=(\d+)$/.exec(res.headers.get('cache-control')!)?.[1],
+    );
+    expect(maxAge).toBeLessThanOrEqual(60 * 60);
+    expect(maxAge).toBeGreaterThan(60 * 60 - 60);
+  });
+
+  it('tags originals by their image', async () => {
+    const { client } = await createUser(admin);
+    expectSuccess(
+      await client.post('/api/pref/usr/keep_original', { value: true }),
+    );
+    const jpeg = await makeJpeg();
+    const { id } = await client.uploadOk(jpeg, 'original.jpg');
+
+    const res = await get(`/i/${id}`);
+    expect(res.body.equals(jpeg)).toBe(true);
+    expect(Number(res.headers.get('content-length'))).toBe(jpeg.length);
+    expect(res.headers.get('etag')).toBe(`"${id}-original"`);
+
+    const current = await get(`/i/${id}`, {
+      'If-None-Match': `"${id}-original"`,
+    });
+    expect(current.status).toBe(304);
+    // An image without a kept original has none to compare with
+    const without = await get(`/i/${imageId}`, { 'If-None-Match': '*' });
+    expect(without.status).toBe(404);
   });
 });
 

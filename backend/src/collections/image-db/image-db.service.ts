@@ -27,11 +27,13 @@ export class ImageDBService {
     userid: string,
     filename: string,
     withDeleteKey: boolean,
+    expiresAt: Date | null = null,
   ): AsyncFailable<EImageBackend> {
     let imageEntity = new EImageBackend();
     imageEntity.user_id = userid;
     imageEntity.created = new Date();
     imageEntity.file_name = filename;
+    imageEntity.expires_at = expiresAt;
     imageEntity.listed = false;
     if (withDeleteKey) imageEntity.delete_key = generateRandomString(32);
 

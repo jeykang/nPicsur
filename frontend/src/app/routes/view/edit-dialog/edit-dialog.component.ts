@@ -5,6 +5,7 @@ import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { ImageService } from '../../../services/api/image.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
+import { ExpiryOptions } from '../../../util/expiry-options';
 
 export interface EditDialogData {
   image: EImage;
@@ -20,18 +21,7 @@ export interface EditDialogData {
 export class EditDialogComponent {
   private readonly logger = new Logger(EditDialogComponent.name);
 
-  public readonly ExpireOptions: Array<[string, number]> = [
-    ['Never', 0],
-    ['5 Minutes', 5 * 60],
-    ['10 Minutes', 10 * 60],
-    ['30 Minutes', 30 * 60],
-    ['1 Hour', 60 * 60],
-    ['6 Hours', 6 * 60 * 60],
-    ['12 Hours', 12 * 60 * 60],
-    ['1 Day', 24 * 60 * 60],
-    ['1 Week', 7 * 24 * 60 * 60],
-    ['1 Month', 30 * 24 * 60 * 60],
-  ];
+  public readonly ExpiryOptions = ExpiryOptions;
 
   public expiresAfter?: number = undefined;
   public listed = false;

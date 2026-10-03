@@ -109,6 +109,7 @@ Everything else is set on the settings page, under Settings → Server, or with 
 | `PICSUR_STORAGE_PATH`               |                                     | See [Storing images on disk](#storing-images-on-disk)                                                                                                                                                                                              |
 | `PICSUR_S3_*`                       |                                     | See [Storing images in S3](#storing-images-in-s3)                                                                                                                                                                                                  |
 | `PICSUR_MAX_FILE_SIZE`              | `128000000`                         | Largest accepted upload, in bytes                                                                                                                                                                                                                  |
+| `PICSUR_GUEST_UPLOAD_EXPIRY`        | `0`                                 | How long uploads of visitors who are not logged in are kept at most, like `1d`. `0` keeps them                                                                                                                                                     |
 | `PICSUR_MAX_CONCURRENT_CONVERSIONS` | number of CPUs                      | How many images are converted at once, more wait in line                                                                                                                                                                                           |
 | `PICSUR_CONVERSION_RATE_LIMIT`      | `120`                               | New conversions a single visitor may start per minute, `0` for no limit                                                                                                                                                                            |
 | `PICSUR_CONVERSION_TIME_LIMIT`      | `15s`                               | How long converting one image may take, at most `10m`                                                                                                                                                                                              |
@@ -131,7 +132,7 @@ The processes that convert images get none of these variables, as they handle un
 
 What is saved on the settings page comes before these environment variables, which only set what is not saved there. So the variables can be what an instance starts out with, to be changed on the page later. The page lists the variables that are not used because something is saved instead, and can go back to them. It also shows what is only set with environment variables.
 
-`PICSUR_CONVERSION_TIME_LIMIT`, `PICSUR_CONVERSION_MEMORY_LIMIT`, `PICSUR_ALLOW_EDITING`, `PICSUR_REMOVE_DERIVATIVES_AFTER`, `PICSUR_HOST_OVERRIDE`, `PICSUR_JWT_EXPIRY`, `PICSUR_BCRYPT_STRENGTH` and `PICSUR_TRACKING_*` take effect as soon as they are saved on the page. The others when Picsur restarts, which it does itself from the settings page. When it cannot start with the new settings, it goes back to the ones it had before.
+`PICSUR_CONVERSION_TIME_LIMIT`, `PICSUR_CONVERSION_MEMORY_LIMIT`, `PICSUR_ALLOW_EDITING`, `PICSUR_REMOVE_DERIVATIVES_AFTER`, `PICSUR_GUEST_UPLOAD_EXPIRY`, `PICSUR_HOST_OVERRIDE`, `PICSUR_JWT_EXPIRY`, `PICSUR_BCRYPT_STRENGTH` and `PICSUR_TRACKING_*` take effect as soon as they are saved on the page. The others when Picsur restarts, which it does itself from the settings page. When it cannot start with the new settings, it goes back to the ones it had before.
 
 The command line tool shows where each of these settings comes from, and removes what is saved for a setting, so its variable or default applies again once Picsur restarts:
 
@@ -375,6 +376,12 @@ If you want to allow this you can though. To change this you go to `settings -> 
 Open the image, edit it, and turn on "Show in the public gallery". Everyone with the "View the gallery" permission can then find it in the gallery, by default that includes visitors who are not logged in. Other images can only be seen by whoever has their link.
 
 To close the gallery to visitors, go to `settings -> roles -> guest -> edit` and remove the "View the gallery" permission. Remove it from the user role as well to turn the gallery off completely.
+
+### How do I make images expire by themselves?
+
+Under `settings -> preferences`, "New images expire after" sets when what you upload from then on expires. Each image can still be given another time when editing it. The ShareX config can ask for a time of its own, when exporting it under `settings -> sharex`, and so can any upload through the api, with `/api/image/upload?expires_after=<seconds>`, `0` for never.
+
+When visitors who are not logged in may upload, "Guest uploads expire after" under `settings -> server` keeps their images that long at most.
 
 ### I want to keep my original image files, how?
 

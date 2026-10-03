@@ -1191,6 +1191,118 @@ describe('image management', () => {
     );
   });
 
+  // Seconds until an uploaded image expires
+  const expiresIn = (image: { expires_at: string }) =>
+    (new Date(image.expires_at).getTime() - Date.now()) / 1000;
+
+  it('lets uploads expire by default, or when they ask to', async () => {
+    const erin = await createUser(admin);
+    expect(expectSuccess(await erin.client.upload(png)).expires_at).toBeNull();
+
+    expectSuccess(
+      await erin.client.post('/api/pref/usr/default_expiry', { value: 3600 }),
+    );
+    const byDefault = expectSuccess(await erin.client.upload(png));
+    expect(expiresIn(byDefault)).toBeGreaterThan(3600 - 60);
+    expect(expiresIn(byDefault)).toBeLessThanOrEqual(3600);
+
+    // Asking when uploading comes first, also asking for never
+    const asked = expectSuccess(
+      await erin.client.upload(png, 'a.png', '?expires_after=60'),
+    );
+    expect(expiresIn(asked)).toBeLessThanOrEqual(60);
+    expect(expiresIn(asked)).toBeGreaterThan(0);
+    const never = expectSuccess(
+      await erin.client.upload(png, 'b.png', '?expires_after=0'),
+    );
+    expect(never.expires_at).toBeNull();
+    // Empty is not asking, not never
+    const empty = expectSuccess(
+      await erin.client.upload(png, 'd.png', '?expires_after='),
+    );
+    expect(expiresIn(empty)).toBeGreaterThan(3600 - 60);
+
+    for (const query of [
+      '?expires_after=-5',
+      '?expires_after=soon',
+      '?expires_after=1.5',
+      '?expires_after=1e3',
+      '?expires_after=0x10',
+    ]) {
+      expectFailure(
+        await erin.client.upload(png, 'c.png', query),
+        400,
+        'usrvalidation',
+      );
+    }
+    expectFailure(
+      await erin.client.post('/api/pref/usr/default_expiry', { value: -1 }),
+      400,
+      'usrvalidation',
+    );
+  });
+
+  it('keeps guest uploads only as long as the server settings say', async () => {
+    const guestRole = expectSuccess(
+      await admin.post('/api/roles/info', { name: 'guest' }),
+    );
+    expectSuccess(
+      await admin.post('/api/roles/update', {
+        name: 'guest',
+        permissions: [...guestRole.permissions, 'image-upload', 'image-manage'],
+      }),
+    );
+    expectSuccess(await update(admin, { guest_upload_expiry: '1h' }));
+    try {
+      const guest = Client.guest();
+      const kept = expectSuccess(await guest.upload(png));
+      expect(expiresIn(kept)).toBeGreaterThan(3600 - 60);
+      expect(expiresIn(kept)).toBeLessThanOrEqual(3600);
+
+      // Sooner when asked, never is not longer than the limit
+      const sooner = expectSuccess(
+        await guest.upload(png, 'a.png', '?expires_after=60'),
+      );
+      expect(expiresIn(sooner)).toBeLessThanOrEqual(60);
+      const never = expectSuccess(
+        await guest.upload(png, 'b.png', '?expires_after=0'),
+      );
+      expect(expiresIn(never)).toBeGreaterThan(3600 - 60);
+
+      // Nor when guests may edit images
+      for (const expires_at of [
+        null,
+        new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
+      ]) {
+        expectFailure(
+          await guest.post('/api/image/update', { id: kept.id, expires_at }),
+          400,
+          'usrvalidation',
+        );
+      }
+      const shorter = expectSuccess(
+        await guest.post('/api/image/update', {
+          id: kept.id,
+          expires_at: new Date(Date.now() + 600 * 1000).toISOString(),
+        }),
+      );
+      expect(expiresIn(shorter)).toBeLessThanOrEqual(600);
+
+      // Users that are logged in are not limited
+      expect(
+        expectSuccess(await alice.client.upload(png)).expires_at,
+      ).toBeNull();
+    } finally {
+      expectSuccess(await update(admin, { guest_upload_expiry: null }));
+      expectSuccess(
+        await admin.post('/api/roles/update', {
+          name: 'guest',
+          permissions: guestRole.permissions,
+        }),
+      );
+    }
+  });
+
   it("does not let you touch other people's images", async () => {
     const { id } = await alice.client.uploadOk(png);
     expectFailure(

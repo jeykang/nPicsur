@@ -26,6 +26,9 @@ export enum ServerSetting {
   ConversionMemoryLimit = 'conversion_memory_limit',
   AllowEditing = 'allow_editing',
   RemoveDerivativesAfter = 'remove_derivatives_after',
+  // Uploads of visitors who are not logged in expire after this at the
+  // latest, 0 keeps them
+  GuestUploadExpiry = 'guest_upload_expiry',
 
   TrustProxy = 'trust_proxy',
   HostOverride = 'host_override',
@@ -58,6 +61,7 @@ export const LiveServerSettings: ServerSetting[] = [
   ServerSetting.ConversionMemoryLimit,
   ServerSetting.AllowEditing,
   ServerSetting.RemoveDerivativesAfter,
+  ServerSetting.GuestUploadExpiry,
   ServerSetting.HostOverride,
   ServerSetting.JwtExpiry,
   ServerSetting.BCryptStrength,
@@ -202,6 +206,15 @@ export const ServerSettingValidators: {
         MINUTE,
         Number.MAX_SAFE_INTEGER,
         'Should be 0, or a duration of at least 1m, like 7d',
+      ),
+    ),
+  [ServerSetting.GuestUploadExpiry]: z
+    .literal('0')
+    .or(
+      Duration(
+        MINUTE,
+        10 * 365 * DAY,
+        'Should be 0, or a duration between 1m and 3650d, like 1d',
       ),
     ),
   [ServerSetting.TrustProxy]: z

@@ -5,6 +5,7 @@ import {
   Logger,
   Param,
   Post,
+  Query,
   Res,
 } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
@@ -17,9 +18,11 @@ import {
   ImageListResponse,
   ImageUpdateRequest,
   ImageUpdateResponse,
+  ImageUploadQuery,
   ImageUploadResponse,
 } from 'picsur-shared/dist/dto/api/image-manage.dto';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
+import type { EUser } from 'picsur-shared/dist/entities/user.entity';
 import { FT, Fail, ThrowIfFailed } from 'picsur-shared/dist/types/failable';
 import { EasyThrottle } from '../../decorators/easy-throttle.decorator.js';
 import { PostFiles } from '../../decorators/multipart/multipart.decorator.js';
@@ -28,7 +31,7 @@ import {
   HasPermission,
   RequiredPermissions,
 } from '../../decorators/permissions.decorator.js';
-import { ReqUserID } from '../../decorators/request-user.decorator.js';
+import { ReqUser, ReqUserID } from '../../decorators/request-user.decorator.js';
 import { Returns } from '../../decorators/returns.decorator.js';
 import { ImageManagerService } from '../../managers/image/image-manager.service.js';
 import { GetNextAsync } from '../../util/iterator.js';
@@ -45,7 +48,8 @@ export class ImageManageController {
   @EasyThrottle(20)
   async uploadImage(
     @PostFiles(1) multipart: FileIterator,
-    @ReqUserID() userid: string,
+    @Query() query: ImageUploadQuery,
+    @ReqUser() user: EUser,
     @HasPermission(Permission.ImageDeleteKey) withDeleteKey: boolean,
   ): Promise<ImageUploadResponse> {
     const file = ThrowIfFailed(await GetNextAsync(multipart));
@@ -63,10 +67,13 @@ export class ImageManageController {
 
     const image = ThrowIfFailed(
       await this.imagesService.upload(
-        userid,
+        user.id,
         file.filename,
         buffer,
         withDeleteKey,
+        query.expires_after,
+        // Visitors who are not logged in are the guest user
+        user.username === 'guest',
       ),
     );
 
@@ -98,13 +105,18 @@ export class ImageManageController {
   @Returns(ImageUpdateResponse)
   async updateImage(
     @Body() body: ImageUpdateRequest,
-    @ReqUserID() userid: string,
+    @ReqUser() user: EUser,
     @HasPermission(Permission.ImageAdmin) isImageAdmin: boolean,
   ): Promise<ImageUpdateResponse> {
-    const user_id = isImageAdmin ? undefined : userid;
+    const user_id = isImageAdmin ? undefined : user.id;
 
     const image = ThrowIfFailed(
-      await this.imagesService.update(body.id, user_id, body),
+      await this.imagesService.update(
+        body.id,
+        user_id,
+        body,
+        user.username === 'guest',
+      ),
     );
 
     return image;

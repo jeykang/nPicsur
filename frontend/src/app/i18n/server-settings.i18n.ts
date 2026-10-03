@@ -48,6 +48,10 @@ export const ServerSettingUI: {
     name: 'Keep converted versions for',
     helpText: '0 keeps them',
   },
+  [ServerSetting.GuestUploadExpiry]: {
+    name: 'Guest uploads expire after',
+    helpText: 'At the latest, for visitors who are not logged in. 0 keeps them',
+  },
   [ServerSetting.TrustProxy]: {
     name: 'Trusted proxies',
     helpText:

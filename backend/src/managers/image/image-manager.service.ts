@@ -30,7 +30,10 @@ import {
   StoredImage,
 } from '../../collections/image-db/image-file-db.service.js';
 import { UsrPreferenceDbService } from '../../collections/preference-db/usr-preference-db.service.js';
-import { GetServerSettingBool } from '../../config/server-settings.js';
+import {
+  GetServerSettingBool,
+  GetServerSettingDuration,
+} from '../../config/server-settings.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
 import { MutexFallBack } from '../../util/mutex-fallback.js';
 import { ConversionLimiterService } from './conversion-limiter.service.js';
@@ -80,12 +83,31 @@ export class ImageManagerService {
     options: Partial<
       Pick<EImageBackend, 'file_name' | 'expires_at' | 'listed'>
     >,
+    byGuest = false,
   ): AsyncFailable<EImageBackend> {
     if (options.expires_at !== undefined && options.expires_at !== null) {
       if (options.expires_at < new Date()) {
         return Fail(FT.UsrValidation, 'Expiration date must be in the future');
       }
     }
+
+    // Guests can not keep an upload for longer than uploading lets them
+    const limit = GetServerSettingDuration(ServerSetting.GuestUploadExpiry);
+    if (byGuest && limit > 0 && options.expires_at !== undefined) {
+      const image = await this.imagesService.findOne(id, userid);
+      if (HasFailed(image)) return image;
+      const latest = image.created.getTime() + limit;
+      if (
+        options.expires_at === null ||
+        options.expires_at.getTime() > latest
+      ) {
+        return Fail(
+          FT.UsrValidation,
+          `Uploads of guests expire at ${new Date(latest).toISOString()} at the latest`,
+        );
+      }
+    }
+
     return await this.imagesService.update(id, userid, options);
   }
 
@@ -108,6 +130,10 @@ export class ImageManagerService {
     filename: string,
     image: Buffer,
     withDeleteKey: boolean,
+    // Seconds until it expires, 0 for never, otherwise the user's default
+    expiresAfter?: number,
+    // Uploaded by a visitor who is not logged in
+    byGuest = false,
   ): AsyncFailable<EImageBackend> {
     const fileType = await this.getFileTypeFromBuffer(image);
     if (HasFailed(fileType)) return fileType;
@@ -118,6 +144,9 @@ export class ImageManagerService {
       UsrPreference.KeepOriginal,
     );
     if (HasFailed(keepOriginal)) return keepOriginal;
+
+    const expiresAt = await this.getUploadExpiry(userid, expiresAfter, byGuest);
+    if (HasFailed(expiresAt)) return expiresAt;
 
     // Process
     const processResult = await this.processService.process(image, fileType);
@@ -135,6 +164,7 @@ export class ImageManagerService {
       userid,
       name,
       withDeleteKey,
+      expiresAt,
     );
     if (HasFailed(imageEntity)) return imageEntity;
 
@@ -164,6 +194,33 @@ export class ImageManagerService {
   // editing is turned on or off.
   public getConvertKey(fileType: string, options: ImageRequestParams): string {
     return this.getConvertHash(fileType, this.getEffectiveOptions(options));
+  }
+
+  // When an upload expires: when it asks to, otherwise when its uploader
+  // wants new images to. Guest uploads expire at the latest after the time the
+  // server settings give.
+  private async getUploadExpiry(
+    userid: string,
+    expiresAfter: number | undefined,
+    byGuest: boolean,
+  ): AsyncFailable<Date | null> {
+    let seconds = expiresAfter;
+    if (seconds === undefined) {
+      const preference = await this.userPref.getNumberPreference(
+        userid,
+        UsrPreference.DefaultExpiry,
+      );
+      if (HasFailed(preference)) return preference;
+      seconds = preference;
+    }
+
+    if (byGuest) {
+      const limit =
+        GetServerSettingDuration(ServerSetting.GuestUploadExpiry) / 1000;
+      if (limit > 0 && (seconds === 0 || seconds > limit)) seconds = limit;
+    }
+
+    return seconds === 0 ? null : new Date(Date.now() + seconds * 1000);
   }
 
   // Client identifies who asked for it, for rate limiting

@@ -65,6 +65,8 @@ export function ServerSettingDefault(key: ServerSetting): string | null {
       return 'true';
     case ServerSetting.RemoveDerivativesAfter:
       return '7d';
+    case ServerSetting.GuestUploadExpiry:
+      return '0';
     case ServerSetting.TrustProxy:
       return DefaultTrustProxy.join(',');
     case ServerSetting.OidcScope:

@@ -4,6 +4,7 @@ export const UsrPreferenceFriendlyNames: {
   [key in UsrPreference]: string;
 } = {
   [UsrPreference.KeepOriginal]: 'Keep original file',
+  [UsrPreference.DefaultExpiry]: 'New images expire after',
 };
 
 export const UsrPreferenceHelpText: {
@@ -11,4 +12,6 @@ export const UsrPreferenceHelpText: {
 } = {
   [UsrPreference.KeepOriginal]:
     'Keeps your uploads exactly as uploaded, including metadata like where a photo was taken.',
+  [UsrPreference.DefaultExpiry]:
+    'For what you upload from now on. It can be changed for each image.',
 };

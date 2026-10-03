@@ -2,11 +2,25 @@ import { z } from 'zod';
 import { EImageSchema } from '../../entities/image.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { IsApiKey } from '../../validators/api-key.validator.js';
+import { IsExpiry } from '../../validators/expiry.validator.js';
 import { IsEntityID } from '../../validators/entity-id.validator.js';
 import { IsPosInt } from '../../validators/positive-int.validator.js';
 import { SupportedFileTypes } from '../mimes.dto.js';
 
-// Image upload
+// Whole seconds in a query, only digits. Empty is the same as not given.
+const ParseSeconds = (value: unknown) => {
+  if (value === '') return undefined;
+  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value);
+  return value;
+};
+
+// Image upload, optionally with when it expires: in this many seconds, or
+// never with 0. Otherwise the uploader's default applies.
+export const ImageUploadQuerySchema = z.object({
+  expires_after: z.preprocess(ParseSeconds, IsExpiry().optional()),
+});
+export class ImageUploadQuery extends createZodDto(ImageUploadQuerySchema) {}
+
 export const ImageUploadResponseSchema = EImageSchema.extend({
   delete_key: IsApiKey().optional(),
 });

@@ -7,6 +7,7 @@ import { InfoService } from '../../../services/api/info.service';
 import { PermissionService } from '../../../services/api/permission.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
+import { ExpiryOptions } from '../../../util/expiry-options';
 import { UtilService } from '../../../util/util.service';
 import { BuildShareX } from './sharex-builder';
 
@@ -23,6 +24,10 @@ export class SettingsShareXComponent implements OnInit {
     value: string;
     key: string;
   }[] = [];
+
+  // Seconds, 0 for never, or the default of whoever uses the config
+  public expiresAfter: number | 'default' = 'default';
+  public readonly ExpiryOptions = ExpiryOptions;
 
   public exporting = false;
 
@@ -72,6 +77,7 @@ export class SettingsShareXComponent implements OnInit {
       apikey.key,
       '.' + ext,
       canUseDelete,
+      this.expiresAfter === 'default' ? null : this.expiresAfter,
     );
 
     this.utilService.downloadBuffer(

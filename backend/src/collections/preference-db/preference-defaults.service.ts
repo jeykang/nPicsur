@@ -9,6 +9,7 @@ export class PreferenceDefaultsService {
     [key in UsrPreference]: (() => PrefValueType) | PrefValueType;
   } = {
     [UsrPreference.KeepOriginal]: false,
+    [UsrPreference.DefaultExpiry]: 0,
   };
 
   public getUsrDefault(pref: UsrPreference): PrefValueType {

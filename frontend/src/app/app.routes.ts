@@ -1,8 +1,6 @@
-import { NgModule } from '@angular/core';
-import { RouterModule } from '@angular/router';
 import { PRoutes } from './models/dto/picsur-routes.dto';
 
-const routes: PRoutes = [
+export const AppRoutes: PRoutes = [
   {
     path: '',
     pathMatch: 'full',
@@ -64,9 +62,3 @@ const routes: PRoutes = [
       import('./routes/errors/errors.module').then((m) => m.default),
   },
 ];
-
-@NgModule({
-  imports: [RouterModule.forRoot(routes)],
-  exports: [RouterModule],
-})
-export class AppRoutingModule {}

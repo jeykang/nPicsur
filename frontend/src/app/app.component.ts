@@ -1,17 +1,22 @@
-import { Portal } from '@angular/cdk/portal';
+import { Portal, CdkPortalOutlet } from '@angular/cdk/portal';
 import {
   Component,
   OnInit,
   ViewChild,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { MatSidenav } from '@angular/material/sidenav';
+import {
+  MatSidenav,
+  MatSidenavContainer,
+  MatSidenavContent,
+} from '@angular/material/sidenav';
 import {
   ActivatedRoute,
   NavigationEnd,
   NavigationError,
   NavigationStart,
   Router,
+  RouterOutlet,
 } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { Failure } from 'picsur-shared/dist/types/failable';
@@ -20,6 +25,9 @@ import { PRouteData } from './models/dto/picsur-routes.dto';
 import { PermissionService } from './services/api/permission.service';
 import { UsageService } from './services/usage/usage.service';
 import { BootstrapService } from './util/bootstrap.service';
+import { HeaderComponent } from './components/header/header.component';
+import { MatButton } from '@angular/material/button';
+import { FooterComponent } from './components/footer/footer.component';
 
 @Component({
   selector: 'app-root',
@@ -27,7 +35,16 @@ import { BootstrapService } from './util/bootstrap.service';
   styleUrls: ['./app.component.scss'],
   animations: [RouteTransitionAnimations],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    HeaderComponent,
+    MatSidenavContainer,
+    MatSidenav,
+    CdkPortalOutlet,
+    MatSidenavContent,
+    MatButton,
+    RouterOutlet,
+    FooterComponent,
+  ],
 })
 export class AppComponent implements OnInit {
   private readonly logger = console;

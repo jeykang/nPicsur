@@ -429,7 +429,9 @@ The end-to-end tests start the built backend against a fresh database, and can a
 
 ## Api
 
-The original project documented its api [on Postman](https://www.postman.com/caramel-team/workspace/picsur/collection/1841871-78e559b6-4f39-4092-87c3-92fa29547d03). The `shared` folder contains the exact schemas of every request and response.
+Every instance describes its api at `/api/openapi.json`, an OpenAPI 3 document made from the schemas the server checks requests and answers with, so it matches the version that runs. Tools like Swagger UI and Postman can open it. Each route says which permissions it needs, visitors who are not logged in have those of the guest role. Others log in with `Authorization: Bearer <token>`, with the token `/api/user/login` gives, or `Authorization: Api-Key <key>` with a key from Settings → API keys.
+
+The answer to an upload has links to the new image. The `shared` folder contains the schemas themselves. The original project documented its api [on Postman](https://www.postman.com/caramel-team/workspace/picsur/collection/1841871-78e559b6-4f39-4092-87c3-92fa29547d03).
 
 ## Credits
 

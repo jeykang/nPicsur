@@ -20,7 +20,7 @@ import { UserDbService } from '../../collections/user-db/user-db.service.js';
 import { ImageFullIdParam } from '../../decorators/image-id/image-full-id.decorator.js';
 import { ImageIdParam } from '../../decorators/image-id/image-id.decorator.js';
 import { RequiredPermissions } from '../../decorators/permissions.decorator.js';
-import { Returns } from '../../decorators/returns.decorator.js';
+import { Returns, ReturnsImage } from '../../decorators/returns.decorator.js';
 import { ImageManagerService } from '../../managers/image/image-manager.service.js';
 import type { ImageFullId } from '../../models/constants/image-full-id.const.js';
 import { Permission } from '../../models/constants/permissions.const.js';
@@ -76,6 +76,7 @@ export class ImageController {
   }
 
   @Get(':id')
+  @ReturnsImage()
   async getImage(
     // Usually passthrough is for manually sending the response,
     // But we need it here to set the mime type

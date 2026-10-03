@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Logger,
   Param,
   Post,
@@ -222,13 +223,13 @@ export class ImageManageController {
   // preview, which deleted the image as soon as its link was shared.
   @Get('delete/:id/:key')
   @RequiredPermissions(Permission.ImageDeleteKey)
+  @HttpCode(302)
   async confirmDeleteImageWithKey(
     @Param() params: ImageDeleteWithKeyRequest,
     @Res({ passthrough: true }) res: FastifyReply,
   ): Promise<string> {
     // Both are validated, an uuid and 32 letters or digits
     res.header('Location', `/delete/${params.id}/${params.key}`);
-    res.code(302);
     return 'Confirm deleting the image';
   }
 }

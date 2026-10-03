@@ -4,6 +4,7 @@ import {
   ChangeDetectorRef,
   Component,
   ContentChildren,
+  ElementRef,
   Input,
   OnDestroy,
   QueryList,
@@ -23,10 +24,14 @@ import { MasonryItemDirective } from './masonry-item.directive';
   standalone: false,
 })
 export class MasonryComponent implements AfterViewInit, OnDestroy {
-  constructor(private readonly changeDetector: ChangeDetectorRef) {}
+  constructor(
+    private readonly changeDetector: ChangeDetectorRef,
+    private readonly host: ElementRef<HTMLElement>,
+  ) {}
 
   @Input('columns') public set column_count(value: number) {
     this._column_count = value;
+    this.takeFocus();
     this.cleanAllColumns();
     this.changeDetector.markForCheck();
   }
@@ -40,6 +45,7 @@ export class MasonryComponent implements AfterViewInit, OnDestroy {
   private columns: QueryList<ViewContainerRef>;
 
   private sizesSubscription: Subscription | null = null;
+  private refocus: HTMLElement | null = null;
 
   ngAfterViewInit(): void {
     this.subscribeContent();
@@ -81,6 +87,36 @@ export class MasonryComponent implements AfterViewInit, OnDestroy {
   }
 
   private resortItems() {
+    this.takeFocus();
+    try {
+      this.placeItems();
+    } finally {
+      this.giveFocusBack();
+    }
+  }
+
+  // Moving an element with focus makes the browser blur it during the move,
+  // and when what reacts to that changes the page, the move fails and the
+  // items after it are lost. So nothing in here has focus while items move,
+  // and what had it gets it back once they are in place.
+  private takeFocus() {
+    const focused = document.activeElement;
+    if (
+      focused instanceof HTMLElement &&
+      this.host.nativeElement.contains(focused)
+    ) {
+      this.refocus = focused;
+      focused.blur();
+    }
+  }
+
+  private giveFocusBack() {
+    const focused = this.refocus;
+    this.refocus = null;
+    if (focused?.isConnected) focused.focus({ preventScroll: true });
+  }
+
+  private placeItems() {
     const itemsArray = this.items.toArray();
 
     this.cleanAllColumns();

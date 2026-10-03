@@ -1,5 +1,3 @@
-import { NgModule } from '@angular/core';
-import { RouterModule } from '@angular/router';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { AlbumComponent } from './album.component';
 import { PermissionGuard } from '../../guards/permission.guard';
@@ -24,8 +22,4 @@ const routes: PRoutes = [
   },
 ];
 
-@NgModule({
-  imports: [RouterModule.forChild(routes)],
-  exports: [RouterModule],
-})
-export class AlbumRoutingModule {}
+export default routes;

@@ -1,5 +1,3 @@
-import { NgModule } from '@angular/core';
-import { RouterModule } from '@angular/router';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { LoginComponent } from './login/login.component';
 import { OidcCallbackComponent } from './oidc/oidc-callback.component';
@@ -28,8 +26,4 @@ const routes: PRoutes = [
   },
 ];
 
-@NgModule({
-  imports: [RouterModule.forChild(routes)],
-  exports: [RouterModule],
-})
-export class UserRoutingModule {}
+export default routes;

@@ -1,5 +1,3 @@
-import { NgModule } from '@angular/core';
-import { RouterModule } from '@angular/router';
 import { E401Component } from './401.component';
 import { E404Component } from './404.component';
 import { ImageDeleteFailureComponent } from './delete-failure.component';
@@ -25,8 +23,4 @@ const routes: PRoutes = [
   },
 ];
 
-@NgModule({
-  imports: [RouterModule.forChild(routes)],
-  exports: [RouterModule],
-})
-export class ErrorsRoutingModule {}
+export default routes;

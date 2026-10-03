@@ -8,57 +8,46 @@ export const AppRoutes: PRoutes = [
   },
   {
     path: 'upload',
-    loadChildren: () =>
-      import('./routes/upload/upload.module').then((m) => m.default),
+    loadChildren: () => import('./routes/upload/upload.routes'),
   },
   {
     path: 'processing',
-    loadChildren: () =>
-      import('./routes/processing/processing.module').then((m) => m.default),
+    loadChildren: () => import('./routes/processing/processing.routes'),
   },
   {
     path: 'view',
-    loadChildren: () =>
-      import('./routes/view/view.module').then((m) => m.default),
+    loadChildren: () => import('./routes/view/view.routes'),
   },
   {
     path: 'user',
-    loadChildren: () =>
-      import('./routes/user/user.module').then((m) => m.default),
+    loadChildren: () => import('./routes/user/user.routes'),
   },
   {
     path: 'images',
-    loadChildren: () =>
-      import('./routes/images/images.module').then((m) => m.default),
+    loadChildren: () => import('./routes/images/images.routes'),
   },
   {
     path: 'albums',
-    loadChildren: () =>
-      import('./routes/albums/albums.module').then((m) => m.default),
+    loadChildren: () => import('./routes/albums/albums.routes'),
   },
   {
     path: 'album',
-    loadChildren: () =>
-      import('./routes/album/album.module').then((m) => m.default),
+    loadChildren: () => import('./routes/album/album.routes'),
   },
   {
     path: 'gallery',
-    loadChildren: () =>
-      import('./routes/gallery/gallery.module').then((m) => m.default),
+    loadChildren: () => import('./routes/gallery/gallery.routes'),
   },
   {
     path: 'settings',
-    loadChildren: () =>
-      import('./routes/settings/settings.module').then((m) => m.default),
+    loadChildren: () => import('./routes/settings/settings.routes'),
   },
   {
     path: 'delete',
-    loadChildren: () =>
-      import('./routes/delete/delete.module').then((m) => m.default),
+    loadChildren: () => import('./routes/delete/delete.routes'),
   },
   {
     path: 'error',
-    loadChildren: () =>
-      import('./routes/errors/errors.module').then((m) => m.default),
+    loadChildren: () => import('./routes/errors/errors.routes'),
   },
 ];

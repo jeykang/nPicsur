@@ -1,5 +1,3 @@
-import { ModuleWithProviders, NgModule } from '@angular/core';
-import { RouterModule } from '@angular/router';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { SettingsSidebarComponent } from './sidebar/settings-sidebar.component';
 import { PermissionGuard } from '../../guards/permission.guard';
@@ -17,8 +15,7 @@ const SettingsRoutes: PRoutes = [
       },
       {
         path: 'general',
-        loadChildren: () =>
-          import('./general/settings-general.module').then((m) => m.default),
+        loadChildren: () => import('./general/settings-general.routes'),
         data: {
           permissions: [Permission.Settings],
           page: {
@@ -30,8 +27,7 @@ const SettingsRoutes: PRoutes = [
       },
       {
         path: 'account',
-        loadChildren: () =>
-          import('./account/settings-account.module').then((m) => m.default),
+        loadChildren: () => import('./account/settings-account.routes'),
         data: {
           permissions: [Permission.UserKeepLogin],
           page: {
@@ -43,8 +39,7 @@ const SettingsRoutes: PRoutes = [
       },
       {
         path: 'apikeys',
-        loadChildren: () =>
-          import('./apikeys/settings-apikeys.module').then((m) => m.default),
+        loadChildren: () => import('./apikeys/settings-apikeys.routes'),
         data: {
           permissions: [Permission.ApiKey],
           page: {
@@ -56,8 +51,7 @@ const SettingsRoutes: PRoutes = [
       },
       {
         path: 'sharex',
-        loadChildren: () =>
-          import('./sharex/settings-sharex.module').then((m) => m.default),
+        loadChildren: () => import('./sharex/settings-sharex.routes'),
         data: {
           permissions: [Permission.ApiKey],
           page: {
@@ -69,8 +63,7 @@ const SettingsRoutes: PRoutes = [
       },
       {
         path: 'users',
-        loadChildren: () =>
-          import('./users/settings-users.module').then((m) => m.default),
+        loadChildren: () => import('./users/settings-users.routes'),
         data: {
           permissions: [Permission.UserAdmin],
           page: {
@@ -82,8 +75,7 @@ const SettingsRoutes: PRoutes = [
       },
       {
         path: 'roles',
-        loadChildren: () =>
-          import('./roles/settings-roles.module').then((m) => m.default),
+        loadChildren: () => import('./roles/settings-roles.routes'),
         data: {
           permissions: [Permission.RoleAdmin],
           page: {
@@ -101,8 +93,7 @@ const SettingsRoutes: PRoutes = [
       },
       {
         path: 'server',
-        loadChildren: () =>
-          import('./server/settings-server.module').then((m) => m.default),
+        loadChildren: () => import('./server/settings-server.routes'),
         data: {
           permissions: [Permission.SysPrefAdmin],
           page: {
@@ -119,23 +110,15 @@ const SettingsRoutes: PRoutes = [
       sidebar: SettingsSidebarComponent,
     },
     resolve: SidebarResolverService.build(),
+    // The sidebar lists these pages. It gets them from the injector of this
+    // route, which the resolver hands to it.
+    providers: [
+      {
+        provide: 'SettingsRoutes',
+        useFactory: () => SettingsRoutes[0].children,
+      },
+    ],
   },
 ];
 
-@NgModule({
-  imports: [RouterModule.forChild(SettingsRoutes)],
-  exports: [RouterModule],
-})
-export class SettingsRoutingModule {
-  static forRoot(): ModuleWithProviders<SettingsRoutingModule> {
-    return {
-      ngModule: SettingsRoutingModule,
-      providers: [
-        {
-          provide: 'SettingsRoutes',
-          useFactory: () => SettingsRoutes[0].children,
-        },
-      ],
-    };
-  }
-}
+export default SettingsRoutes;

@@ -1,5 +1,3 @@
-import { NgModule } from '@angular/core';
-import { RouterModule } from '@angular/router';
 import { SettingsGeneralComponent } from './settings-general.component';
 import { PRoutes } from '../../../models/dto/picsur-routes.dto';
 
@@ -10,8 +8,4 @@ const routes: PRoutes = [
   },
 ];
 
-@NgModule({
-  imports: [RouterModule.forChild(routes)],
-  exports: [RouterModule],
-})
-export class SettingsGeneralRoutingModule {}
+export default routes;

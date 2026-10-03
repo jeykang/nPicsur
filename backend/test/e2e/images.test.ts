@@ -1,6 +1,9 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import pg from 'pg';
 import sharp from 'sharp';
-import { beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import {
   Client,
   createUser,
@@ -42,6 +45,43 @@ describe('image upload and retrieval', () => {
     expect(image.file_name).toBe('another');
     expect(image.expires_at).toBeNull();
     expect(image.delete_key).toMatch(/^[a-zA-Z0-9]{32}$/);
+  });
+
+  it('says where the new image can be found', async () => {
+    const base = inject('baseUrl');
+    const image = expectSuccess(await user.client.upload(png, 'linked.png'));
+    expect(image.links).toEqual({
+      view: `${base}/view/${image.id}`,
+      image: `${base}/i/${image.id}.png`,
+      delete: `${base}/api/image/delete/${image.id}/${image.delete_key}`,
+    });
+    const served = await Client.guest().get(
+      new URL(image.links.image).pathname,
+    );
+    expect(served.headers.get('content-type')).toBe('image/png');
+
+    // Formats browsers do not show are converted for the link
+    const tiff = expectSuccess(
+      await user.client.upload(await convertTo(png, 'tiff'), 'scan.tiff'),
+    );
+    expect(tiff.links.image).toBe(`${base}/i/${tiff.id}.jpg`);
+    const animation = expectSuccess(
+      await user.client.upload(await makeAnimatedWebp(), 'moving.webp'),
+    );
+    expect(animation.links.image).toBe(`${base}/i/${animation.id}.webp`);
+
+    // At the public address when it is set
+    expectSuccess(
+      await update(admin, { host_override: 'https://img.example.com/' }),
+    );
+    try {
+      const linked = expectSuccess(await user.client.upload(png));
+      expect(linked.links.view).toBe(
+        `https://img.example.com/view/${linked.id}`,
+      );
+    } finally {
+      expectSuccess(await update(admin, { host_override: null }));
+    }
   });
 
   it('only strips the last extension', async () => {
@@ -379,6 +419,259 @@ describe('image editing parameters', () => {
     }
     const meta = await fetchMeta('width=16');
     expect(meta.width).toBe(16);
+  });
+});
+
+describe('caching', () => {
+  const Month = 'public, max-age=2592000';
+  const env = inject('serverEnv');
+  // The directory is only reachable from here when the server is not in a
+  // container
+  const diskPath = env['PICSUR_STORAGE_PATH'] ?? '';
+  const onDisk =
+    env['PICSUR_STORAGE_DRIVER'] === 'filesystem' &&
+    diskPath !== '' &&
+    inject('dockerImage') === null;
+  let admin: Client;
+  let user: Awaited<ReturnType<typeof createUser>>;
+  let png: Buffer;
+  let imageId: string;
+  let db: pg.Client;
+
+  beforeAll(async () => {
+    admin = await Client.admin();
+    user = await createUser(admin);
+    png = await makePng(64, 48);
+    imageId = (await user.client.uploadOk(png)).id;
+    db = new pg.Client({
+      host: env['PICSUR_DB_HOST'],
+      port: Number(env['PICSUR_DB_PORT']),
+      user: env['PICSUR_DB_USERNAME'],
+      password: env['PICSUR_DB_PASSWORD'],
+      database: env['PICSUR_DB_DATABASE'],
+    });
+    await db.connect();
+  });
+
+  afterAll(async () => {
+    await db.end();
+  });
+
+  const derivatives = async (id: string) =>
+    Number(
+      (
+        await db.query(
+          'SELECT COUNT(*) AS count FROM e_image_derivative_backend WHERE image_id = $1',
+          [id],
+        )
+      ).rows[0].count,
+    );
+
+  const get = (path: string, headers: Record<string, string> = {}) =>
+    Client.guest().get(path, { headers });
+
+  it('says how long images may be kept, and how to check them', async () => {
+    const meta = expectSuccess(await get(`/i/meta/${imageId}`));
+    // Served as it was uploaded, converted, and converted with options
+    for (const path of ['.png', '.webp', '.png?width=32']) {
+      const res = await get(`/i/${imageId}${path}`);
+      expect(res.status, path).toBe(200);
+      expect(res.headers.get('cache-control'), path).toBe(Month);
+      expect(res.headers.get('etag'), path).toMatch(
+        new RegExp(`^W/"${imageId}-[0-9a-f]{16}"$`),
+      );
+      expect(res.headers.get('last-modified'), path).toBe(
+        new Date(meta.image.created).toUTCString(),
+      );
+      expect(Number(res.headers.get('content-length')), path).toBe(
+        res.body.length,
+      );
+    }
+  });
+
+  it('answers 304 when the copy is still current', async () => {
+    const first = await get(`/i/${imageId}.webp`);
+    const etag = first.headers.get('etag')!;
+
+    const tagged = await get(`/i/${imageId}.webp`, { 'If-None-Match': etag });
+    expect(tagged.status).toBe(304);
+    expect(tagged.body.length).toBe(0);
+    expect(tagged.headers.get('etag')).toBe(etag);
+    expect(tagged.headers.get('cache-control')).toBe(Month);
+
+    const dated = await get(`/i/${imageId}.webp`, {
+      'If-Modified-Since': first.headers.get('last-modified')!,
+    });
+    expect(dated.status).toBe(304);
+  });
+
+  it('answers 304 without converting the image', async () => {
+    const { id } = await user.client.uploadOk(png);
+    // HEAD tells the tag without converting either
+    const head = await Client.guest().head(`/i/${id}.webp?width=33`);
+    expect(head.status).toBe(200);
+    const etag = head.headers.get('etag')!;
+
+    const current = await get(`/i/${id}.webp?width=33`, {
+      'If-None-Match': etag,
+    });
+    expect(current.status).toBe(304);
+    expect(await derivatives(id)).toBe(0);
+
+    // Which is not because converting is not counted
+    const full = await get(`/i/${id}.webp?width=33`);
+    expect(full.status).toBe(200);
+    expect(full.headers.get('etag')).toBe(etag);
+    expect(await derivatives(id)).toBe(1);
+  });
+
+  it.runIf(onDisk)('does not cache a failure to read the image', async () => {
+    const { id } = await user.client.uploadOk(png);
+    // The stored file becomes a directory, which opens but cannot be read
+    const [file] = (
+      await readdir(join(diskPath, 'images', id), {
+        recursive: true,
+        withFileTypes: true,
+      })
+    ).filter((entry) => entry.isFile());
+    const path = join(file!.parentPath, file!.name);
+    const data = await readFile(path);
+    await rm(path);
+    await mkdir(path);
+
+    try {
+      // Sent as it is stored, so read from the start
+      const res = await get(`/i/${id}.png`);
+      expect(res.status).toBe(500);
+      expect(res.headers.get('cache-control') ?? '').not.toContain('max-age');
+      expect(res.headers.get('etag')).toBeNull();
+      expect(res.headers.get('content-type')).toContain('application/json');
+      expect(res.json.success).toBe(false);
+    } finally {
+      // Other tests move every stored file
+      await rm(path, { recursive: true });
+      await writeFile(path, data);
+    }
+    expect((await get(`/i/${id}.png`)).body.equals(data)).toBe(true);
+  });
+
+  it('sends the image when the copy is not current', async () => {
+    const tagged = await get(`/i/${imageId}.webp`, {
+      'If-None-Match': `W/"${imageId}-0000000000000000"`,
+    });
+    expect(tagged.status).toBe(200);
+    expect((await metadata(tagged.body)).format).toBe('webp');
+    // Converted before, so sent from where it is stored
+    expect(Number(tagged.headers.get('content-length'))).toBe(
+      tagged.body.length,
+    );
+
+    const dated = await get(`/i/${imageId}.webp`, {
+      'If-Modified-Since': new Date(Date.now() - 60 * 60 * 1000).toUTCString(),
+    });
+    expect(dated.status).toBe(200);
+  });
+
+  it('tags every format and set of options differently', async () => {
+    const paths = ['.png', '.webp', '.png?width=32', '.png?width=16'];
+    const tags = await Promise.all(
+      paths.map(async (path) =>
+        (await get(`/i/${imageId}${path}`)).headers.get('etag'),
+      ),
+    );
+    expect(new Set(tags).size).toBe(paths.length);
+
+    const again = await get(`/i/${imageId}.png?width=32`);
+    expect(again.headers.get('etag')).toBe(tags[2]);
+  });
+
+  it('answers HEAD requests with the headers of GET requests', async () => {
+    const full = await get(`/i/${imageId}.png`);
+    const head = await Client.guest().head(`/i/${imageId}.png`);
+    expect(head.status).toBe(200);
+    for (const header of [
+      'etag',
+      'last-modified',
+      'cache-control',
+      'content-type',
+    ]) {
+      expect(head.headers.get(header), header).toBe(full.headers.get(header));
+    }
+
+    const current = await Client.guest().head(`/i/${imageId}.png`, {
+      headers: { 'If-None-Match': full.headers.get('etag')! },
+    });
+    expect(current.status).toBe(304);
+
+    const unknown = await Client.guest().head(`/i/${randomUUID()}.png`);
+    expect(unknown.status).toBe(404);
+    expect(unknown.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('does not answer 304 for images that were deleted', async () => {
+    const { id } = await user.client.uploadOk(png);
+    const etag = (await get(`/i/${id}.png`)).headers.get('etag')!;
+    expectSuccess(await user.client.post('/api/image/delete', { ids: [id] }));
+
+    const gone = await get(`/i/${id}.png`, { 'If-None-Match': etag });
+    expect(gone.status).toBe(404);
+    expect(gone.headers.get('etag')).toBeNull();
+    expect(gone.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('changes the tag when editing is turned off', async () => {
+    const edited = await get(`/i/${imageId}.png?width=16`);
+    const unedited = await get(`/i/${imageId}.png`);
+
+    expectSuccess(await update(admin, { allow_editing: 'false' }));
+    try {
+      const res = await get(`/i/${imageId}.png?width=16`, {
+        'If-None-Match': edited.headers.get('etag')!,
+      });
+      expect(res.status).toBe(200);
+      expect(res.headers.get('etag')).toBe(unedited.headers.get('etag'));
+    } finally {
+      expectSuccess(await update(admin, { allow_editing: null }));
+    }
+  });
+
+  it('is kept no longer than until the image expires', async () => {
+    const { id } = await user.client.uploadOk(png);
+    expectSuccess(
+      await user.client.post('/api/image/update', {
+        id,
+        expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      }),
+    );
+
+    const res = await get(`/i/${id}.png`);
+    const maxAge = Number(
+      /^public, max-age=(\d+)$/.exec(res.headers.get('cache-control')!)?.[1],
+    );
+    expect(maxAge).toBeLessThanOrEqual(60 * 60);
+    expect(maxAge).toBeGreaterThan(60 * 60 - 60);
+  });
+
+  it('tags originals by their image', async () => {
+    const { client } = await createUser(admin);
+    expectSuccess(
+      await client.post('/api/pref/usr/keep_original', { value: true }),
+    );
+    const jpeg = await makeJpeg();
+    const { id } = await client.uploadOk(jpeg, 'original.jpg');
+
+    const res = await get(`/i/${id}`);
+    expect(res.body.equals(jpeg)).toBe(true);
+    expect(Number(res.headers.get('content-length'))).toBe(jpeg.length);
+    expect(res.headers.get('etag')).toBe(`"${id}-original"`);
+
+    const current = await get(`/i/${id}`, {
+      'If-None-Match': `"${id}-original"`,
+    });
+    expect(current.status).toBe(304);
+    // An image without a kept original has none to compare with
+    const without = await get(`/i/${imageId}`, { 'If-None-Match': '*' });
+    expect(without.status).toBe(404);
   });
 });
 
@@ -810,6 +1103,98 @@ describe('image management', () => {
     );
   });
 
+  it('finds images by name, type, album and date', async () => {
+    const dave = await createUser(admin);
+    const list = async (filters: object) =>
+      expectSuccess(
+        await dave.client.post('/api/image/list', {
+          count: 50,
+          page: 0,
+          ...filters,
+        }),
+      );
+    const names = (found: any) =>
+      found.results.map((i: any) => i.file_name).sort();
+
+    const beach = await dave.client.uploadOk(png, 'Beach day.png');
+    const party = await dave.client.uploadOk(
+      await makeJpeg(),
+      'party_2026.jpg',
+    );
+    const done = await dave.client.uploadOk(png, '100% done.png');
+    await dave.client.uploadOk(png, '100 done.png');
+    await bob.client.uploadOk(png, 'beach of bob.png');
+
+    // Part of the name, in any case, with % and _ as they are
+    expect(names(await list({ search: 'BEACH' }))).toEqual(['Beach day']);
+    expect(names(await list({ search: '100%' }))).toEqual(['100% done']);
+    expect(names(await list({ search: '0_d' }))).toEqual([]);
+    expect(names(await list({ search: 'y_2' }))).toEqual(['party_2026']);
+
+    // How they are stored
+    expect(names(await list({ filetypes: ['image:jpeg'] }))).toEqual([
+      'party_2026',
+    ]);
+    expect(
+      names(await list({ filetypes: ['image:png', 'image:jpeg'] })),
+    ).toHaveLength(4);
+
+    const album = expectSuccess(
+      await dave.client.post('/api/album/create', { name: 'Trip' }),
+    );
+    expectSuccess(
+      await dave.client.post('/api/album/images/add', {
+        id: album.id,
+        image_ids: [beach.id, party.id],
+      }),
+    );
+    expect(names(await list({ album_id: album.id }))).toEqual([
+      'Beach day',
+      'party_2026',
+    ]);
+    // Every filter applies
+    expect(
+      names(await list({ album_id: album.id, filetypes: ['image:png'] })),
+    ).toEqual(['Beach day']);
+
+    const meta = expectSuccess(await dave.client.get(`/i/meta/${done.id}`));
+    const created = new Date(meta.image.created).toISOString();
+    expect(names(await list({ uploaded_after: created }))).toEqual([
+      '100 done',
+      '100% done',
+    ]);
+    expect(names(await list({ uploaded_before: created }))).toEqual([
+      'Beach day',
+      'party_2026',
+    ]);
+
+    // Counted after filtering
+    expect(await list({ search: 'done', count: 1 })).toMatchObject({
+      total: 2,
+      pages: 2,
+    });
+
+    for (const filters of [
+      { filetypes: ['image:exe'] },
+      { search: '  ' },
+      // Dates need a time and its offset, so they mean the same everywhere
+      { uploaded_after: null },
+      { uploaded_after: Date.now() },
+      { uploaded_after: '2026-10-03' },
+      { uploaded_before: '2026-10-03T12:00:00' },
+    ]) {
+      expectFailure(
+        await dave.client.post('/api/image/list', {
+          count: 10,
+          page: 0,
+          ...filters,
+        }),
+        400,
+        'usrvalidation',
+      );
+    }
+  });
+
   it('renames images and sets an expiry date', async () => {
     const { id } = await alice.client.uploadOk(png, 'before.png');
     const expires = new Date(Date.now() + 60 * 60 * 1000);
@@ -841,6 +1226,118 @@ describe('image management', () => {
       400,
       'usrvalidation',
     );
+  });
+
+  // Seconds until an uploaded image expires
+  const expiresIn = (image: { expires_at: string }) =>
+    (new Date(image.expires_at).getTime() - Date.now()) / 1000;
+
+  it('lets uploads expire by default, or when they ask to', async () => {
+    const erin = await createUser(admin);
+    expect(expectSuccess(await erin.client.upload(png)).expires_at).toBeNull();
+
+    expectSuccess(
+      await erin.client.post('/api/pref/usr/default_expiry', { value: 3600 }),
+    );
+    const byDefault = expectSuccess(await erin.client.upload(png));
+    expect(expiresIn(byDefault)).toBeGreaterThan(3600 - 60);
+    expect(expiresIn(byDefault)).toBeLessThanOrEqual(3600);
+
+    // Asking when uploading comes first, also asking for never
+    const asked = expectSuccess(
+      await erin.client.upload(png, 'a.png', '?expires_after=60'),
+    );
+    expect(expiresIn(asked)).toBeLessThanOrEqual(60);
+    expect(expiresIn(asked)).toBeGreaterThan(0);
+    const never = expectSuccess(
+      await erin.client.upload(png, 'b.png', '?expires_after=0'),
+    );
+    expect(never.expires_at).toBeNull();
+    // Empty is not asking, not never
+    const empty = expectSuccess(
+      await erin.client.upload(png, 'd.png', '?expires_after='),
+    );
+    expect(expiresIn(empty)).toBeGreaterThan(3600 - 60);
+
+    for (const query of [
+      '?expires_after=-5',
+      '?expires_after=soon',
+      '?expires_after=1.5',
+      '?expires_after=1e3',
+      '?expires_after=0x10',
+    ]) {
+      expectFailure(
+        await erin.client.upload(png, 'c.png', query),
+        400,
+        'usrvalidation',
+      );
+    }
+    expectFailure(
+      await erin.client.post('/api/pref/usr/default_expiry', { value: -1 }),
+      400,
+      'usrvalidation',
+    );
+  });
+
+  it('keeps guest uploads only as long as the server settings say', async () => {
+    const guestRole = expectSuccess(
+      await admin.post('/api/roles/info', { name: 'guest' }),
+    );
+    expectSuccess(
+      await admin.post('/api/roles/update', {
+        name: 'guest',
+        permissions: [...guestRole.permissions, 'image-upload', 'image-manage'],
+      }),
+    );
+    expectSuccess(await update(admin, { guest_upload_expiry: '1h' }));
+    try {
+      const guest = Client.guest();
+      const kept = expectSuccess(await guest.upload(png));
+      expect(expiresIn(kept)).toBeGreaterThan(3600 - 60);
+      expect(expiresIn(kept)).toBeLessThanOrEqual(3600);
+
+      // Sooner when asked, never is not longer than the limit
+      const sooner = expectSuccess(
+        await guest.upload(png, 'a.png', '?expires_after=60'),
+      );
+      expect(expiresIn(sooner)).toBeLessThanOrEqual(60);
+      const never = expectSuccess(
+        await guest.upload(png, 'b.png', '?expires_after=0'),
+      );
+      expect(expiresIn(never)).toBeGreaterThan(3600 - 60);
+
+      // Nor when guests may edit images
+      for (const expires_at of [
+        null,
+        new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
+      ]) {
+        expectFailure(
+          await guest.post('/api/image/update', { id: kept.id, expires_at }),
+          400,
+          'usrvalidation',
+        );
+      }
+      const shorter = expectSuccess(
+        await guest.post('/api/image/update', {
+          id: kept.id,
+          expires_at: new Date(Date.now() + 600 * 1000).toISOString(),
+        }),
+      );
+      expect(expiresIn(shorter)).toBeLessThanOrEqual(600);
+
+      // Users that are logged in are not limited
+      expect(
+        expectSuccess(await alice.client.upload(png)).expires_at,
+      ).toBeNull();
+    } finally {
+      expectSuccess(await update(admin, { guest_upload_expiry: null }));
+      expectSuccess(
+        await admin.post('/api/roles/update', {
+          name: 'guest',
+          permissions: guestRole.permissions,
+        }),
+      );
+    }
   });
 
   it("does not let you touch other people's images", async () => {

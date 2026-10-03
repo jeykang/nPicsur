@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### New
+
+- My Images can be searched by name, and narrowed down to how the images are stored, an album, or when they were uploaded. The search is kept in the address, so reloading or going back keeps it. `/api/image/list` takes the same filters.
+- Several images can be selected on My Images, to delete them or put them in an album at once.
+- The answer to an upload says where the image can be found: its page, the image itself in a format browsers show, and the link that deletes it when it has a delete key. At the public address when one is set.
+- `/api/openapi.json` describes the api as an OpenAPI document, made from the schemas the server checks requests and answers with, so it always matches the version that runs. See [Api](README.md#api).
+- New images can expire by themselves, after a time chosen under Settings → Preferences. An upload can ask for its own time with `?expires_after=` in seconds, and the ShareX config can be exported with one. Uploads of visitors who are not logged in can be kept for at most a time set on the settings page or with `PICSUR_GUEST_UPLOAD_EXPIRY`. See [How do I make images expire by themselves?](README.md#how-do-i-make-images-expire-by-themselves)
+
+### Faster
+
+- Browsers and proxies that already have an image get a short answer that it did not change, instead of the image again, and Picsur does not read the image for that. Images are sent with an `ETag` and a `Last-Modified` header for this.
+
+### Lighter
+
+- Images stored in S3 or in a directory are sent while they are read, instead of being read into memory completely first. Measured with Picsur started like the Docker image starts it, while 64 visitors downloaded 4.6 MB photos at about 2 MB/s each: about 245 MB instead of 430 MB with images in a directory, and 250 MB instead of 515 MB with images in S3. Visitors on the same machine, which download as fast as they can, took about 10% less memory than before, and got images from S3 16% faster and from a directory 12% slower.
+- Picsur no longer limits how many connections to the bucket it opens at once, which was 50. Images that visitors download slowly keep theirs open, and would make everything else wait.
+
+### Fixed
+
+- Images set to expire could be shown from a browser's cache for a month, also after they were deleted. They are now cached until they expire at most.
+- A HEAD request for an image in a format, like `/i/<id>.png`, was answered as if the image existed, also when it did not.
+
 ## 0.7.0
 
 ### New

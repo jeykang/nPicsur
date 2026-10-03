@@ -2,12 +2,15 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Logger,
   Param,
   Post,
+  Query,
+  Req,
   Res,
 } from '@nestjs/common';
-import type { FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   ImageDeleteRequest,
   ImageDeleteResponse,
@@ -17,10 +20,26 @@ import {
   ImageListResponse,
   ImageUpdateRequest,
   ImageUpdateResponse,
+  ImageUploadQuery,
   ImageUploadResponse,
 } from 'picsur-shared/dist/dto/api/image-manage.dto';
+import {
+  AnimFileType,
+  FileType2Ext,
+  ImageFileType,
+  SupportedFileTypeCategory,
+} from 'picsur-shared/dist/dto/mimes.dto';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
-import { FT, Fail, ThrowIfFailed } from 'picsur-shared/dist/types/failable';
+import type { EUser } from 'picsur-shared/dist/entities/user.entity';
+import {
+  FT,
+  Fail,
+  HasFailed,
+  ThrowIfFailed,
+} from 'picsur-shared/dist/types/failable';
+import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
+import { InfoConfigService } from '../../config/late/info.config.service.js';
+import { EImageBackend } from '../../database/entities/images/image.entity.js';
 import { EasyThrottle } from '../../decorators/easy-throttle.decorator.js';
 import { PostFiles } from '../../decorators/multipart/multipart.decorator.js';
 import type { FileIterator } from '../../decorators/multipart/multipart.pipe.js';
@@ -28,24 +47,39 @@ import {
   HasPermission,
   RequiredPermissions,
 } from '../../decorators/permissions.decorator.js';
-import { ReqUserID } from '../../decorators/request-user.decorator.js';
+import { ReqUser, ReqUserID } from '../../decorators/request-user.decorator.js';
 import { Returns } from '../../decorators/returns.decorator.js';
 import { ImageManagerService } from '../../managers/image/image-manager.service.js';
 import { GetNextAsync } from '../../util/iterator.js';
+
+// Formats every browser shows, links point to images in them as they are
+const ShownAsIs: string[] = [
+  ImageFileType.JPEG,
+  ImageFileType.PNG,
+  ImageFileType.WEBP,
+  AnimFileType.GIF,
+  AnimFileType.WEBP,
+  AnimFileType.APNG,
+];
 
 @Controller('api/image')
 @RequiredPermissions(Permission.ImageUpload)
 export class ImageManageController {
   private readonly logger = new Logger(ImageManageController.name);
 
-  constructor(private readonly imagesService: ImageManagerService) {}
+  constructor(
+    private readonly imagesService: ImageManagerService,
+    private readonly infoConfig: InfoConfigService,
+  ) {}
 
   @Post('upload')
   @Returns(ImageUploadResponse)
   @EasyThrottle(20)
   async uploadImage(
     @PostFiles(1) multipart: FileIterator,
-    @ReqUserID() userid: string,
+    @Query() query: ImageUploadQuery,
+    @ReqUser() user: EUser,
+    @Req() req: FastifyRequest,
     @HasPermission(Permission.ImageDeleteKey) withDeleteKey: boolean,
   ): Promise<ImageUploadResponse> {
     const file = ThrowIfFailed(await GetNextAsync(multipart));
@@ -63,14 +97,52 @@ export class ImageManageController {
 
     const image = ThrowIfFailed(
       await this.imagesService.upload(
-        userid,
+        user.id,
         file.filename,
         buffer,
         withDeleteKey,
+        query.expires_after,
+        // Visitors who are not logged in are the guest user
+        user.username === 'guest',
       ),
     );
+    const fileTypes = ThrowIfFailed(
+      await this.imagesService.getFileMimes(image.id),
+    );
 
-    return image;
+    return { ...image, links: this.links(req, image, fileTypes.master) };
+  }
+
+  // Where an image can be found: at the public address when it is set, like
+  // in the frontend, otherwise at the one the upload was sent to
+  private links(
+    req: FastifyRequest,
+    image: EImageBackend,
+    masterType: string,
+  ): ImageUploadResponse['links'] {
+    const base = (
+      this.infoConfig.getHostnameOverride() ?? `${req.protocol}://${req.host}`
+    ).replace(/\/+$/, '');
+
+    // Otherwise it is converted to what browsers show of its kind
+    let type = masterType;
+    if (!ShownAsIs.includes(type)) {
+      const parsed = ParseFileType(type);
+      type =
+        !HasFailed(parsed) &&
+        parsed.category === SupportedFileTypeCategory.Animation
+          ? AnimFileType.GIF
+          : ImageFileType.JPEG;
+    }
+    const ext = ThrowIfFailed(FileType2Ext(type));
+
+    return {
+      view: `${base}/view/${image.id}`,
+      image: `${base}/i/${image.id}.${ext}`,
+      ...(image.delete_key
+        ? { delete: `${base}/api/image/delete/${image.id}/${image.delete_key}` }
+        : {}),
+    };
   }
 
   @Post('list')
@@ -85,8 +157,9 @@ export class ImageManageController {
       body.user_id = userid;
     }
 
+    const { count, page, user_id, ...filters } = body;
     const found = ThrowIfFailed(
-      await this.imagesService.findMany(body.count, body.page, body.user_id),
+      await this.imagesService.findMany(count, page, user_id, filters),
     );
 
     return found;
@@ -97,13 +170,18 @@ export class ImageManageController {
   @Returns(ImageUpdateResponse)
   async updateImage(
     @Body() body: ImageUpdateRequest,
-    @ReqUserID() userid: string,
+    @ReqUser() user: EUser,
     @HasPermission(Permission.ImageAdmin) isImageAdmin: boolean,
   ): Promise<ImageUpdateResponse> {
-    const user_id = isImageAdmin ? undefined : userid;
+    const user_id = isImageAdmin ? undefined : user.id;
 
     const image = ThrowIfFailed(
-      await this.imagesService.update(body.id, user_id, body),
+      await this.imagesService.update(
+        body.id,
+        user_id,
+        body,
+        user.username === 'guest',
+      ),
     );
 
     return image;
@@ -145,13 +223,13 @@ export class ImageManageController {
   // preview, which deleted the image as soon as its link was shared.
   @Get('delete/:id/:key')
   @RequiredPermissions(Permission.ImageDeleteKey)
+  @HttpCode(302)
   async confirmDeleteImageWithKey(
     @Param() params: ImageDeleteWithKeyRequest,
     @Res({ passthrough: true }) res: FastifyReply,
   ): Promise<string> {
     // Both are validated, an uuid and 32 letters or digits
     res.header('Location', `/delete/${params.id}/${params.key}`);
-    res.code(302);
     return 'Confirm deleting the image';
   }
 }

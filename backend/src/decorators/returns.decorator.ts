@@ -20,3 +20,8 @@ export function Returns<N extends object>(
 export function ReturnsAnything(): ReturnsMethodDecorator<any> {
   return SetMetadata('noreturns', true);
 }
+
+// Sends an image instead of JSON, for the api documentation
+export function ReturnsImage(): ReturnsMethodDecorator<any> {
+  return SetMetadata('returns-image', true);
+}

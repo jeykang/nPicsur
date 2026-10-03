@@ -11,6 +11,15 @@
       }
     </mat-select>
   </mat-form-field>
+  <mat-form-field class="col-12 col-md-4 col-xl-3" appearance="outline">
+    <mat-label>Images expire after</mat-label>
+    <mat-select [(value)]="expiresAfter">
+      <mat-option value="default">Your default</mat-option>
+      @for (option of ExpiryOptions; track option.seconds) {
+        <mat-option [value]="option.seconds">{{ option.name }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
 </div>
 <div class="row">
   <div class="col">

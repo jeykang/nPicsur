@@ -35,18 +35,21 @@ export interface ShareXObject {
   ErrorMessage: string;
 }
 
+// Expires after is in seconds, 0 for never, or null for the user's default
 export function BuildShareX(
   host: string,
   apikey: string,
   preferredExt: string,
   canDelete: boolean,
+  expiresAfter: number | null = null,
 ): ShareXObject {
+  const query = expiresAfter === null ? '' : `?expires_after=${expiresAfter}`;
   const base: ShareXObject = {
     Version: '14.1.0',
     Name: 'Picsur',
     DestinationType: 'ImageUploader',
     RequestMethod: 'POST',
-    RequestURL: `${host}/api/image/upload`,
+    RequestURL: `${host}/api/image/upload${query}`,
     Headers: {
       Authorization: `Api-Key ${apikey}`,
     },

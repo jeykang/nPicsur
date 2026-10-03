@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { fileTypeFromBuffer, FileTypeResult } from 'file-type';
+import { Readable } from 'node:stream';
+import { ImageListFilters } from 'picsur-shared/dist/dto/api/image-manage.dto';
 import { ImageRequestParams } from 'picsur-shared/dist/dto/api/image.dto';
 import { ImageEntryVariant } from 'picsur-shared/dist/dto/image-entry-variant.enum';
 import {
@@ -24,10 +26,14 @@ import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
 import { ImageDBService } from '../../collections/image-db/image-db.service.js';
 import {
   ImageFileDBService,
+  ReadImageData,
   StoredImage,
 } from '../../collections/image-db/image-file-db.service.js';
 import { UsrPreferenceDbService } from '../../collections/preference-db/usr-preference-db.service.js';
-import { GetServerSettingBool } from '../../config/server-settings.js';
+import {
+  GetServerSettingBool,
+  GetServerSettingDuration,
+} from '../../config/server-settings.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
 import { MutexFallBack } from '../../util/mutex-fallback.js';
 import { ConversionLimiterService } from './conversion-limiter.service.js';
@@ -66,8 +72,9 @@ export class ImageManagerService {
     count: number,
     page: number,
     userid: string | undefined,
+    filters?: ImageListFilters,
   ): AsyncFailable<FindResult<EImageBackend>> {
-    return await this.imagesService.findMany(count, page, userid);
+    return await this.imagesService.findMany(count, page, userid, filters);
   }
 
   public async update(
@@ -76,12 +83,31 @@ export class ImageManagerService {
     options: Partial<
       Pick<EImageBackend, 'file_name' | 'expires_at' | 'listed'>
     >,
+    byGuest = false,
   ): AsyncFailable<EImageBackend> {
     if (options.expires_at !== undefined && options.expires_at !== null) {
       if (options.expires_at < new Date()) {
         return Fail(FT.UsrValidation, 'Expiration date must be in the future');
       }
     }
+
+    // Guests can not keep an upload for longer than uploading lets them
+    const limit = GetServerSettingDuration(ServerSetting.GuestUploadExpiry);
+    if (byGuest && limit > 0 && options.expires_at !== undefined) {
+      const image = await this.imagesService.findOne(id, userid);
+      if (HasFailed(image)) return image;
+      const latest = image.created.getTime() + limit;
+      if (
+        options.expires_at === null ||
+        options.expires_at.getTime() > latest
+      ) {
+        return Fail(
+          FT.UsrValidation,
+          `Uploads of guests expire at ${new Date(latest).toISOString()} at the latest`,
+        );
+      }
+    }
+
     return await this.imagesService.update(id, userid, options);
   }
 
@@ -104,6 +130,10 @@ export class ImageManagerService {
     filename: string,
     image: Buffer,
     withDeleteKey: boolean,
+    // Seconds until it expires, 0 for never, otherwise the user's default
+    expiresAfter?: number,
+    // Uploaded by a visitor who is not logged in
+    byGuest = false,
   ): AsyncFailable<EImageBackend> {
     const fileType = await this.getFileTypeFromBuffer(image);
     if (HasFailed(fileType)) return fileType;
@@ -114,6 +144,9 @@ export class ImageManagerService {
       UsrPreference.KeepOriginal,
     );
     if (HasFailed(keepOriginal)) return keepOriginal;
+
+    const expiresAt = await this.getUploadExpiry(userid, expiresAfter, byGuest);
+    if (HasFailed(expiresAt)) return expiresAt;
 
     // Process
     const processResult = await this.processService.process(image, fileType);
@@ -131,6 +164,7 @@ export class ImageManagerService {
       userid,
       name,
       withDeleteKey,
+      expiresAt,
     );
     if (HasFailed(imageEntity)) return imageEntity;
 
@@ -155,6 +189,40 @@ export class ImageManagerService {
     return imageEntity;
   }
 
+  // What the image converted to this file type with these options is cached
+  // under. Only the options that are applied count, so it changes when
+  // editing is turned on or off.
+  public getConvertKey(fileType: string, options: ImageRequestParams): string {
+    return this.getConvertHash(fileType, this.getEffectiveOptions(options));
+  }
+
+  // When an upload expires: when it asks to, otherwise when its uploader
+  // wants new images to. Guest uploads expire at the latest after the time the
+  // server settings give.
+  private async getUploadExpiry(
+    userid: string,
+    expiresAfter: number | undefined,
+    byGuest: boolean,
+  ): AsyncFailable<Date | null> {
+    let seconds = expiresAfter;
+    if (seconds === undefined) {
+      const preference = await this.userPref.getNumberPreference(
+        userid,
+        UsrPreference.DefaultExpiry,
+      );
+      if (HasFailed(preference)) return preference;
+      seconds = preference;
+    }
+
+    if (byGuest) {
+      const limit =
+        GetServerSettingDuration(ServerSetting.GuestUploadExpiry) / 1000;
+      if (limit > 0 && (seconds === 0 || seconds > limit)) seconds = limit;
+    }
+
+    return seconds === 0 ? null : new Date(Date.now() + seconds * 1000);
+  }
+
   // Client identifies who asked for it, for rate limiting
   public async getConverted(
     imageId: string,
@@ -165,16 +233,11 @@ export class ImageManagerService {
     const targetFileType = ParseFileType(fileType);
     if (HasFailed(targetFileType)) return targetFileType;
 
-    const allow_editing = GetServerSettingBool(ServerSetting.AllowEditing);
-
     // The cache key has to match what is actually rendered, otherwise an
     // unedited image would be cached for the edited parameters while editing
     // is disabled.
-    const effectiveOptions: ImageRequestParams = allow_editing ? options : {};
-    const converted_key = this.getConvertHash({
-      mime: fileType,
-      ...effectiveOptions,
-    });
+    const effectiveOptions = this.getEffectiveOptions(options);
+    const converted_key = this.getConvertHash(fileType, effectiveOptions);
 
     return MutexFallBack(
       `${imageId}-${converted_key}`,
@@ -186,7 +249,10 @@ export class ImageManagerService {
         if (HasFailed(masterImage)) return masterImage;
 
         const sourceFileType = ParseFileType(masterImage.filetype);
-        if (HasFailed(sourceFileType)) return sourceFileType;
+        if (HasFailed(sourceFileType)) {
+          if (masterImage.data instanceof Readable) masterImage.data.destroy();
+          return sourceFileType;
+        }
 
         // Nothing to convert, serve the master as it is instead of storing
         // another copy of it. A still WebP is as much a .webp as an animated
@@ -199,10 +265,10 @@ export class ImageManagerService {
           return masterImage;
         }
 
-        const sizeAllowed = this.checkOutputSize(
-          masterImage.data,
-          effectiveOptions,
-        );
+        const masterData = await ReadImageData(masterImage);
+        if (HasFailed(masterData)) return masterData;
+
+        const sizeAllowed = this.checkOutputSize(masterData, effectiveOptions);
         if (HasFailed(sizeAllowed)) return sizeAllowed;
 
         const clientAllowed = this.conversionLimiter.checkClient(client);
@@ -210,7 +276,7 @@ export class ImageManagerService {
 
         const startTime = Date.now();
         const convertResult = await this.convertService.convert(
-          masterImage.data,
+          masterData,
           sourceFileType,
           targetFileType,
           effectiveOptions,
@@ -231,6 +297,7 @@ export class ImageManagerService {
           return {
             filetype: convertResult.filetype,
             data: convertResult.image,
+            size: convertResult.image.length,
           };
         }
 
@@ -355,9 +422,13 @@ export class ImageManagerService {
     return ParseFileType(filetype);
   }
 
-  private getConvertHash(options: object) {
+  private getEffectiveOptions(options: ImageRequestParams): ImageRequestParams {
+    return GetServerSettingBool(ServerSetting.AllowEditing) ? options : {};
+  }
+
+  private getConvertHash(fileType: string, options: ImageRequestParams) {
     // Return a sha256 hash of the stringified options
-    const stringified = JSON.stringify(options);
+    const stringified = JSON.stringify({ mime: fileType, ...options });
     const hash = createHash('sha256');
     hash.update(stringified);
     const digest = hash.digest('hex');

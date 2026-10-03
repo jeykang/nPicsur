@@ -177,7 +177,7 @@ export class ViewSpeeddialComponent implements OnInit {
     if (this.image === null) return;
 
     await this.dialogService.showCustomDialog(AddToAlbumDialogComponent, {
-      imageId: this.image.id,
+      imageIds: [this.image.id],
     } satisfies AddToAlbumDialogData);
   }
 

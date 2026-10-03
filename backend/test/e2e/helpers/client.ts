@@ -133,10 +133,11 @@ export class Client {
     return this.request<T>('POST', path, { ...options, body });
   }
 
-  async upload(image: Buffer, filename = 'image.png') {
+  // Query is appended to the address, like ?expires_after=60
+  async upload(image: Buffer, filename = 'image.png', query = '') {
     const form = new FormData();
     form.append('image', new Blob([new Uint8Array(image)]), filename);
-    return this.request('POST', '/api/image/upload', { form });
+    return this.request('POST', `/api/image/upload${query}`, { form });
   }
 
   // Upload an image and return its id, failing the test when it doesn't work

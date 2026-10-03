@@ -31,6 +31,11 @@ describe('user preferences', () => {
     const all = expectSuccess(await alice.client.get('/api/pref/usr'));
     expect(all.results).toEqual([
       expect.objectContaining({ key: 'keep_original', value: true }),
+      expect.objectContaining({
+        key: 'default_expiry',
+        value: 0,
+        type: 'number',
+      }),
     ]);
   });
 

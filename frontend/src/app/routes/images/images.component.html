@@ -1,19 +1,115 @@
+<div class="heading">
+  <h1>Your images</h1>
+  @if (!selecting) {
+    <button mat-stroked-button (click)="startSelecting()">SELECT</button>
+  }
+</div>
+
+<div class="search row">
+  <mat-form-field class="col-12 col-md-6 col-xl-3" appearance="outline">
+    <mat-label>Search by name</mat-label>
+    <input matInput type="search" [formControl]="query" maxlength="100" />
+  </mat-form-field>
+  <mat-form-field
+    class="col-12 col-sm-4 col-md-6 col-xl-3"
+    appearance="outline"
+  >
+    <mat-label>Stored as</mat-label>
+    <mat-select
+      [value]="search.format"
+      (selectionChange)="setSearch({ format: $event.value })"
+    >
+      <mat-option [value]="null">Any format</mat-option>
+      @for (format of formatOptions; track format.key) {
+        <mat-option [value]="format.key">{{ format.name }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+  <mat-form-field
+    class="col-12 col-sm-4 col-md-6 col-xl-3"
+    appearance="outline"
+  >
+    <mat-label>Album</mat-label>
+    <mat-select
+      [value]="search.album"
+      (selectionChange)="setSearch({ album: $event.value })"
+    >
+      <mat-option [value]="null">Any album</mat-option>
+      @for (album of albums; track album.id) {
+        <mat-option [value]="album.id">{{ album.name }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+  <mat-form-field
+    class="col-12 col-sm-4 col-md-6 col-xl-3"
+    appearance="outline"
+  >
+    <mat-label>Uploaded</mat-label>
+    <mat-select
+      [value]="search.uploaded"
+      (selectionChange)="setSearch({ uploaded: $event.value })"
+    >
+      <mat-option [value]="null">Any time</mat-option>
+      @for (range of uploadedOptions; track range.key) {
+        <mat-option [value]="range.key">{{ range.name }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+</div>
+
+@if (selecting) {
+  <mat-card class="selection">
+    <span class="count">{{ selected.size }} selected</span>
+    <button mat-button (click)="selectAll()">ALL ON THIS PAGE</button>
+    <button
+      mat-button
+      [disabled]="selected.size === 0 || busy"
+      (click)="addToAlbum()"
+    >
+      ALBUM
+    </button>
+    <button
+      mat-button
+      color="warn"
+      [disabled]="selected.size === 0 || busy"
+      (click)="deleteSelected()"
+    >
+      DELETE
+    </button>
+    <button mat-button (click)="stopSelecting()">DONE</button>
+  </mat-card>
+}
+
 @if (images === null) {
   <mat-progress-spinner></mat-progress-spinner>
 }
 
 @if (images !== null && images.length <= 0) {
-  <h2 class="text-center">There are no images to display</h2>
+  @if (searching) {
+    <h2 class="text-center">No images match</h2>
+    <p class="text-center">
+      <button mat-stroked-button (click)="clearSearch()">SHOW ALL</button>
+    </p>
+  } @else {
+    <h2 class="text-center">There are no images to display</h2>
+  }
 }
 
 @if (images !== null && images.length > 0) {
-  <h1>Your images</h1>
   <masonry [columns]="columns">
     @for (image of images; track image) {
       <ng-template masonry-item>
         <div class="m-2">
-          <mat-card>
+          <mat-card [class.selected]="selected.has(image.id)">
             <mat-card-header>
+              @if (selecting) {
+                <mat-checkbox
+                  mat-card-avatar
+                  [checked]="selected.has(image.id)"
+                  (change)="toggleSelected(image)"
+                  [aria-label]="'Select ' + image.file_name"
+                ></mat-checkbox>
+              }
               <mat-card-title>{{ image.file_name | truncate }}</mat-card-title>
               <mat-card-subtitle>
                 Uploaded {{ image.created | amTimeAgo }}
@@ -26,19 +122,23 @@
             </mat-card-header>
             <picsur-img
               mat-card-image
+              class="clickable"
               [src]="getThumbnailUrl(image)"
               [alt]="image.file_name"
+              (click)="viewImage(image)"
             >
             </picsur-img>
-            <mat-card-actions>
-              <button mat-stroked-button (click)="viewImage(image)">
-                VIEW
-              </button>
-              <button mat-button (click)="addToAlbum(image)">ALBUM</button>
-              <button mat-button color="warn" (click)="deleteImage(image)">
-                DELETE
-              </button>
-            </mat-card-actions>
+            @if (!selecting) {
+              <mat-card-actions>
+                <button mat-stroked-button (click)="viewImage(image)">
+                  VIEW
+                </button>
+                <button mat-button (click)="addToAlbum(image)">ALBUM</button>
+                <button mat-button color="warn" (click)="deleteImage(image)">
+                  DELETE
+                </button>
+              </mat-card-actions>
+            }
           </mat-card>
         </div>
       </ng-template>

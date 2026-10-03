@@ -3,6 +3,7 @@ import { AlbumApiModule } from './album/album.module.js';
 import { ApiKeysModule } from './apikeys/apikeys.module.js';
 import { GalleryApiModule } from './gallery/gallery.module.js';
 import { InfoModule } from './info/info.module.js';
+import { OpenApiModule } from './openapi/openapi.module.js';
 import { PrefModule } from './pref/pref.module.js';
 import { RolesApiModule } from './roles/roles.module.js';
 import { ServerApiModule } from './server/server.module.js';
@@ -20,6 +21,7 @@ import { UserApiModule } from './user/user.module.js';
     GalleryApiModule,
     AlbumApiModule,
     ServerApiModule,
+    OpenApiModule,
   ],
 })
 export class PicsurApiModule {}

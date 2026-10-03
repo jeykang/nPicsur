@@ -16,6 +16,69 @@ describe('info', () => {
     expect(info.version).toBe(pkg.default.version);
   });
 
+  it('describes the api in an OpenAPI document', async () => {
+    const res = await guest.get('/api/openapi.json');
+    expect(res.status).toBe(200);
+    // The document itself, not wrapped like other answers
+    const doc = res.json;
+    expect(doc.openapi).toBe('3.0.3');
+    const info = expectSuccess(await guest.get('/api/info'));
+    expect(doc.info.version).toBe(info.version);
+
+    const upload = doc.paths['/api/image/upload'].post;
+    expect(upload['x-permissions']).toEqual(['image-upload']);
+    expect(Object.keys(upload.requestBody.content)).toEqual([
+      'multipart/form-data',
+    ]);
+    expect(upload.parameters).toContainEqual(
+      expect.objectContaining({ name: 'expires_after', in: 'query' }),
+    );
+    const uploaded = upload.responses['201'].content['application/json'].schema;
+    expect(uploaded.properties.data.properties.links.required).toEqual([
+      'view',
+      'image',
+    ]);
+
+    const list = doc.paths['/api/image/list'].post;
+    expect(
+      list.requestBody.content['application/json'].schema.required,
+    ).toEqual(['count', 'page']);
+
+    const image = doc.paths['/i/{id}'].get;
+    expect(image.parameters[0]).toMatchObject({
+      name: 'id',
+      in: 'path',
+      required: true,
+    });
+    expect(image.parameters.map((p: any) => p.name)).toContain('width');
+    expect(Object.keys(image.responses['200'].content)).toEqual(['image/*']);
+
+    // Path parameters in the order of the path
+    const deleteLink = doc.paths['/api/image/delete/{id}/{key}'].get;
+    expect(deleteLink.parameters.map((p: any) => p.name)).toEqual([
+      'id',
+      'key',
+    ]);
+    expect(Object.keys(deleteLink.responses)).toEqual(['302', 'default']);
+    expect(deleteLink.responses['302'].headers.Location).toBeDefined();
+
+    // Logging in reads the username and password from the body
+    const login = doc.paths['/api/user/login'].post;
+    expect(
+      login.requestBody.content['application/json'].schema.required,
+    ).toEqual(['username', 'password']);
+
+    // Every operation has its own id, and every path can be called as it is
+    const operations = Object.values<any>(doc.paths).flatMap((path) =>
+      Object.values<any>(path),
+    );
+    const ids = operations.map((operation) => operation.operationId);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(Object.keys(doc.paths).filter((path) => path.includes('*'))).toEqual(
+      [],
+    );
+  });
+
   it('lists all permissions', async () => {
     const data = expectSuccess(await guest.get('/api/info/permissions'));
     expect(data.permissions).toEqual(

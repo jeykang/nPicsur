@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import {
+  type FileHandle,
   mkdir,
   open,
   readdir,
@@ -30,12 +31,19 @@ import {
 import {
   ExternalStorage,
   StoredObject,
+  StoredStream,
 } from '../external-storage/external-storage.js';
 
 const IMAGES_DIR = 'images';
 
 // Keys only ever consist of ids, variants and hashes
 const SafeKeySegment = /^[A-Za-z0-9_.-]{1,255}$/;
+
+// Files are sent in pieces of this size. To clients on the same machine, they
+// went out about 23% slower than when read whole with the default of 64 KB,
+// and 11% slower with 256 KB. Larger pieces were not faster, but every
+// visitor that downloads slowly holds on to one.
+const ReadChunkSize = 256 * 1024;
 
 export interface DiskStorageTest {
   // Whether the directory did not exist yet
@@ -128,6 +136,34 @@ export class DiskStorageService implements ExternalStorage {
       if (IsNotFound(e)) {
         return Fail(FT.NotFound, 'Image not found', `Missing file ${key}`);
       }
+      return Fail(FT.Internal, 'Could not load image', DescribeError(e));
+    }
+  }
+
+  public async getStream(key: string): AsyncFailable<StoredStream> {
+    const path = this.path(key);
+    if (HasFailed(path)) return path;
+
+    let file: FileHandle;
+    try {
+      file = await open(path, 'r');
+    } catch (e) {
+      if (IsNotFound(e)) {
+        return Fail(FT.NotFound, 'Image not found', `Missing file ${key}`);
+      }
+      return Fail(FT.Internal, 'Could not load image', DescribeError(e));
+    }
+
+    try {
+      const { size } = await file.stat();
+      // Closes the file once it is read, or when sending it stops early.
+      // Also when the image is deleted in the meantime, it can still be read.
+      return {
+        stream: file.createReadStream({ highWaterMark: ReadChunkSize }),
+        size,
+      };
+    } catch (e) {
+      await file.close().catch(() => undefined);
       return Fail(FT.Internal, 'Could not load image', DescribeError(e));
     }
   }

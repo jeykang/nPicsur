@@ -8,6 +8,7 @@
       [update]="usrPrefService.setPreference.bind(usrPrefService)"
       [name]="getName(pref.key)"
       [helpText]="getHelpText(pref.key)"
+      [options]="getOptions(pref)"
     ></pref-option>
   }
 </div>

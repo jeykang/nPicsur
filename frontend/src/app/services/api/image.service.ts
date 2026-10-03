@@ -8,6 +8,7 @@ import {
   ImageDeleteResponse,
   ImageDeleteWithKeyRequest,
   ImageDeleteWithKeyResponse,
+  ImageListFilters,
   ImageListRequest,
   ImageListResponse,
   ImageUpdateRequest,
@@ -62,12 +63,14 @@ export class ImageService {
     count: number,
     page: number,
     userID?: string,
+    filters: ImageListFilters = {},
   ): AsyncFailable<ImageListResponse> {
     return await this.api.post(
       ImageListRequest,
       ImageListResponse,
       '/api/image/list',
       {
+        ...filters,
         count,
         page,
         user_id: userID,
@@ -78,13 +81,14 @@ export class ImageService {
   public async ListMyImages(
     count: number,
     page: number,
+    filters: ImageListFilters = {},
   ): AsyncFailable<ImageListResponse> {
     const userID = await this.userService.snapshot?.id;
     if (userID === undefined) {
       return Fail(FT.Authentication, 'User not logged in');
     }
 
-    return await this.ListAllImages(count, page, userID);
+    return await this.ListAllImages(count, page, userID, filters);
   }
 
   public async ListGallery(

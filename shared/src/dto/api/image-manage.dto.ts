@@ -2,20 +2,79 @@ import { z } from 'zod';
 import { EImageSchema } from '../../entities/image.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { IsApiKey } from '../../validators/api-key.validator.js';
+import { IsExpiry } from '../../validators/expiry.validator.js';
 import { IsEntityID } from '../../validators/entity-id.validator.js';
 import { IsPosInt } from '../../validators/positive-int.validator.js';
+import { SupportedFileTypes } from '../mimes.dto.js';
 
-// Image upload
+// Whole seconds in a query, only digits. Empty is the same as not given.
+const ParseSeconds = (value: unknown) => {
+  if (value === '') return undefined;
+  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value);
+  return value;
+};
+
+// Image upload, optionally with when it expires: in this many seconds, or
+// never with 0. Otherwise the uploader's default applies.
+export const ImageUploadQuerySchema = z.object({
+  expires_after: z.preprocess(ParseSeconds, IsExpiry().optional()),
+});
+export class ImageUploadQuery extends createZodDto(ImageUploadQuerySchema) {}
+
 export const ImageUploadResponseSchema = EImageSchema.extend({
   delete_key: IsApiKey().optional(),
+  // Where it can be found, to share it right away
+  links: z.object({
+    // Its page
+    view: z.string(),
+    // The image itself, in a format browsers show
+    image: z.string(),
+    // A page that deletes it after confirming, with a delete key
+    delete: z.string().optional(),
+  }),
 });
 export class ImageUploadResponse extends createZodDto(
   ImageUploadResponseSchema,
 ) {}
 
-// Image list
+// Image list, of your own images, or of any user for image admins. Only the
+// images that match every filter that is given.
 
-export const ImageListRequestSchema = z.object({
+// A date and time with its offset, like 2026-10-03T12:00:00Z. The frontend
+// gives a Date, which is sent like that.
+const IsDate = () =>
+  z.preprocess(
+    (value) =>
+      value instanceof Date && !isNaN(value.getTime())
+        ? value.toISOString()
+        : value,
+    z
+      .string()
+      .datetime({ offset: true })
+      .transform((value) => new Date(value)),
+  );
+
+export const ImageListFiltersSchema = z.object({
+  // Part of the name, in upper or lower case
+  search: z.string().trim().min(1).max(100).optional(),
+  // How the image is stored, like image:png
+  filetypes: z
+    .array(
+      z.string().refine((type) => SupportedFileTypes.includes(type), {
+        message: 'Unknown file type',
+      }),
+    )
+    .min(1)
+    .max(20)
+    .optional(),
+  album_id: IsEntityID().optional(),
+  // Uploaded at or after, and before
+  uploaded_after: IsDate().optional(),
+  uploaded_before: IsDate().optional(),
+});
+export type ImageListFilters = z.infer<typeof ImageListFiltersSchema>;
+
+export const ImageListRequestSchema = ImageListFiltersSchema.extend({
   count: IsPosInt(),
   page: IsPosInt(),
   user_id: IsEntityID().optional(),

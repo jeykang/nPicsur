@@ -50,6 +50,8 @@ export class PrefOptionComponent implements OnInit {
   @Input() @Required name = '';
   @Input() helpText = '';
   @Input() validator?: ZodTypeAny = undefined;
+  // To choose from, instead of typing a value
+  @Input() options?: { name: string; value: PrefValueType }[] = undefined;
 
   constructor(private readonly errorService: ErrorService) {}
 

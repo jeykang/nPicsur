@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FastifyReply } from 'fastify';
+import { Readable } from 'node:stream';
 import { ApiAnySuccessResponse } from 'picsur-shared/dist/dto/api/api.dto';
 import { Fail, FT } from 'picsur-shared/dist/types/failable';
 import { ZodDtoStatic } from 'picsur-shared/dist/util/create-zod-dto';
@@ -23,7 +24,7 @@ export class SuccessInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     return next.handle().pipe(
       map((data) => {
-        if (data instanceof Buffer) {
+        if (data instanceof Buffer || data instanceof Readable) {
           return data;
         } else if (typeof data === 'object') {
           const validated = this.validate(context, data);

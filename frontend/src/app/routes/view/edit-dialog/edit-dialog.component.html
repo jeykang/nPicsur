@@ -22,9 +22,9 @@
             [ngModelOptions]="{ standalone: true }"
             [(ngModel)]="expiresAfter"
           >
-            @for (option of ExpireOptions; track option) {
-              <mat-option [value]="option[1]">
-                {{ option[0] }}
+            @for (option of ExpiryOptions; track option.seconds) {
+              <mat-option [value]="option.seconds">
+                {{ option.name }}
               </mat-option>
             }
           </mat-select>

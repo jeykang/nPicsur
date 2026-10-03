@@ -321,6 +321,11 @@
       </div>
       <div class="col-lg-6 col-12">
         <ng-container
+          *ngTemplateOutlet="field; context: { $implicit: S.GuestUploadExpiry }"
+        ></ng-container>
+      </div>
+      <div class="col-lg-6 col-12">
+        <ng-container
           *ngTemplateOutlet="
             field;
             context: {

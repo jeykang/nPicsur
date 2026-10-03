@@ -7,7 +7,7 @@ import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app.routing.module';
-import { FooterModule } from './components/footer/footer.module';
+import { FooterComponent } from './components/footer/footer.component';
 import { HeaderModule } from './components/header/header.module';
 import { GuardsModule } from './guards/guards.module';
 import { SnackBarManagerModule } from './util/snackbar-manager/snackbar-manager.module';
@@ -20,14 +20,11 @@ import { SnackBarManagerModule } from './util/snackbar-manager/snackbar-manager.
     PortalModule,
     MatSidenavModule,
     MatButtonModule,
-
     SnackBarManagerModule.forRoot(),
-
     GuardsModule,
     AppRoutingModule,
-
     HeaderModule,
-    FooterModule,
+    FooterComponent,
   ],
   providers: [
     {

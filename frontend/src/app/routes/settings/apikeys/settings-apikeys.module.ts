@@ -9,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatTableModule } from '@angular/material/table';
 import { MomentModule } from 'ngx-moment';
-import { FabModule } from '../../../components/fab/fab.module';
+
 import { DialogManagerModule } from '../../../util/dialog-manager/dialog-manager.module';
 import { ErrorManagerModule } from '../../../util/error-manager/error-manager.module';
 import { ApiKeyCreatedDialogComponent } from './apikey-created-dialog/apikey-created-dialog.component';
@@ -32,7 +32,6 @@ import { SettingsApiKeysRoutingModule } from './settings-apikeys.routing.module'
     MatInputModule,
     MomentModule,
     ReactiveFormsModule,
-    FabModule,
     SettingsApiKeysComponent,
     SettingsApiKeyEditorComponent,
     ApiKeyCreatedDialogComponent,

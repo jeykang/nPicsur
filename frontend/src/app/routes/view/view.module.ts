@@ -17,9 +17,7 @@ import { ViewSpeeddialComponent } from './view-speeddial/view-speeddial.componen
 import { ViewComponent } from './view.component';
 import { ViewRoutingModule } from './view.routing.module';
 import { CopyFieldModule } from '../../components/copy-field/copy-field.module';
-import { FabModule } from '../../components/fab/fab.module';
-import { PicsurImgModule } from '../../components/picsur-img/picsur-img.module';
-import { PipesModule } from '../../pipes/pipes.module';
+
 import { DownloadManagerModule } from '../../util/download-manager/download-manager.module';
 import { ErrorManagerModule } from '../../util/error-manager/error-manager.module';
 
@@ -40,11 +38,8 @@ import { ErrorManagerModule } from '../../util/error-manager/error-manager.modul
     MatSlideToggleModule,
     FormsModule,
     MatIconModule,
-    PicsurImgModule,
     MatIconModule,
     MomentModule,
-    FabModule,
-    PipesModule,
     ViewComponent,
     ViewSpeeddialComponent,
     CustomizeDialogComponent,

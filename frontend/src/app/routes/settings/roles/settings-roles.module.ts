@@ -8,8 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatTableModule } from '@angular/material/table';
-import { FabModule } from '../../../components/fab/fab.module';
-import { ValuesPickerModule } from '../../../components/values-picker/values-picker.module';
+
 import { DialogManagerModule } from '../../../util/dialog-manager/dialog-manager.module';
 import { ErrorManagerModule } from '../../../util/error-manager/error-manager.module';
 import { SettingsRolesEditComponent } from './settings-roles-edit/settings-roles-edit.component';
@@ -30,9 +29,7 @@ import { SettingsRolesRoutingModule } from './settings-roles.routing.module';
     FormsModule,
     MatFormFieldModule,
     MatInputModule,
-    FabModule,
     ReactiveFormsModule,
-    ValuesPickerModule,
     SettingsRolesComponent,
     SettingsRolesEditComponent,
   ],

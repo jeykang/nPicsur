@@ -11,8 +11,7 @@ import { MatTableModule } from '@angular/material/table';
 import { SettingsUsersEditComponent } from './settings-users-edit/settings-users-edit.component';
 import { SettingsUsersComponent } from './settings-users.component';
 import { SettingsUsersRoutingModule } from './settings-users.routing.module';
-import { FabModule } from '../../../components/fab/fab.module';
-import { ValuesPickerModule } from '../../../components/values-picker/values-picker.module';
+
 import { DialogManagerModule } from '../../../util/dialog-manager/dialog-manager.module';
 import { ErrorManagerModule } from '../../../util/error-manager/error-manager.module';
 
@@ -30,9 +29,7 @@ import { ErrorManagerModule } from '../../../util/error-manager/error-manager.mo
     MatInputModule,
     MatChipsModule,
     FormsModule,
-    FabModule,
     ReactiveFormsModule,
-    ValuesPickerModule,
     SettingsUsersComponent,
     SettingsUsersEditComponent,
   ],

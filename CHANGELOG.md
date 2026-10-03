@@ -6,6 +6,7 @@
 
 - My Images can be searched by name, and narrowed down to how the images are stored, an album, or when they were uploaded. The search is kept in the address, so reloading or going back keeps it. `/api/image/list` takes the same filters.
 - Several images can be selected on My Images, to delete them or put them in an album at once.
+- The answer to an upload says where the image can be found: its page, the image itself in a format browsers show, and the link that deletes it when it has a delete key. At the public address when one is set.
 - New images can expire by themselves, after a time chosen under Settings → Preferences. An upload can ask for its own time with `?expires_after=` in seconds, and the ShareX config can be exported with one. Uploads of visitors who are not logged in can be kept for at most a time set on the settings page or with `PICSUR_GUEST_UPLOAD_EXPIRY`. See [How do I make images expire by themselves?](README.md#how-do-i-make-images-expire-by-themselves)
 
 ### Faster

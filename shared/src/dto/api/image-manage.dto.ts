@@ -23,6 +23,15 @@ export class ImageUploadQuery extends createZodDto(ImageUploadQuerySchema) {}
 
 export const ImageUploadResponseSchema = EImageSchema.extend({
   delete_key: IsApiKey().optional(),
+  // Where it can be found, to share it right away
+  links: z.object({
+    // Its page
+    view: z.string(),
+    // The image itself, in a format browsers show
+    image: z.string(),
+    // A page that deletes it after confirming, with a delete key
+    delete: z.string().optional(),
+  }),
 });
 export class ImageUploadResponse extends createZodDto(
   ImageUploadResponseSchema,

@@ -47,6 +47,43 @@ describe('image upload and retrieval', () => {
     expect(image.delete_key).toMatch(/^[a-zA-Z0-9]{32}$/);
   });
 
+  it('says where the new image can be found', async () => {
+    const base = inject('baseUrl');
+    const image = expectSuccess(await user.client.upload(png, 'linked.png'));
+    expect(image.links).toEqual({
+      view: `${base}/view/${image.id}`,
+      image: `${base}/i/${image.id}.png`,
+      delete: `${base}/api/image/delete/${image.id}/${image.delete_key}`,
+    });
+    const served = await Client.guest().get(
+      new URL(image.links.image).pathname,
+    );
+    expect(served.headers.get('content-type')).toBe('image/png');
+
+    // Formats browsers do not show are converted for the link
+    const tiff = expectSuccess(
+      await user.client.upload(await convertTo(png, 'tiff'), 'scan.tiff'),
+    );
+    expect(tiff.links.image).toBe(`${base}/i/${tiff.id}.jpg`);
+    const animation = expectSuccess(
+      await user.client.upload(await makeAnimatedWebp(), 'moving.webp'),
+    );
+    expect(animation.links.image).toBe(`${base}/i/${animation.id}.webp`);
+
+    // At the public address when it is set
+    expectSuccess(
+      await update(admin, { host_override: 'https://img.example.com/' }),
+    );
+    try {
+      const linked = expectSuccess(await user.client.upload(png));
+      expect(linked.links.view).toBe(
+        `https://img.example.com/view/${linked.id}`,
+      );
+    } finally {
+      expectSuccess(await update(admin, { host_override: null }));
+    }
+  });
+
   it('only strips the last extension', async () => {
     const meta = expectSuccess(await user.client.get(`/i/meta/${imageId}`));
     expect(meta.image.file_name).toBe('holiday.final');

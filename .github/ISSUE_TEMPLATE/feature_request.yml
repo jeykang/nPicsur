@@ -1,0 +1,21 @@
+name: Feature request
+description: Something Picsur could do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you want to do
+      description: What you are trying to do, and what gets in the way now.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: How you imagine it in Picsur. Leave this empty if you are not sure.
+  - type: input
+    id: upstream
+    attributes:
+      label: Issue in the original Picsur
+      description: When it was asked for in [CaramelFur/Picsur](https://github.com/CaramelFur/Picsur/issues) before, the link to that issue.

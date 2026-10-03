@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  # From CI, once the image of a tag like v0.7.0 is published
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  # By hand, for a tag pushed before this workflow existed, or to update the
+  # notes of a release after fixing them in the changelog
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The tag of the release, like v0.7.0
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create the release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          version="${TAG#v}"
+          ./support/release-notes.sh "$version" > "$RUNNER_TEMP/notes.md"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --title "$version" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            flags=()
+            # Versions like 0.8.0-rc.1
+            if [[ "$version" == *-* ]]; then flags+=(--prerelease); fi
+            gh release create "$TAG" --verify-tag --title "$version" \
+              --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
+          fi

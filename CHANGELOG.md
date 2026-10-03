@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### New
+
+- My Images can be searched by name, and narrowed down to how the images are stored, an album, or when they were uploaded. The search is kept in the address, so reloading or going back keeps it. `/api/image/list` takes the same filters.
+- Several images can be selected on My Images, to delete them or put them in an album at once.
+
 ### Faster
 
 - Browsers and proxies that already have an image get a short answer that it did not change, instead of the image again, and Picsur does not read the image for that. Images are sent with an `ETag` and a `Last-Modified` header for this.

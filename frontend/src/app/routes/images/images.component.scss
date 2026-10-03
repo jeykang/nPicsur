@@ -3,8 +3,41 @@ picsur-img {
   margin-bottom: 0.5em;
 }
 
+.clickable {
+  cursor: pointer;
+}
+
 // add 1em margin left to each non-first button in
 
 mat-card-actions > :not(:first-of-type) {
   margin-left: 1em;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+}
+
+// Stays in view below the header while scrolling through the images
+.selection {
+  position: sticky;
+  top: 72px;
+  z-index: 2;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25em;
+  margin: 0 0.5rem 1rem;
+  padding: 0.5em 1em;
+
+  .count {
+    margin-right: auto;
+  }
+}
+
+// In the primary color
+mat-card.selected {
+  outline: 3px solid #43a047;
 }

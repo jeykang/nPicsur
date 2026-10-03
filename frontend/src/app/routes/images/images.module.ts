@@ -1,8 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
+import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
 import { MomentModule } from 'ngx-moment';
 import { AlbumDialogModule } from '../../components/album-dialog/album-dialog.module';
 import { MasonryModule } from '../../components/masonry/masonry.module';
@@ -23,9 +28,14 @@ import { ImagesRoutingModule } from './images.routing.module';
     AlbumDialogModule,
 
     ImagesRoutingModule,
+    ReactiveFormsModule,
     MatCardModule,
     MatButtonModule,
+    MatCheckboxModule,
+    MatFormFieldModule,
+    MatInputModule,
     MatProgressSpinnerModule,
+    MatSelectModule,
     MasonryModule,
     PaginatorModule,
     PicsurImgModule,

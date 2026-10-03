@@ -1,5 +1,11 @@
 <div class="dialog-text">
   <h2>Albums</h2>
+  @if (data.imageIds.length > 1) {
+    <p>
+      Checking an album puts the {{ data.imageIds.length }} images in it,
+      unchecking takes them out.
+    </p>
+  }
 
   @if (albums === null) {
     <mat-progress-spinner
@@ -14,7 +20,7 @@
         <mat-checkbox
           [checked]="album.contains_image"
           [disabled]="busy"
-          (change)="toggle(album, $event.checked)"
+          (change)="toggle(album, $event)"
         >
           {{ album.name }}
           <span class="count">({{ album.image_count }})</span>

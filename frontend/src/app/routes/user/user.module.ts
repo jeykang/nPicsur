@@ -12,11 +12,9 @@ import { UserRoutingModule } from './user.routing.module';
 import { ErrorManagerModule } from '../../util/error-manager/error-manager.module';
 
 @NgModule({
-  declarations: [LoginComponent, RegisterComponent, OidcCallbackComponent],
   imports: [
     CommonModule,
     ErrorManagerModule,
-
     UserRoutingModule,
     RouterModule,
     FormsModule,
@@ -24,6 +22,9 @@ import { ErrorManagerModule } from '../../util/error-manager/error-manager.modul
     MatFormFieldModule,
     MatButtonModule,
     ReactiveFormsModule,
+    LoginComponent,
+    RegisterComponent,
+    OidcCallbackComponent,
   ],
 })
 export default class UserRouteModule {}

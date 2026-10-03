@@ -6,6 +6,5 @@ import { Component, ChangeDetectionStrategy } from '@angular/core';
     <p>It may have been deleted already.</p>
   `,
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
 })
 export class ImageDeleteFailureComponent {}

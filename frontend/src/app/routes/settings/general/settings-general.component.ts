@@ -11,6 +11,8 @@ import {
 } from '../../../i18n/usr-pref.i18n';
 import { UsrPrefService } from '../../../services/api/usr-pref.service';
 import { ExpiryName, ExpiryOptions } from '../../../util/expiry-options';
+import { PrefOptionComponent } from '../../../components/pref-option/pref-option.component';
+import { AsyncPipe } from '@angular/common';
 
 interface Option {
   name: string;
@@ -25,7 +27,7 @@ const ExpiryValues: Option[] = ExpiryOptions.map(({ name, seconds }) => ({
 @Component({
   templateUrl: './settings-general.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [PrefOptionComponent, AsyncPipe],
 })
 export class SettingsGeneralComponent {
   private readonly translator = UsrPreferenceFriendlyNames;

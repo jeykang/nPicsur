@@ -24,19 +24,12 @@ import { DownloadManagerModule } from '../../util/download-manager/download-mana
 import { ErrorManagerModule } from '../../util/error-manager/error-manager.module';
 
 @NgModule({
-  declarations: [
-    ViewComponent,
-    ViewSpeeddialComponent,
-    CustomizeDialogComponent,
-    EditDialogComponent,
-  ],
   imports: [
     AlbumDialogModule,
     CommonModule,
     ErrorManagerModule,
     DownloadManagerModule,
     DialogModule,
-
     CopyFieldModule,
     ViewRoutingModule,
     MatButtonModule,
@@ -52,6 +45,10 @@ import { ErrorManagerModule } from '../../util/error-manager/error-manager.modul
     MomentModule,
     FabModule,
     PipesModule,
+    ViewComponent,
+    ViewSpeeddialComponent,
+    CustomizeDialogComponent,
+    EditDialogComponent,
   ],
 })
 export default class ViewRouteModule {}

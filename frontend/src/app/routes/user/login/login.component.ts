@@ -10,12 +10,26 @@ import { UserPassModel } from '../../../models/forms-dto/userpass.dto';
 import { UserService } from '../../../services/api/user.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
+import { ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatFormField, MatLabel, MatError } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { UpperCasePipe } from '@angular/common';
 
 @Component({
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    ReactiveFormsModule,
+    FormsModule,
+    MatButton,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatError,
+    UpperCasePipe,
+  ],
 })
 export class LoginComponent implements OnInit {
   private readonly logger = new Logger(LoginComponent.name);

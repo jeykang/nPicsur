@@ -4,7 +4,12 @@ import {
   OnInit,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { AbstractControl, FormControl, ValidationErrors } from '@angular/forms';
+import {
+  AbstractControl,
+  FormControl,
+  ValidationErrors,
+  ReactiveFormsModule,
+} from '@angular/forms';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import {
   DecodedPref,
@@ -17,13 +22,36 @@ import { Required } from '../../models/decorators/required.decorator';
 import { Logger } from '../../services/logger/logger.service';
 import { ErrorService } from '../../util/error-manager/error.service';
 import { Throttle } from '../../util/throttle';
+import {
+  MatFormField,
+  MatLabel,
+  MatSuffix,
+  MatError,
+} from '@angular/material/form-field';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatInput } from '@angular/material/input';
 
 @Component({
   selector: 'pref-option',
   templateUrl: './pref-option.component.html',
   styleUrls: ['./pref-option.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatFormField,
+    MatLabel,
+    MatSelect,
+    ReactiveFormsModule,
+    MatOption,
+    MatIconButton,
+    MatSuffix,
+    MatIcon,
+    MatTooltip,
+    MatInput,
+    MatError,
+  ],
 })
 export class PrefOptionComponent implements OnInit {
   private readonly logger = new Logger(PrefOptionComponent.name);

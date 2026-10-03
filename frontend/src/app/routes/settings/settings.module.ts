@@ -6,12 +6,12 @@ import { SettingsRoutingModule } from './settings.routing.module';
 import { SettingsSidebarComponent } from './sidebar/settings-sidebar.component';
 
 @NgModule({
-  declarations: [SettingsSidebarComponent],
   imports: [
     CommonModule,
     SettingsRoutingModule.forRoot(),
     MatListModule,
     MatIconModule,
+    SettingsSidebarComponent,
   ],
   exports: [SettingsRoutingModule],
 })

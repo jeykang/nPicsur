@@ -9,7 +9,6 @@ import { MatInputModule } from '@angular/material/input';
 import { ValuesPickerComponent } from './values-picker.component';
 
 @NgModule({
-  declarations: [ValuesPickerComponent],
   imports: [
     CommonModule,
     MatIconModule,
@@ -19,6 +18,7 @@ import { ValuesPickerComponent } from './values-picker.component';
     MatAutocompleteModule,
     FormsModule,
     ReactiveFormsModule,
+    ValuesPickerComponent,
   ],
   exports: [ValuesPickerComponent],
 })

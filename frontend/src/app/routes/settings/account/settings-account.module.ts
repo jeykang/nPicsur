@@ -9,7 +9,6 @@ import { SettingsAccountRoutingModule } from './settings-account.routing.module'
 import { ErrorManagerModule } from '../../../util/error-manager/error-manager.module';
 
 @NgModule({
-  declarations: [SettingsAccountComponent],
   imports: [
     CommonModule,
     ErrorManagerModule,
@@ -19,6 +18,7 @@ import { ErrorManagerModule } from '../../../util/error-manager/error-manager.mo
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
+    SettingsAccountComponent,
   ],
 })
 export default class SettingsAccountRouteModule {}

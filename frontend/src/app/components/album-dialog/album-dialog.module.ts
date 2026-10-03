@@ -13,7 +13,6 @@ import { AddToAlbumDialogComponent } from './add-to-album-dialog.component';
 import { AlbumNameDialogComponent } from './album-name-dialog.component';
 
 @NgModule({
-  declarations: [AddToAlbumDialogComponent, AlbumNameDialogComponent],
   imports: [
     A11yModule,
     CommonModule,
@@ -26,6 +25,8 @@ import { AlbumNameDialogComponent } from './album-name-dialog.component';
     MatFormFieldModule,
     MatInputModule,
     MatProgressSpinnerModule,
+    AddToAlbumDialogComponent,
+    AlbumNameDialogComponent,
   ],
   exports: [AddToAlbumDialogComponent, AlbumNameDialogComponent],
 })

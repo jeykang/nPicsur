@@ -14,7 +14,6 @@ import { ErrorManagerModule } from '../../util/error-manager/error-manager.modul
   imports: [
     CommonModule,
     ErrorManagerModule,
-
     MatToolbarModule,
     MatButtonModule,
     MatProgressBarModule,
@@ -22,8 +21,8 @@ import { ErrorManagerModule } from '../../util/error-manager/error-manager.modul
     MatIconModule,
     MatMenuModule,
     MatTooltipModule,
+    HeaderComponent,
   ],
-  declarations: [HeaderComponent],
   exports: [HeaderComponent],
 })
 export class HeaderModule {}

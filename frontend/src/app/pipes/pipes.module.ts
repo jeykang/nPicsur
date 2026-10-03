@@ -3,7 +3,7 @@ import { RangePipe } from './range.pipe';
 import { TruncatePipe } from './truncate.pipe';
 
 @NgModule({
-  declarations: [TruncatePipe, RangePipe],
+  imports: [TruncatePipe, RangePipe],
   exports: [TruncatePipe, RangePipe],
 })
 export class PipesModule {}

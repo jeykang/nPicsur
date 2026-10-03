@@ -1,6 +1,14 @@
 import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { ImageService } from '../../../services/api/image.service';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatInput } from '@angular/material/input';
+import { ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
+import { CopyFieldComponent } from '../../../components/copy-field/copy-field.component';
+import { MatButton } from '@angular/material/button';
 
 // A value the server does not accept is left out of the address, instead
 // of making it leave out every option
@@ -29,7 +37,19 @@ export interface CustomizeDialogData {
   templateUrl: './customize-dialog.component.html',
   styleUrls: ['./customize-dialog.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatFormField,
+    MatLabel,
+    MatSelect,
+    MatOption,
+    MatTooltip,
+    MatInput,
+    ReactiveFormsModule,
+    FormsModule,
+    MatSlideToggle,
+    CopyFieldComponent,
+    MatButton,
+  ],
 })
 export class CustomizeDialogComponent {
   public sizeTooltip = 'Leave empty to keep original aspect ratio';

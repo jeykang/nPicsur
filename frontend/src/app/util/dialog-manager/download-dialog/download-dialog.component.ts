@@ -1,6 +1,8 @@
 import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { Observable } from 'rxjs';
+import { MatProgressBar } from '@angular/material/progress-bar';
+import { AsyncPipe } from '@angular/common';
 
 export interface DownloadDialogData {
   name: string;
@@ -11,7 +13,7 @@ export interface DownloadDialogData {
   selector: 'download-dialog',
   templateUrl: './download-dialog.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [MatProgressBar, AsyncPipe],
 })
 export class DownloadDialogComponent {
   public progress: Observable<number>;

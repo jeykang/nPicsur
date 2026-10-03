@@ -8,13 +8,16 @@ import {
 import { Subject } from 'rxjs';
 import { OpenManager } from './open-manager';
 import { SpeedDialAnimation } from './speed-dial.animation';
+import { MatFabButton } from '@angular/material/button';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatIcon } from '@angular/material/icon';
 
 @Component({
   selector: 'speed-dial',
   templateUrl: './speed-dial.component.html',
   animations: [SpeedDialAnimation],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [MatFabButton, MatTooltip, MatIcon],
 })
 export class SpeedDialComponent {
   @Input('aria-label') ariaLabel = 'Floating action button';

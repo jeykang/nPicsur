@@ -4,14 +4,23 @@ import {
   Inject,
   OnInit,
 } from '@angular/core';
-import { FormControl, Validators } from '@angular/forms';
-import { MatCheckboxChange } from '@angular/material/checkbox';
+import {
+  FormControl,
+  Validators,
+  ReactiveFormsModule,
+  FormsModule,
+} from '@angular/forms';
+import { MatCheckboxChange, MatCheckbox } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { EAlbumSummary } from 'picsur-shared/dist/dto/api/album.dto';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { AlbumService } from '../../services/api/album.service';
 import { Logger } from '../../services/logger/logger.service';
 import { ErrorService } from '../../util/error-manager/error.service';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatButton } from '@angular/material/button';
 
 export interface AddToAlbumDialogData {
   imageIds: string[];
@@ -24,7 +33,16 @@ export interface AddToAlbumDialogData {
   templateUrl: './add-to-album-dialog.component.html',
   styleUrls: ['./album-dialog.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatProgressSpinner,
+    MatCheckbox,
+    ReactiveFormsModule,
+    FormsModule,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatButton,
+  ],
 })
 export class AddToAlbumDialogComponent implements OnInit {
   private readonly logger = new Logger(AddToAlbumDialogComponent.name);

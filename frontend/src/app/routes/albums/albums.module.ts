@@ -17,13 +17,11 @@ import { AlbumsComponent } from './albums.component';
 import { AlbumsRoutingModule } from './albums.routing.module';
 
 @NgModule({
-  declarations: [AlbumsComponent],
   imports: [
     CommonModule,
     ErrorManagerModule,
     DialogManagerModule,
     AlbumDialogModule,
-
     AlbumsRoutingModule,
     MatCardModule,
     MatButtonModule,
@@ -35,6 +33,7 @@ import { AlbumsRoutingModule } from './albums.routing.module';
     PicsurImgModule,
     MomentModule,
     PipesModule,
+    AlbumsComponent,
   ],
 })
 export default class AlbumsRouteModule {}

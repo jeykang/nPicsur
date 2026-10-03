@@ -8,8 +8,15 @@ import { SpeedDialOptionDirective } from './speed-dial/speed-dial-option.directi
 import { SpeedDialComponent } from './speed-dial/speed-dial.component';
 
 @NgModule({
-  declarations: [FabComponent, SpeedDialComponent, SpeedDialOptionDirective],
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatTooltipModule],
+  imports: [
+    CommonModule,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    FabComponent,
+    SpeedDialComponent,
+    SpeedDialOptionDirective,
+  ],
   schemas: [NO_ERRORS_SCHEMA],
   exports: [
     FabComponent,

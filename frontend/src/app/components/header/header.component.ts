@@ -7,7 +7,7 @@ import {
   OnInit,
   Output,
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { EUser } from 'picsur-shared/dist/entities/user.entity';
@@ -17,13 +17,36 @@ import { PermissionService } from '../../services/api/permission.service';
 import { Logger } from '../../services/logger/logger.service';
 import { ErrorService } from '../../util/error-manager/error.service';
 import { ThemeChoice, ThemeService } from '../../util/theme.service';
+import { MatToolbar } from '@angular/material/toolbar';
+import { MatProgressBar } from '@angular/material/progress-bar';
+import { MatIconButton, MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MatTooltip } from '@angular/material/tooltip';
+import {
+  MatMenuTrigger,
+  MatMenu,
+  MatMenuItem,
+  MatMenuContent,
+} from '@angular/material/menu';
 
 @Component({
   selector: 'app-header',
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  standalone: false,
+  imports: [
+    MatToolbar,
+    MatProgressBar,
+    MatIconButton,
+    MatIcon,
+    RouterLink,
+    MatTooltip,
+    MatMenuTrigger,
+    MatMenu,
+    MatMenuItem,
+    MatButton,
+    MatMenuContent,
+  ],
 })
 export class HeaderComponent implements OnInit {
   private readonly logger = new Logger(HeaderComponent.name);

@@ -8,6 +8,11 @@ import { RolesService } from '../../../../services/api/roles.service';
 import { StaticInfoService } from '../../../../services/api/static-info.service';
 import { Logger } from '../../../../services/logger/logger.service';
 import { ErrorService } from '../../../../util/error-manager/error.service';
+import { ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { MatFormField, MatLabel, MatError } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { ValuesPickerComponent } from '../../../../components/values-picker/values-picker.component';
+import { MatButton } from '@angular/material/button';
 
 enum EditMode {
   edit = 'edit',
@@ -18,7 +23,16 @@ enum EditMode {
   templateUrl: './settings-roles-edit.component.html',
   styleUrls: ['./settings-roles-edit.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    ReactiveFormsModule,
+    FormsModule,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatError,
+    ValuesPickerComponent,
+    MatButton,
+  ],
 })
 export class SettingsRolesEditComponent implements OnInit {
   private readonly logger = new Logger(SettingsRolesEditComponent.name);

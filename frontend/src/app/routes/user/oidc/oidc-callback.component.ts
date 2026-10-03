@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { InfoService } from '../../../services/api/info.service';
 import { UserService } from '../../../services/api/user.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
+import { MatButton } from '@angular/material/button';
 
 // Where the OpenID Connect provider sends the browser back to, after logging
 // in there. Finishes logging in here, or linking the account there to the
@@ -12,7 +13,7 @@ import { ErrorService } from '../../../util/error-manager/error.service';
 @Component({
   templateUrl: './oidc-callback.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [MatButton, RouterLink],
 })
 export class OidcCallbackComponent implements OnInit {
   private readonly logger = new Logger(OidcCallbackComponent.name);

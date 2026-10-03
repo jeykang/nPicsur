@@ -18,16 +18,10 @@ import { SettingsApiKeysComponent } from './settings-apikeys.component';
 import { SettingsApiKeysRoutingModule } from './settings-apikeys.routing.module';
 
 @NgModule({
-  declarations: [
-    SettingsApiKeysComponent,
-    SettingsApiKeyEditorComponent,
-    ApiKeyCreatedDialogComponent,
-  ],
   imports: [
     CommonModule,
     ErrorManagerModule,
     DialogManagerModule,
-
     SettingsApiKeysRoutingModule,
     MatButtonModule,
     MatDialogModule,
@@ -39,6 +33,9 @@ import { SettingsApiKeysRoutingModule } from './settings-apikeys.routing.module'
     MomentModule,
     ReactiveFormsModule,
     FabModule,
+    SettingsApiKeysComponent,
+    SettingsApiKeyEditorComponent,
+    ApiKeyCreatedDialogComponent,
   ],
 })
 export default class SettingsApiKeysRouteModule {}

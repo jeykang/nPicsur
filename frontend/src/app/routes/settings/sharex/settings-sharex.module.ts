@@ -8,15 +8,14 @@ import { SettingsShareXComponent } from './settings-sharex.component';
 import { SettingsShareXRoutingModule } from './settings-sharex.routing.module';
 
 @NgModule({
-  declarations: [SettingsShareXComponent],
   imports: [
     CommonModule,
     ErrorManagerModule,
-
     SettingsShareXRoutingModule,
     MatSelectModule,
     MatInputModule,
     MatButtonModule,
+    SettingsShareXComponent,
   ],
 })
 export default class SettingsShareXRouteModule {}

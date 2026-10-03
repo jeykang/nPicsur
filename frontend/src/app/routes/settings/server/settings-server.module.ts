@@ -16,7 +16,6 @@ import { DialogManagerModule } from '../../../util/dialog-manager/dialog-manager
 import { ErrorManagerModule } from '../../../util/error-manager/error-manager.module';
 
 @NgModule({
-  declarations: [SettingsServerComponent],
   imports: [
     CommonModule,
     SettingsServerRoutingModule,
@@ -33,6 +32,7 @@ import { ErrorManagerModule } from '../../../util/error-manager/error-manager.mo
     MatProgressSpinnerModule,
     MatSelectModule,
     MatSlideToggleModule,
+    SettingsServerComponent,
   ],
 })
 export default class SettingsServerRouteModule {}

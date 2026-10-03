@@ -13,8 +13,9 @@ import { DownloadDialogComponent } from './download-dialog/download-dialog.compo
     MatDialogModule,
     MatButtonModule,
     MatProgressBarModule,
+    ConfirmDialogComponent,
+    DownloadDialogComponent,
   ],
-  declarations: [ConfirmDialogComponent, DownloadDialogComponent],
   providers: [DialogService],
 })
 export class DialogManagerModule {}

@@ -7,13 +7,44 @@ import { ImageService } from '../../services/api/image.service';
 import { Logger } from '../../services/logger/logger.service';
 import { BSScreenSize, BootstrapService } from '../../util/bootstrap.service';
 import { ErrorService } from '../../util/error-manager/error.service';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MasonryComponent } from '../../components/masonry/masonry.component';
+import { MasonryItemDirective } from '../../components/masonry/masonry-item.directive';
+import {
+  MatCard,
+  MatCardHeader,
+  MatCardTitle,
+  MatCardSubtitle,
+  MatCardImage,
+  MatCardActions,
+} from '@angular/material/card';
+import { PicsurImgComponent } from '../../components/picsur-img/picsur-img.component';
+import { MatButton } from '@angular/material/button';
+import { PaginatorComponent } from '../../components/paginator/paginator.component';
+import { MomentModule } from 'ngx-moment';
+import { TruncatePipe } from '../../pipes/truncate.pipe';
 
 // The images their owners chose to show to everyone
 @Component({
   templateUrl: './gallery.component.html',
   styleUrls: ['./gallery.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatProgressSpinner,
+    MasonryComponent,
+    MasonryItemDirective,
+    MatCard,
+    MatCardHeader,
+    MatCardTitle,
+    MatCardSubtitle,
+    PicsurImgComponent,
+    MatCardImage,
+    MatCardActions,
+    MatButton,
+    PaginatorComponent,
+    MomentModule,
+    TruncatePipe,
+  ],
 })
 export class GalleryComponent implements OnInit {
   private readonly logger = new Logger(GalleryComponent.name);

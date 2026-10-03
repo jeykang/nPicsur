@@ -4,9 +4,9 @@ import {
   OnInit,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { FormControl } from '@angular/forms';
-import { Router } from '@angular/router';
-import { FileInputValue } from '@ngx-dropzone/cdk';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { FileInputValue, FileInputDirective } from '@ngx-dropzone/cdk';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { Fail, FT } from 'picsur-shared/dist/types/failable';
@@ -16,12 +16,18 @@ import { PermissionService } from '../../services/api/permission.service';
 import { UserService } from '../../services/api/user.service';
 import { Logger } from '../../services/logger/logger.service';
 import { ErrorService } from '../../util/error-manager/error.service';
+import { CustomDropzone } from './dropzone/dropzone.component';
 
 @Component({
   templateUrl: './upload.component.html',
   styleUrls: ['./upload.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    CustomDropzone,
+    FileInputDirective,
+    ReactiveFormsModule,
+    RouterLink,
+  ],
 })
 export class UploadComponent implements OnInit {
   private readonly logger = new Logger(UploadComponent.name);

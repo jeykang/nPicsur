@@ -8,13 +8,14 @@ import { UploadComponent } from './upload.component';
 import { UploadRoutingModule } from './upload.routing.module';
 
 @NgModule({
-  declarations: [UploadComponent, CustomDropzone],
   imports: [
     CommonModule,
     ErrorManagerModule,
     UploadRoutingModule,
     ReactiveFormsModule,
     FileInputDirective,
+    UploadComponent,
+    CustomDropzone,
   ],
 })
 export default class UploadRouteModule {}

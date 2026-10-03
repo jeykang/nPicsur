@@ -17,12 +17,10 @@ import { SettingsRolesComponent } from './settings-roles.component';
 import { SettingsRolesRoutingModule } from './settings-roles.routing.module';
 
 @NgModule({
-  declarations: [SettingsRolesComponent, SettingsRolesEditComponent],
   imports: [
     CommonModule,
     ErrorManagerModule,
     DialogManagerModule,
-
     SettingsRolesRoutingModule,
     MatIconModule,
     MatButtonModule,
@@ -35,6 +33,8 @@ import { SettingsRolesRoutingModule } from './settings-roles.routing.module';
     FabModule,
     ReactiveFormsModule,
     ValuesPickerModule,
+    SettingsRolesComponent,
+    SettingsRolesEditComponent,
   ],
 })
 export default class SettingsRolesRouteModule {}

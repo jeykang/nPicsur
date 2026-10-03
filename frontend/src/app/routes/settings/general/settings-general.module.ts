@@ -5,7 +5,11 @@ import { SettingsGeneralRoutingModule } from './settings-general.routing.module'
 import { PrefOptionModule } from '../../../components/pref-option/pref-option.module';
 
 @NgModule({
-  declarations: [SettingsGeneralComponent],
-  imports: [CommonModule, SettingsGeneralRoutingModule, PrefOptionModule],
+  imports: [
+    CommonModule,
+    SettingsGeneralRoutingModule,
+    PrefOptionModule,
+    SettingsGeneralComponent,
+  ],
 })
 export default class SettingsGeneralRouteModule {}

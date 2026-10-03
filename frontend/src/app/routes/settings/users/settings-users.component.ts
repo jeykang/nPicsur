@@ -17,12 +17,47 @@ import { BootstrapService } from '../../../util/bootstrap.service';
 import { DialogService } from '../../../util/dialog-manager/dialog.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
 import { Throttle } from '../../../util/throttle';
+import {
+  MatTable,
+  MatColumnDef,
+  MatHeaderCellDef,
+  MatHeaderCell,
+  MatCellDef,
+  MatCell,
+  MatHeaderRowDef,
+  MatHeaderRow,
+  MatRowDef,
+  MatRow,
+} from '@angular/material/table';
+import { MatChipListbox, MatChip } from '@angular/material/chips';
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { FabComponent } from '../../../components/fab/normal/fab.component';
+import { AsyncPipe } from '@angular/common';
 
 @Component({
   templateUrl: './settings-users.component.html',
   styleUrls: ['./settings-users.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatTable,
+    MatColumnDef,
+    MatHeaderCellDef,
+    MatHeaderCell,
+    MatCellDef,
+    MatCell,
+    MatChipListbox,
+    MatChip,
+    MatIconButton,
+    MatIcon,
+    MatHeaderRowDef,
+    MatHeaderRow,
+    MatRowDef,
+    MatRow,
+    MatPaginator,
+    FabComponent,
+    AsyncPipe,
+  ],
 })
 export class SettingsUsersComponent implements OnInit {
   private readonly logger = new Logger(SettingsUsersComponent.name);

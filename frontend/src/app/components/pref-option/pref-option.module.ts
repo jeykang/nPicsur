@@ -14,7 +14,6 @@ import { ErrorManagerModule } from '../../util/error-manager/error-manager.modul
   imports: [
     CommonModule,
     ErrorManagerModule,
-
     MatIconModule,
     MatTooltipModule,
     MatButtonModule,
@@ -22,8 +21,8 @@ import { ErrorManagerModule } from '../../util/error-manager/error-manager.modul
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
+    PrefOptionComponent,
   ],
-  declarations: [PrefOptionComponent],
   exports: [PrefOptionComponent],
 })
 export class PrefOptionModule {}

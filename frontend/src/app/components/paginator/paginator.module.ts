@@ -6,8 +6,13 @@ import { PaginatorComponent } from './paginator.component';
 import { PipesModule } from '../../pipes/pipes.module';
 
 @NgModule({
-  declarations: [PaginatorComponent],
-  imports: [CommonModule, MatIconModule, MatButtonModule, PipesModule],
+  imports: [
+    CommonModule,
+    MatIconModule,
+    MatButtonModule,
+    PipesModule,
+    PaginatorComponent,
+  ],
   exports: [PaginatorComponent],
 })
 export class PaginatorModule {}

@@ -4,8 +4,7 @@ import { MasonryComponent } from './masonry.component';
 import { MasonryItemDirective } from './masonry-item.directive';
 
 @NgModule({
-  declarations: [MasonryComponent, MasonryItemDirective],
-  imports: [CommonModule],
+  imports: [CommonModule, MasonryComponent, MasonryItemDirective],
   exports: [MasonryComponent, MasonryItemDirective],
 })
 export class MasonryModule {}

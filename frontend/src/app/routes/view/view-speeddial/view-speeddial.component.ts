@@ -34,12 +34,23 @@ import {
   EditDialogComponent,
   EditDialogData,
 } from '../edit-dialog/edit-dialog.component';
+import { SpeedDialComponent } from '../../../components/fab/speed-dial/speed-dial.component';
+import { MatMiniFabButton } from '@angular/material/button';
+import { SpeedDialOptionDirective } from '../../../components/fab/speed-dial/speed-dial-option.directive';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatIcon } from '@angular/material/icon';
 
 @Component({
   selector: 'view-speeddial',
   templateUrl: './view-speeddial.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    SpeedDialComponent,
+    MatMiniFabButton,
+    SpeedDialOptionDirective,
+    MatTooltip,
+    MatIcon,
+  ],
 })
 export class ViewSpeeddialComponent implements OnInit {
   private readonly logger = new Logger(ViewSpeeddialComponent.name);

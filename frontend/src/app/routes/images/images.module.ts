@@ -20,13 +20,11 @@ import { ImagesComponent } from './images.component';
 import { ImagesRoutingModule } from './images.routing.module';
 
 @NgModule({
-  declarations: [ImagesComponent],
   imports: [
     CommonModule,
     ErrorManagerModule,
     DialogManagerModule,
     AlbumDialogModule,
-
     ImagesRoutingModule,
     ReactiveFormsModule,
     MatCardModule,
@@ -41,6 +39,7 @@ import { ImagesRoutingModule } from './images.routing.module';
     PicsurImgModule,
     MomentModule,
     PipesModule,
+    ImagesComponent,
   ],
 })
 export default class ImagesRouteModule {}

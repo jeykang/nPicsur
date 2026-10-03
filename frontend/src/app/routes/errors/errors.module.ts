@@ -5,7 +5,6 @@ import { E404Component } from './404.component';
 import { ErrorsRoutingModule } from './errors.routing.module';
 
 @NgModule({
-  declarations: [E404Component, E401Component],
-  imports: [CommonModule, ErrorsRoutingModule],
+  imports: [CommonModule, ErrorsRoutingModule, E404Component, E401Component],
 })
 export default class ErrorsRouteModule {}

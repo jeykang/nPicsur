@@ -6,12 +6,12 @@ import { InviewDirective } from './inview.directive';
 import { PicsurImgComponent } from './picsur-img.component';
 
 @NgModule({
-  declarations: [PicsurImgComponent],
   imports: [
     CommonModule,
     MatProgressSpinnerModule,
     MatIconModule,
     InviewDirective,
+    PicsurImgComponent,
   ],
   exports: [PicsurImgComponent],
 })

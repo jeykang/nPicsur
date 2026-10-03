@@ -5,7 +5,11 @@ import { DeleteComponent } from './delete.component';
 import { DeleteRoutingModule } from './delete.routing.module';
 
 @NgModule({
-  declarations: [DeleteComponent],
-  imports: [CommonModule, DeleteRoutingModule, MatButtonModule],
+  imports: [
+    CommonModule,
+    DeleteRoutingModule,
+    MatButtonModule,
+    DeleteComponent,
+  ],
 })
 export default class DeleteRouteModule {}

@@ -6,7 +6,19 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
-import { MatTableDataSource } from '@angular/material/table';
+import {
+  MatTableDataSource,
+  MatTable,
+  MatColumnDef,
+  MatHeaderCellDef,
+  MatHeaderCell,
+  MatCellDef,
+  MatCell,
+  MatHeaderRowDef,
+  MatHeaderRow,
+  MatRowDef,
+  MatRow,
+} from '@angular/material/table';
 import { Router } from '@angular/router';
 import { Permission } from 'picsur-shared/dist/dto/permissions.enum';
 import { ERole } from 'picsur-shared/dist/entities/role.entity';
@@ -18,12 +30,35 @@ import { Logger } from '../../../services/logger/logger.service';
 import { BootstrapService } from '../../../util/bootstrap.service';
 import { DialogService } from '../../../util/dialog-manager/dialog.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
+import { MatChipListbox, MatChip } from '@angular/material/chips';
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { FabComponent } from '../../../components/fab/normal/fab.component';
+import { AsyncPipe } from '@angular/common';
 
 @Component({
   templateUrl: './settings-roles.component.html',
   styleUrls: ['./settings-roles.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatTable,
+    MatColumnDef,
+    MatHeaderCellDef,
+    MatHeaderCell,
+    MatCellDef,
+    MatCell,
+    MatChipListbox,
+    MatChip,
+    MatIconButton,
+    MatIcon,
+    MatHeaderRowDef,
+    MatHeaderRow,
+    MatRowDef,
+    MatRow,
+    MatPaginator,
+    FabComponent,
+    AsyncPipe,
+  ],
 })
 export class SettingsRolesComponent implements OnInit, AfterViewInit {
   private readonly logger = new Logger(SettingsRolesComponent.name);

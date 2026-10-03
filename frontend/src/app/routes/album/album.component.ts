@@ -21,12 +21,45 @@ import { BSScreenSize, BootstrapService } from '../../util/bootstrap.service';
 import { ClipboardService } from '../../util/clipboard.service';
 import { DialogService } from '../../util/dialog-manager/dialog.service';
 import { ErrorService } from '../../util/error-manager/error.service';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MasonryComponent } from '../../components/masonry/masonry.component';
+import { MasonryItemDirective } from '../../components/masonry/masonry-item.directive';
+import {
+  MatCard,
+  MatCardHeader,
+  MatCardTitle,
+  MatCardSubtitle,
+  MatCardImage,
+  MatCardActions,
+} from '@angular/material/card';
+import { PicsurImgComponent } from '../../components/picsur-img/picsur-img.component';
+import { PaginatorComponent } from '../../components/paginator/paginator.component';
+import { MomentModule } from 'ngx-moment';
+import { TruncatePipe } from '../../pipes/truncate.pipe';
 
 @Component({
   templateUrl: './album.component.html',
   styleUrls: ['./album.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatProgressSpinner,
+    MatButton,
+    MatIcon,
+    MasonryComponent,
+    MasonryItemDirective,
+    MatCard,
+    MatCardHeader,
+    MatCardTitle,
+    MatCardSubtitle,
+    PicsurImgComponent,
+    MatCardImage,
+    MatCardActions,
+    PaginatorComponent,
+    MomentModule,
+    TruncatePipe,
+  ],
 })
 export class AlbumComponent implements OnInit {
   private readonly logger = new Logger(AlbumComponent.name);

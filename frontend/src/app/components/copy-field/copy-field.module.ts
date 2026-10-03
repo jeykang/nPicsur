@@ -7,14 +7,13 @@ import { CopyFieldComponent } from './copy-field.component';
 import { ErrorManagerModule } from '../../util/error-manager/error-manager.module';
 
 @NgModule({
-  declarations: [CopyFieldComponent],
   imports: [
     CommonModule,
     ErrorManagerModule,
-
     MatInputModule,
     MatIconModule,
     MatButtonModule,
+    CopyFieldComponent,
   ],
   exports: [CopyFieldComponent],
 })

@@ -17,12 +17,10 @@ import { DialogManagerModule } from '../../../util/dialog-manager/dialog-manager
 import { ErrorManagerModule } from '../../../util/error-manager/error-manager.module';
 
 @NgModule({
-  declarations: [SettingsUsersComponent, SettingsUsersEditComponent],
   imports: [
     CommonModule,
     ErrorManagerModule,
     DialogManagerModule,
-
     SettingsUsersRoutingModule,
     MatButtonModule,
     MatIconModule,
@@ -35,6 +33,8 @@ import { ErrorManagerModule } from '../../../util/error-manager/error-manager.mo
     FabModule,
     ReactiveFormsModule,
     ValuesPickerModule,
+    SettingsUsersComponent,
+    SettingsUsersEditComponent,
   ],
 })
 export default class SettingsUsersRouteModule {}

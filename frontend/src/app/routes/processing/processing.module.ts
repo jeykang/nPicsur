@@ -6,12 +6,12 @@ import { ProcessingRoutingModule } from './processing.routing.module';
 import { ErrorManagerModule } from '../../util/error-manager/error-manager.module';
 
 @NgModule({
-  declarations: [ProcessingComponent],
   imports: [
     CommonModule,
     ErrorManagerModule,
     ProcessingRoutingModule,
     MatProgressSpinnerModule,
+    ProcessingComponent,
   ],
 })
 export default class ProcessingRouteModule {}

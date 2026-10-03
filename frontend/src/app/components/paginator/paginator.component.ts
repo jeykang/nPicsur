@@ -7,13 +7,16 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { Required } from '../../models/decorators/required.decorator';
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { RangePipe } from '../../pipes/range.pipe';
 
 @Component({
   selector: 'paginator',
   templateUrl: './paginator.component.html',
   styleUrls: ['./paginator.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [MatIconButton, MatIcon, RangePipe],
 })
 export class PaginatorComponent implements OnInit {
   totalPages: number;

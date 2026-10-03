@@ -1,5 +1,6 @@
 import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatButton } from '@angular/material/button';
 
 export interface ConfirmDialogButton {
   text: string;
@@ -19,7 +20,7 @@ export interface ConfirmDialogData {
   templateUrl: './confirm-dialog.component.html',
   styleUrls: ['./confirm-dialog.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [MatButton],
 })
 export class ConfirmDialogComponent {
   constructor(

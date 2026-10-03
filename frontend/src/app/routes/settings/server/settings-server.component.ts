@@ -4,7 +4,13 @@ import {
   OnDestroy,
   OnInit,
 } from '@angular/core';
-import { AbstractControl, FormControl, FormGroup } from '@angular/forms';
+import {
+  AbstractControl,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  FormsModule,
+} from '@angular/forms';
 import {
   EnvironmentOption,
   ServerSettingState,
@@ -36,6 +42,22 @@ import { ServerSettingsService } from '../../../services/api/server-settings.ser
 import { Logger } from '../../../services/logger/logger.service';
 import { DialogService } from '../../../util/dialog-manager/dialog.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
+import {
+  MatFormField,
+  MatLabel,
+  MatSuffix,
+  MatHint,
+  MatError,
+} from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatIcon } from '@angular/material/icon';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
+import { MatButton } from '@angular/material/button';
+import { MatCard, MatCardContent } from '@angular/material/card';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MatProgressBar } from '@angular/material/progress-bar';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { NgTemplateOutlet, UpperCasePipe } from '@angular/common';
 
 type SettingControls = { [key in ServerSetting]: FormControl<string> };
 
@@ -75,7 +97,27 @@ function AsDriver(value: string | null | undefined): StorageDriver {
   templateUrl: './settings-server.component.html',
   styleUrls: ['./settings-server.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatFormField,
+    MatLabel,
+    MatInput,
+    ReactiveFormsModule,
+    MatIcon,
+    MatSuffix,
+    MatHint,
+    MatError,
+    MatSlideToggle,
+    MatButton,
+    MatCard,
+    MatCardContent,
+    MatProgressSpinner,
+    FormsModule,
+    MatProgressBar,
+    MatSelect,
+    MatOption,
+    NgTemplateOutlet,
+    UpperCasePipe,
+  ],
 })
 export class SettingsServerComponent implements OnInit, OnDestroy {
   private readonly logger = new Logger(SettingsServerComponent.name);

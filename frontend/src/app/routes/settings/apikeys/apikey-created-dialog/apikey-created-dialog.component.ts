@@ -4,6 +4,14 @@ import { Fail, FT } from 'picsur-shared/dist/types/failable';
 import { Logger } from '../../../../services/logger/logger.service';
 import { ClipboardService } from '../../../../util/clipboard.service';
 import { ErrorService } from '../../../../util/error-manager/error.service';
+import {
+  MatFormField,
+  MatLabel,
+  MatSuffix,
+} from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatIconButton, MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
 
 export interface ApiKeyCreatedDialogData {
   key: string;
@@ -15,7 +23,15 @@ export interface ApiKeyCreatedDialogData {
   templateUrl: './apikey-created-dialog.component.html',
   styleUrls: ['./apikey-created-dialog.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatIconButton,
+    MatSuffix,
+    MatIcon,
+    MatButton,
+  ],
 })
 export class ApiKeyCreatedDialogComponent {
   private readonly logger = new Logger(ApiKeyCreatedDialogComponent.name);

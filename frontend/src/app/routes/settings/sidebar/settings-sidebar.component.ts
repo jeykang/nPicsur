@@ -4,16 +4,35 @@ import {
   OnInit,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLinkActive, RouterLink } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { PRoutes } from '../../../models/dto/picsur-routes.dto';
 import { PermissionService } from '../../../services/api/permission.service';
+import {
+  MatNavList,
+  MatListSubheaderCssMatStyler,
+  MatListItem,
+  MatListItemIcon,
+  MatListItemTitle,
+} from '@angular/material/list';
+import { MatIcon } from '@angular/material/icon';
+import { MatDivider } from '@angular/material/divider';
 
 @Component({
   templateUrl: './settings-sidebar.component.html',
   styleUrls: ['./settings-sidebar.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatNavList,
+    MatListSubheaderCssMatStyler,
+    MatListItem,
+    RouterLinkActive,
+    RouterLink,
+    MatIcon,
+    MatListItemIcon,
+    MatListItemTitle,
+    MatDivider,
+  ],
 })
 export class SettingsSidebarComponent implements OnInit {
   private accessibleRoutes: PRoutes = [];

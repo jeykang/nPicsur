@@ -10,6 +10,12 @@ import { StaticInfoService } from '../../../../services/api/static-info.service'
 import { UserAdminService } from '../../../../services/api/user-admin.service';
 import { Logger } from '../../../../services/logger/logger.service';
 import { ErrorService } from '../../../../util/error-manager/error.service';
+import { ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { MatFormField, MatLabel, MatError } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { ValuesPickerComponent } from '../../../../components/values-picker/values-picker.component';
+import { MatChipListbox, MatChip } from '@angular/material/chips';
+import { MatButton } from '@angular/material/button';
 
 enum EditMode {
   edit = 'edit',
@@ -21,7 +27,18 @@ enum EditMode {
   templateUrl: './settings-users-edit.component.html',
   styleUrls: ['./settings-users-edit.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    ReactiveFormsModule,
+    FormsModule,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatError,
+    ValuesPickerComponent,
+    MatChipListbox,
+    MatChip,
+    MatButton,
+  ],
 })
 export class SettingsUsersEditComponent implements OnInit {
   private readonly logger = new Logger(SettingsUsersEditComponent.name);

@@ -20,12 +20,48 @@ import {
   ApiKeyCreatedDialogComponent,
   ApiKeyCreatedDialogData,
 } from './apikey-created-dialog/apikey-created-dialog.component';
+import {
+  MatTable,
+  MatColumnDef,
+  MatHeaderCellDef,
+  MatHeaderCell,
+  MatCellDef,
+  MatCell,
+  MatHeaderRowDef,
+  MatHeaderRow,
+  MatRowDef,
+  MatRow,
+} from '@angular/material/table';
+import { SettingsApiKeyEditorComponent } from './apikey-editor/apikey-editor.component';
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { FabComponent } from '../../../components/fab/normal/fab.component';
+import { AsyncPipe } from '@angular/common';
+import { MomentModule } from 'ngx-moment';
 
 @Component({
   templateUrl: './settings-apikeys.component.html',
   styleUrls: ['./settings-apikeys.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatTable,
+    MatColumnDef,
+    MatHeaderCellDef,
+    MatHeaderCell,
+    MatCellDef,
+    MatCell,
+    SettingsApiKeyEditorComponent,
+    MatIconButton,
+    MatIcon,
+    MatHeaderRowDef,
+    MatHeaderRow,
+    MatRowDef,
+    MatRow,
+    MatPaginator,
+    FabComponent,
+    AsyncPipe,
+    MomentModule,
+  ],
 })
 export class SettingsApiKeysComponent implements OnInit {
   private readonly logger = new Logger(SettingsApiKeysComponent.name);

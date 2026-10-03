@@ -14,6 +14,9 @@ import { ParseMime2FileType } from 'picsur-shared/dist/util/parse-mime';
 import { ApiService } from '../../services/api/api.service';
 import { Logger } from '../../services/logger/logger.service';
 import { QoiWorkerService } from '../../workers/qoi-worker.service';
+import { MatIcon } from '@angular/material/icon';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { InviewDirective } from './inview.directive';
 
 enum PicsurImgState {
   Init = 'init',
@@ -28,7 +31,7 @@ enum PicsurImgState {
   templateUrl: './picsur-img.component.html',
   styleUrls: ['./picsur-img.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  standalone: false,
+  imports: [MatIcon, MatProgressSpinner, InviewDirective],
 })
 export class PicsurImgComponent implements OnChanges {
   private readonly logger = new Logger(PicsurImgComponent.name);

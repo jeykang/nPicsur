@@ -6,6 +6,5 @@ import { Component, ChangeDetectionStrategy } from '@angular/core';
     <p>The page you are looking for does not exist.</p>
   `,
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
 })
 export class E404Component {}

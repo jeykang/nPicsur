@@ -6,12 +6,27 @@ import { InfoService } from '../../../services/api/info.service';
 import { UserService } from '../../../services/api/user.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
+import { MatButton } from '@angular/material/button';
+import { ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { MatFormField, MatLabel, MatError } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { AsyncPipe, UpperCasePipe } from '@angular/common';
 
 @Component({
   templateUrl: './settings-account.component.html',
   styleUrls: ['./settings-account.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatButton,
+    ReactiveFormsModule,
+    FormsModule,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatError,
+    AsyncPipe,
+    UpperCasePipe,
+  ],
 })
 export class SettingsAccountComponent implements OnInit {
   private readonly logger = new Logger(SettingsAccountComponent.name);

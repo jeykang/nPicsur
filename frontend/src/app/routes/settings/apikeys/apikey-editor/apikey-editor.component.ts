@@ -5,15 +5,17 @@ import {
   Output,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { FormControl, Validators } from '@angular/forms';
+import { FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Logger } from '../../../../services/logger/logger.service';
+import { MatFormField, MatLabel, MatError } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
 @Component({
   selector: 'app-settings-apikey-editor',
   templateUrl: './apikey-editor.component.html',
   styleUrls: ['./apikey-editor.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [MatFormField, MatLabel, MatInput, ReactiveFormsModule, MatError],
 })
 export class SettingsApiKeyEditorComponent {
   private readonly logger = new Logger(SettingsApiKeyEditorComponent.name);

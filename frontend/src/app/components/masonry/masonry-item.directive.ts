@@ -1,10 +1,7 @@
 import { Directive, TemplateRef, ViewRef } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 
-@Directive({
-  selector: 'ng-template[masonry-item]',
-  standalone: false,
-})
+@Directive({ selector: 'ng-template[masonry-item]' })
 export class MasonryItemDirective {
   private viewRef: ViewRef | null = null;
   private resizeObserver: ResizeObserver | null = null;

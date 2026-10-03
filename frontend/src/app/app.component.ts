@@ -1,17 +1,23 @@
-import { Portal } from '@angular/cdk/portal';
+import { Portal, CdkPortalOutlet } from '@angular/cdk/portal';
 import {
   Component,
   OnInit,
   ViewChild,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { MatSidenav } from '@angular/material/sidenav';
+import {
+  MatSidenav,
+  MatSidenavContainer,
+  MatSidenavContent,
+} from '@angular/material/sidenav';
 import {
   ActivatedRoute,
+  NavigationCancel,
   NavigationEnd,
   NavigationError,
   NavigationStart,
   Router,
+  RouterOutlet,
 } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { Failure } from 'picsur-shared/dist/types/failable';
@@ -20,6 +26,9 @@ import { PRouteData } from './models/dto/picsur-routes.dto';
 import { PermissionService } from './services/api/permission.service';
 import { UsageService } from './services/usage/usage.service';
 import { BootstrapService } from './util/bootstrap.service';
+import { HeaderComponent } from './components/header/header.component';
+import { MatButton } from '@angular/material/button';
+import { FooterComponent } from './components/footer/footer.component';
 
 @Component({
   selector: 'app-root',
@@ -27,7 +36,16 @@ import { BootstrapService } from './util/bootstrap.service';
   styleUrls: ['./app.component.scss'],
   animations: [RouteTransitionAnimations],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    HeaderComponent,
+    MatSidenavContainer,
+    MatSidenav,
+    CdkPortalOutlet,
+    MatSidenavContent,
+    MatButton,
+    RouterOutlet,
+    FooterComponent,
+  ],
 })
 export class AppComponent implements OnInit {
   private readonly logger = console;
@@ -88,11 +106,16 @@ export class AppComponent implements OnInit {
       if (event instanceof NavigationStart) {
         this.loadingStart();
       }
-      if (event instanceof NavigationEnd) {
+      // Also when it failed or was replaced by another one, which would
+      // otherwise leave the loading bar running
+      if (
+        event instanceof NavigationEnd ||
+        event instanceof NavigationCancel ||
+        event instanceof NavigationError
+      ) {
         this.loadingEnd();
       }
       if (event instanceof NavigationEnd) this.onNavigationEnd();
-      if (event instanceof NavigationError) this.onNavigationError(event);
     });
   }
 
@@ -102,13 +125,6 @@ export class AppComponent implements OnInit {
       this.isDesktop = state;
       this.updateSidebar();
     });
-  }
-
-  private async onNavigationError(event: NavigationError) {
-    // 404 handler
-    const error: Error = event.error;
-    if (error.message.startsWith('Cannot match any routes'))
-      this.router.navigate(['/error/404'], { replaceUrl: true });
   }
 
   private async onNavigationEnd() {

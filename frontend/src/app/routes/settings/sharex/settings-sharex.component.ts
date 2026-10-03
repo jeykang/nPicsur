@@ -10,11 +10,14 @@ import { ErrorService } from '../../../util/error-manager/error.service';
 import { ExpiryOptions } from '../../../util/expiry-options';
 import { UtilService } from '../../../util/util.service';
 import { BuildShareX } from './sharex-builder';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { MatButton } from '@angular/material/button';
 
 @Component({
   templateUrl: './settings-sharex.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [MatFormField, MatLabel, MatSelect, MatOption, MatButton],
 })
 export class SettingsShareXComponent implements OnInit {
   private readonly logger = new Logger(SettingsShareXComponent.name);

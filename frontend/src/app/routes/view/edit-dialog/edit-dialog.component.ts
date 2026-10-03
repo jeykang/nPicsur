@@ -6,6 +6,12 @@ import { ImageService } from '../../../services/api/image.service';
 import { Logger } from '../../../services/logger/logger.service';
 import { ErrorService } from '../../../util/error-manager/error.service';
 import { ExpiryOptions } from '../../../util/expiry-options';
+import { ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
+import { MatButton } from '@angular/material/button';
 
 export interface EditDialogData {
   image: EImage;
@@ -16,7 +22,17 @@ export interface EditDialogData {
   templateUrl: './edit-dialog.component.html',
   styleUrls: ['./edit-dialog.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    ReactiveFormsModule,
+    FormsModule,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatSelect,
+    MatOption,
+    MatSlideToggle,
+    MatButton,
+  ],
 })
 export class EditDialogComponent {
   private readonly logger = new Logger(EditDialogComponent.name);

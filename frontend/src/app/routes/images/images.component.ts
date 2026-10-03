@@ -1,5 +1,5 @@
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { FormControl } from '@angular/forms';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Params, Router } from '@angular/router';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { EAlbumSummary } from 'picsur-shared/dist/dto/api/album.dto';
@@ -30,6 +30,27 @@ import { Logger } from '../../services/logger/logger.service';
 import { BSScreenSize, BootstrapService } from '../../util/bootstrap.service';
 import { DialogService } from '../../util/dialog-manager/dialog.service';
 import { ErrorService } from '../../util/error-manager/error.service';
+import { MatButton } from '@angular/material/button';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelect, MatOption } from '@angular/material/select';
+import {
+  MatCard,
+  MatCardHeader,
+  MatCardAvatar,
+  MatCardTitle,
+  MatCardSubtitle,
+  MatCardImage,
+  MatCardActions,
+} from '@angular/material/card';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MasonryComponent } from '../../components/masonry/masonry.component';
+import { MasonryItemDirective } from '../../components/masonry/masonry-item.directive';
+import { MatCheckbox } from '@angular/material/checkbox';
+import { PicsurImgComponent } from '../../components/picsur-img/picsur-img.component';
+import { PaginatorComponent } from '../../components/paginator/paginator.component';
+import { MomentModule } from 'ngx-moment';
+import { TruncatePipe } from '../../pipes/truncate.pipe';
 
 const Day = 24 * 60 * 60 * 1000;
 
@@ -69,7 +90,30 @@ const PageSize = 24;
   templateUrl: './images.component.html',
   styleUrls: ['./images.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatButton,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    ReactiveFormsModule,
+    MatSelect,
+    MatOption,
+    MatCard,
+    MatProgressSpinner,
+    MasonryComponent,
+    MasonryItemDirective,
+    MatCardHeader,
+    MatCheckbox,
+    MatCardAvatar,
+    MatCardTitle,
+    MatCardSubtitle,
+    PicsurImgComponent,
+    MatCardImage,
+    MatCardActions,
+    PaginatorComponent,
+    MomentModule,
+    TruncatePipe,
+  ],
 })
 export class ImagesComponent implements OnInit {
   private readonly logger: Logger = new Logger(ImagesComponent.name);

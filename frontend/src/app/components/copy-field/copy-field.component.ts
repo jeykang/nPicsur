@@ -8,18 +8,31 @@ import {
 import {
   MatFormFieldAppearance,
   SubscriptSizing,
+  MatFormField,
+  MatLabel,
+  MatSuffix,
 } from '@angular/material/form-field';
 import { FT, Fail } from 'picsur-shared/dist/types/failable';
 import { Logger } from '../../services/logger/logger.service';
 import { ClipboardService } from '../../util/clipboard.service';
 import { ErrorService } from '../../util/error-manager/error.service';
+import { MatInput } from '@angular/material/input';
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
 
 @Component({
   selector: 'copy-field',
   templateUrl: './copy-field.component.html',
   styleUrls: ['./copy-field.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatIconButton,
+    MatSuffix,
+    MatIcon,
+  ],
 })
 export class CopyFieldComponent {
   private readonly logger = new Logger(CopyFieldComponent.name);

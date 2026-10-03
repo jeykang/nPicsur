@@ -1,6 +1,14 @@
 import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
-import { FormControl, Validators } from '@angular/forms';
+import {
+  FormControl,
+  Validators,
+  ReactiveFormsModule,
+  FormsModule,
+} from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatButton } from '@angular/material/button';
 
 export interface AlbumNameDialogData {
   title: string;
@@ -15,7 +23,14 @@ export interface AlbumNameDialogData {
   templateUrl: './album-name-dialog.component.html',
   styleUrls: ['./album-dialog.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    ReactiveFormsModule,
+    FormsModule,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatButton,
+  ],
 })
 export class AlbumNameDialogComponent {
   public readonly name: FormControl<string>;

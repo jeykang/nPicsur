@@ -6,11 +6,12 @@ import { ApiService } from '../../services/api/api.service';
 import { ImageService } from '../../services/api/image.service';
 import { Logger } from '../../services/logger/logger.service';
 import { ErrorService } from '../../util/error-manager/error.service';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
 @Component({
   templateUrl: './processing.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [MatProgressSpinner],
 })
 export class ProcessingComponent implements OnInit {
   private readonly logger = new Logger(ProcessingComponent.name);

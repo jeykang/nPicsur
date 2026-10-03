@@ -6,20 +6,47 @@ import {
   OnInit,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { FormControl } from '@angular/forms';
-import { MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
-import { MatChipInputEvent } from '@angular/material/chips';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import {
+  MatAutocompleteSelectedEvent,
+  MatAutocompleteTrigger,
+  MatAutocomplete,
+} from '@angular/material/autocomplete';
+import {
+  MatChipInputEvent,
+  MatChipGrid,
+  MatChipRow,
+  MatChipRemove,
+  MatChipInput,
+} from '@angular/material/chips';
 import Fuse from 'fuse.js';
 import { AutoUnsubscribe } from 'ngx-auto-unsubscribe-decorator';
 import { BehaviorSubject } from 'rxjs';
 import { Required } from '../../models/decorators/required.decorator';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatIcon } from '@angular/material/icon';
+import { MatOption } from '@angular/material/select';
+import { AsyncPipe } from '@angular/common';
 
 @Component({
   selector: 'values-picker',
   templateUrl: './values-picker.component.html',
   styleUrls: ['./values-picker.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [
+    MatFormField,
+    MatLabel,
+    MatChipGrid,
+    MatChipRow,
+    MatChipRemove,
+    MatIcon,
+    ReactiveFormsModule,
+    MatAutocompleteTrigger,
+    MatChipInput,
+    MatAutocomplete,
+    MatOption,
+    AsyncPipe,
+  ],
 })
 export class ValuesPickerComponent implements OnInit, OnChanges {
   // Static data

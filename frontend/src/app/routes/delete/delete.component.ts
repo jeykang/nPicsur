@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HasFailed } from 'picsur-shared/dist/types/failable';
 import { ImageService } from '../../services/api/image.service';
 import { Logger } from '../../services/logger/logger.service';
+import { MatButton } from '@angular/material/button';
 
 // Where deletion links lead. Deleting takes a click, because chat apps and
 // browsers open links on their own to show a preview, which should not delete
@@ -11,7 +12,7 @@ import { Logger } from '../../services/logger/logger.service';
   templateUrl: './delete.component.html',
   styleUrls: ['./delete.component.scss'],
   changeDetection: ChangeDetectionStrategy.Eager,
-  standalone: false,
+  imports: [MatButton],
 })
 export class DeleteComponent implements OnInit {
   private readonly logger = new Logger(DeleteComponent.name);

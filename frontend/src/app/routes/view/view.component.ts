@@ -24,12 +24,31 @@ import { ImageService } from '../../services/api/image.service';
 import { Logger } from '../../services/logger/logger.service';
 import { ErrorService } from '../../util/error-manager/error.service';
 import { UtilService } from '../../util/util.service';
+import { PicsurImgComponent } from '../../components/picsur-img/picsur-img.component';
+import { CopyFieldComponent } from '../../components/copy-field/copy-field.component';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { MatDivider } from '@angular/material/divider';
+import { ViewSpeeddialComponent } from './view-speeddial/view-speeddial.component';
+import { MomentModule } from 'ngx-moment';
+import { TruncatePipe } from '../../pipes/truncate.pipe';
 
 @Component({
   templateUrl: './view.component.html',
   styleUrls: ['./view.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  standalone: false,
+  imports: [
+    PicsurImgComponent,
+    CopyFieldComponent,
+    MatFormField,
+    MatLabel,
+    MatSelect,
+    MatOption,
+    MatDivider,
+    ViewSpeeddialComponent,
+    MomentModule,
+    TruncatePipe,
+  ],
 })
 export class ViewComponent implements OnInit, OnDestroy {
   private readonly logger = new Logger(ViewComponent.name);

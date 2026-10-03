@@ -1,0 +1,59 @@
+name: Bug report
+description: Something does not work as it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: And what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen
+      placeholder: |
+        1. Upload a HEIC photo
+        2. Open it
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown at the bottom of every page, like V0.7.0. With the `edge` image, also when you pulled it.
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How Picsur runs
+      options:
+        - Docker image
+        - From source
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Where new images are stored
+      description: Under Settings → Server.
+      options:
+        - Database
+        - S3
+        - Directory on disk
+        - Not sure
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: When it happens in the browser, which one and its version.
+  - type: textarea
+    id: log
+    attributes:
+      label: Server log
+      description: What Picsur logged around that time, from `docker logs picsur` for example. Leave out anything secret.
+      render: text

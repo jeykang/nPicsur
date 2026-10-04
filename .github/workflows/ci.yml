@@ -41,7 +41,7 @@ jobs:
         storage: [database, s3, filesystem]
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: picsur
           POSTGRES_PASSWORD: picsur
@@ -115,7 +115,7 @@ jobs:
             runner: ubuntu-24.04-arm
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: picsur
           POSTGRES_PASSWORD: picsur

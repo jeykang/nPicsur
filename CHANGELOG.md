@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- New installs, and the tests in CI, use Postgres 18 instead of 17. It gets fixes until November 2030. Its volume is mounted at `/var/lib/postgresql` instead of `/var/lib/postgresql/data`, see the example `docker-compose.yml`. Instances that run already need their database copied over to move to it, changing the image is not enough.
+- The development database runs Postgres 18 as well. One made with an older version does not start anymore, `pnpm devdb:remove` removes it with what is in it.
+
 ## 0.7.1
 
 ### New

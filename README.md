@@ -58,7 +58,7 @@ services:
     depends_on:
       - picsur_postgres
   picsur_postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     container_name: picsur_postgres
     environment:
       POSTGRES_DB: picsur
@@ -66,7 +66,7 @@ services:
       POSTGRES_USER: picsur
     restart: unless-stopped
     volumes:
-      - picsur-data:/var/lib/postgresql/data
+      - picsur-data:/var/lib/postgresql
 volumes:
   picsur-data:
 ```

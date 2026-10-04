@@ -5,6 +5,7 @@
 ### Changed
 
 - New installs, and the tests in CI, use Postgres 18 instead of 17. It gets fixes until November 2030. Its volume is mounted at `/var/lib/postgresql` instead of `/var/lib/postgresql/data`, see the example `docker-compose.yml`. Instances that run already need their database copied over to move to it, changing the image is not enough.
+- [Upgrading Postgres](README.md#upgrading-postgres) moves the database to Postgres 18, as Postgres 14 stops getting fixes on 12 November 2026. Its import stops at the first error, and then imports nothing. It used to carry on, so when Picsur had started on the new database first, the import seemed to work but left out the users. The guide also shows how to compress the export, which is twice the size of the database with images in it, how to check that everything came over, and how to go back.
 - The development database runs Postgres 18 as well. One made with an older version does not start anymore, `pnpm devdb:remove` removes it with what is in it.
 
 ## 0.7.1

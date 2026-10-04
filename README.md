@@ -340,28 +340,78 @@ Things that behave differently:
 
 ## Upgrading Postgres
 
-Postgres 14 [stops getting fixes](https://www.postgresql.org/support/versioning/) on 12 November 2026. A new major version of Postgres can't use the data of an older one, so the database has to be copied over ([Postgres documentation](https://www.postgresql.org/docs/current/upgrading.html)). With images in S3 this is quick, the images themselves stay in the bucket.
+Postgres 14 [stops getting fixes](https://www.postgresql.org/support/versioning/) on 12 November 2026, and Postgres 18 gets them until November 2030. A new major version of Postgres can't use the data of an older one, so the database has to be copied over ([Postgres documentation](https://www.postgresql.org/docs/current/upgrading.html)). These steps copy it into Postgres 18, in a new volume. The old volume is left as it is, so you can go back to it. `docker exec picsur_postgres postgres --version` shows which version runs now.
 
-1. Stop Picsur and export the database:
+The copy is a file next to `docker-compose.yml`. With images in S3 or in a directory it is small, the images stay where they are. With images in the database, it is about twice the size of the database, which this shows:
+
+```sh
+docker exec picsur_postgres psql -U picsur -d picsur -c "SELECT pg_size_pretty(pg_database_size('picsur'))"
+```
+
+Compressed, as in step 2, it is about the size of the database, but takes longer to make. With 880 MB of photos in the database, exporting took about 10 seconds, or half a minute compressed, and importing took under a minute either way. Moving the images to [S3](#storing-images-in-s3) or [a directory](#storing-images-on-disk) first keeps the copy small as well.
+
+1. Note how many images and users there are, to compare with at the end:
+
+   ```sh
+   docker exec picsur_postgres psql -U picsur -d picsur -c "SELECT (SELECT count(*) FROM e_image_backend) AS images, (SELECT count(*) FROM e_user_backend) AS users"
+   ```
+
+2. Stop Picsur, and export the database:
 
    ```sh
    docker compose stop picsur
    docker exec picsur_postgres pg_dump -U picsur picsur > picsur.sql
    ```
 
-2. Change the Postgres image to `postgres:17-alpine`, and give it a new volume, like `picsur-data17:/var/lib/postgresql/data` (also add it under `volumes:`). Keep `POSTGRES_PASSWORD` as it is, and the old volume until everything works.
-3. Start the new Postgres, and wait until `docker logs picsur_postgres` says `PostgreSQL init process complete`.
+   Or compressed, instead of the second line:
+
+   ```sh
+   docker exec picsur_postgres pg_dump -U picsur picsur | gzip -1 > picsur.sql.gz
+   ```
+
+3. In `docker-compose.yml`, change the Postgres image to `postgres:18-alpine`, and give it a new volume at `/var/lib/postgresql`, without `/data`. Postgres 18 keeps its data in a directory for its version there, and does not start with a volume at `/var/lib/postgresql/data` ([why](https://github.com/docker-library/postgres/pull/1259)). Keep the rest as it is, including `POSTGRES_PASSWORD` and the old volume under `volumes:`:
+
+   ```yaml
+   services:
+     # ...
+     picsur_postgres:
+       image: postgres:18-alpine
+       # ...
+       volumes:
+         - picsur-data18:/var/lib/postgresql
+   volumes:
+     picsur-data:
+     picsur-data18:
+   ```
+
+4. Start only the new Postgres, and wait until `docker logs picsur_postgres` says `PostgreSQL init process complete`:
 
    ```sh
    docker compose up -d picsur_postgres
    ```
 
-4. Import the database, and start Picsur again:
+5. Import the database. When anything goes wrong, it stops and imports nothing:
 
    ```sh
-   docker exec -i picsur_postgres psql -U picsur -d picsur < picsur.sql
+   docker exec -i picsur_postgres psql -v ON_ERROR_STOP=1 --single-transaction -U picsur -d picsur < picsur.sql
+   ```
+
+   Or from the compressed export:
+
+   ```sh
+   gunzip -c picsur.sql.gz | docker exec -i picsur_postgres psql -v ON_ERROR_STOP=1 --single-transaction -U picsur -d picsur
+   ```
+
+   If it stops because a relation already exists, Picsur started on the new database before the import, and set it up as a new instance. Run `docker compose down`, remove the new volume with `docker volume rm`, and start again from step 4. `docker volume ls` shows the full name of the volume, which ends with `picsur-data18`.
+
+6. Check that the numbers are the same as in step 1, and start Picsur again:
+
+   ```sh
+   docker exec picsur_postgres psql -U picsur -d picsur -c "SELECT (SELECT count(*) FROM e_image_backend) AS images, (SELECT count(*) FROM e_user_backend) AS users"
    docker compose up -d
    ```
+
+To go back, change the image and the volume back to what they were, and run `docker compose up -d`. What changed since, like images that were uploaded, is not in the old database. Once everything works, the export and the old volume can be removed: take the old volume out of `docker-compose.yml`, and remove it with `docker volume rm`.
 
 ## FAQ
 

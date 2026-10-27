@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { IsEntityID } from '../validators/entity-id.validator.js';
 import { IsStringList } from '../validators/string-list.validator.js';
 import { IsPlainTextPwd, IsUsername } from '../validators/user.validators.js';

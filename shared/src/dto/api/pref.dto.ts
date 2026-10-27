@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { IsPosInt } from '../../validators/positive-int.validator.js';
 import { IsPrefValue } from '../../validators/pref-value.validator.js';

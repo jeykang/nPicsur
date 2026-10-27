@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { EImageSchema } from '../../entities/image.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { IsApiKey } from '../../validators/api-key.validator.js';
@@ -48,10 +48,7 @@ const IsDate = () =>
       value instanceof Date && !isNaN(value.getTime())
         ? value.toISOString()
         : value,
-    z
-      .string()
-      .datetime({ offset: true })
-      .transform((value) => new Date(value)),
+    z.iso.datetime({ offset: true }).transform((value) => new Date(value)),
   );
 
 export const ImageListFiltersSchema = z.object({
@@ -60,9 +57,12 @@ export const ImageListFiltersSchema = z.object({
   // How the image is stored, like image:png
   filetypes: z
     .array(
-      z.string().refine((type) => SupportedFileTypes.includes(type), {
-        message: 'Unknown file type',
-      }),
+      z
+        .string()
+        .refine(
+          (type) => SupportedFileTypes.includes(type),
+          'Unknown file type',
+        ),
     )
     .min(1)
     .max(20)

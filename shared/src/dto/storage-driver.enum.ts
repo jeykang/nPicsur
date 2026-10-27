@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 // Where image data is stored
 export enum StorageDriver {
@@ -10,7 +10,7 @@ export enum StorageDriver {
   Filesystem = 'filesystem',
 }
 export const StorageDriverList: StorageDriver[] = Object.values(StorageDriver);
-export const StorageDriverSchema = z.nativeEnum(StorageDriver);
+export const StorageDriverSchema = z.enum(StorageDriver);
 
 // Storage other than the database, rows say which one their data is in
 export type ExternalStorageDriver = StorageDriver.S3 | StorageDriver.Filesystem;

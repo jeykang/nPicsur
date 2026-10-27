@@ -21,6 +21,11 @@ updates:
         applies-to: security-updates
         patterns: ['*']
         update-types: [minor, patch]
+      # Except those of NestJS, which need each other, like @nestjs/core 12
+      # needs @nestjs/common 12, so they come together
+      nestjs:
+        patterns: ['@nestjs/*']
+        update-types: [major]
     ignore:
       # New major versions of Angular need the migrations of `ng update`,
       # TypeScript and zone.js move along with Angular

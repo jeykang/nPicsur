@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { EUserSchema, SimpleUserSchema } from '../../entities/user.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { IsPosInt } from '../../validators/positive-int.validator.js';
@@ -46,8 +46,8 @@ export const UserInfoResponseSchema = EUserSchema;
 export class UserInfoResponse extends createZodDto(UserInfoResponseSchema) {}
 
 // UserUpdate
-export const UserUpdateRequestSchema = EntityIDObjectSchema.merge(
-  SimpleUserSchema.partial(),
+export const UserUpdateRequestSchema = EntityIDObjectSchema.extend(
+  SimpleUserSchema.partial().shape,
 );
 export class UserUpdateRequest extends createZodDto(UserUpdateRequestSchema) {}
 

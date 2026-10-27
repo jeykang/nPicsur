@@ -1,8 +1,8 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 export enum TrackingState {
   Disabled = 'disabled',
   Detailed = 'detailed',
 }
 
-export const TrackingStateSchema = z.nativeEnum(TrackingState);
+export const TrackingStateSchema = z.enum(TrackingState);

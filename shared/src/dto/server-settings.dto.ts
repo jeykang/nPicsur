@@ -1,5 +1,5 @@
 import ms from 'ms';
-import { z } from 'zod';
+import * as z from 'zod';
 import { IsEntityID } from '../validators/entity-id.validator.js';
 import { StorageDriverSchema } from './storage-driver.enum.js';
 import { IsHttpUrl } from '../validators/url.validator.js';
@@ -126,9 +126,7 @@ const IpOrRange =
 // Names for common ranges that the proxy handling understands
 const NamedRanges = ['loopback', 'linklocal', 'uniquelocal'];
 
-const Bool = z.enum(['true', 'false'], {
-  errorMap: () => ({ message: 'Should be true or false' }),
-});
+const Bool = z.enum(['true', 'false'], { error: 'Should be true or false' });
 // Characters a scope may have, RFC 6749 section 3.3
 const ScopeToken = /^[\x21\x23-\x5b\x5d-\x7e]+$/;
 

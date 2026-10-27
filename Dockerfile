@@ -13,8 +13,8 @@
 # not read HEIC (iPhone photos), JPEG XL or JPEG 2000. Only the formats Picsur
 # supports are enabled, loaders for things like PDF, SVG or ImageMagick are
 # left out entirely.
-ARG VIPS_VERSION=8.18.6
-ARG VIPS_SHA256=3c41e1d5458081bfa4a5bc54e116c46259c75c6760a18027764555632b9dda3e
+ARG VIPS_VERSION=8.18.7
+ARG VIPS_SHA256=5baaead3b0bb20ffdb9e9ff09aa9fda08620923df77b63b436654cb5e0b3bf94
 
 # ------------------------------------------------------------------------------
 FROM node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS vips

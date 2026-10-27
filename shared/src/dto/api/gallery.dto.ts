@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { EImageSchema } from '../../entities/image.entity.js';
 import { EPublicUserSchema } from '../../entities/user.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';

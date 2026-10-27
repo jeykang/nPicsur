@@ -1,3 +1,3 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 export const IsPrefValue = () => z.string().or(z.number().or(z.boolean()));

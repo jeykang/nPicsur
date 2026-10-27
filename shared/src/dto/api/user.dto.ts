@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { EUserSchema } from '../../entities/user.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { IsStringList } from '../../validators/string-list.validator.js';

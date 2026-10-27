@@ -12,8 +12,7 @@ import { DiscoveryService, MetadataScanner } from '@nestjs/core';
 import { ApiErrorResponseSchema } from 'picsur-shared/dist/dto/api/api.dto';
 import { UserLoginRequestSchema } from 'picsur-shared/dist/dto/api/user.dto';
 import type { ZodDtoStatic } from 'picsur-shared/dist/util/create-zod-dto';
-import { z, ZodTypeAny } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import * as z from 'zod';
 import { HostConfigService } from '../../../config/early/host.config.service.js';
 import { ImageFullIdPipe } from '../../../decorators/image-id/image-full-id.pipe.js';
 import { ImageIdPipe } from '../../../decorators/image-id/image-id.pipe.js';
@@ -29,7 +28,7 @@ interface ObjectSchema {
 }
 
 // Every answer in JSON looks like this, see the SuccessInterceptor
-const Success = (data: ZodTypeAny) =>
+const Success = (data: z.ZodType) =>
   z.object({
     success: z.literal(true),
     statusCode: z.number().int(),
@@ -196,7 +195,7 @@ export class OpenApiService {
 
       const schema = schemaOf(arg.index);
       if (schema === undefined) continue;
-      const json = ToJsonSchema(schema) as ObjectSchema;
+      const json = ToJsonSchema(schema, 'input') as ObjectSchema;
       switch (Number(key.split(':')[0]) as RouteParamtypes) {
         case RouteParamtypes.BODY:
           requestBody = {
@@ -244,7 +243,7 @@ export class OpenApiService {
         required: true,
         content: {
           'application/json': {
-            schema: ToJsonSchema(UserLoginRequestSchema),
+            schema: ToJsonSchema(UserLoginRequestSchema, 'input'),
           },
         },
       };
@@ -270,7 +269,7 @@ export class OpenApiService {
           description: 'Failed',
           content: {
             'application/json': {
-              schema: ToJsonSchema(ApiErrorResponseSchema),
+              schema: ToJsonSchema(ApiErrorResponseSchema, 'output'),
             },
           },
         },
@@ -302,7 +301,7 @@ export class OpenApiService {
         description: 'Done',
         content: {
           'application/json': {
-            schema: ToJsonSchema(Success(returns.zodSchema as ZodTypeAny)),
+            schema: ToJsonSchema(Success(returns.zodSchema), 'output'),
           },
         },
       };
@@ -319,15 +318,29 @@ export class OpenApiService {
   }
 }
 
-function ToJsonSchema(schema: ZodTypeAny): Schema {
-  // What is sent, so the schema before preprocessing, inlined
-  const json = zodToJsonSchema(schema, {
-    target: 'openApi3',
-    $refStrategy: 'none',
-    effectStrategy: 'input',
-  }) as Schema;
-  delete json['$schema'];
-  return json;
+// What a request sends, so the schema before preprocessing, or what an answer
+// sends, with every schema inlined
+function ToJsonSchema(schema: z.ZodType, io: 'input' | 'output'): Schema {
+  return z.toJSONSchema(schema, {
+    target: 'openapi-3.0',
+    io,
+    reused: 'inline',
+    // Dates are sent as text, like 2026-10-03T12:00:00.000Z
+    unrepresentable: ({ zodSchema }) =>
+      zodSchema._zod.def.type === 'date'
+        ? { type: 'string', format: 'date-time' }
+        : 'throw',
+    // Whole numbers have to be ones JavaScript holds exactly, which goes
+    // without saying
+    override: ({ jsonSchema }) => {
+      if (jsonSchema.maximum === Number.MAX_SAFE_INTEGER) {
+        delete jsonSchema.maximum;
+      }
+      if (jsonSchema.minimum === Number.MIN_SAFE_INTEGER) {
+        delete jsonSchema.minimum;
+      }
+    },
+  });
 }
 
 function AsList(value: unknown): string[] {

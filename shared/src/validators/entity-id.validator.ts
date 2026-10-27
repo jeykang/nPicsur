@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { UUIDRegex } from '../util/common-regex.js';
 
 // The id of anything stored, which are all UUIDs

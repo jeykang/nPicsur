@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 // An absolute http(s) url
 export const IsHttpUrl = () =>

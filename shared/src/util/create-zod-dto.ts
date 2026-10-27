@@ -6,7 +6,7 @@ import * as z from 'zod';
  */
 
 export type CompatibleZodType = z.ZodType<unknown>;
-export type CompatibleZodInfer<T extends CompatibleZodType> = T['_output'];
+export type CompatibleZodInfer<T extends CompatibleZodType> = z.output<T>;
 
 export type ZodDtoStatic<T extends CompatibleZodType = CompatibleZodType> = {
   new (): CompatibleZodInfer<T>;
@@ -25,5 +25,8 @@ export const createZodDto = <T extends CompatibleZodType>(
     }
   }
 
-  return SchemaHolderClass;
+  // The class only carries the schema, and stands for what it parses to as a
+  // type. Zod's output type is conditional, which TypeScript can not match
+  // the class against while the schema is generic.
+  return SchemaHolderClass as unknown as ZodDtoStatic<T>;
 };

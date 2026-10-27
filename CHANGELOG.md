@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- A request with a very long list in it, like of images to delete at once, could make the server use a lot of memory while checking it, as every wrong entry was kept track of.
+- The Docker image is built on Node.js 24.22.1, a security release, and with libvips 8.18.7, which checks TIFF and JPEG 2000 images and the EXIF data in images more strictly.
+
 ## 0.7.1
 
 ### New

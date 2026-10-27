@@ -17,7 +17,7 @@ import {
 } from 'picsur-shared/dist/dto/preferences.dto';
 import { AsyncFailable, HasFailed } from 'picsur-shared/dist/types/failable';
 import { filter } from 'rxjs';
-import { ZodTypeAny } from 'zod';
+import * as z from 'zod';
 import { Required } from '../../models/decorators/required.decorator';
 import { Logger } from '../../services/logger/logger.service';
 import { ErrorService } from '../../util/error-manager/error.service';
@@ -77,7 +77,7 @@ export class PrefOptionComponent implements OnInit {
 
   @Input() @Required name = '';
   @Input() helpText = '';
-  @Input() validator?: ZodTypeAny = undefined;
+  @Input() validator?: z.ZodType = undefined;
   // To choose from, instead of typing a value
   @Input() options?: { name: string; value: PrefValueType }[] = undefined;
 

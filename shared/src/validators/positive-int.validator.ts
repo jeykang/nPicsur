@@ -1,3 +1,3 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 export const IsPosInt = () => z.number().int().nonnegative();

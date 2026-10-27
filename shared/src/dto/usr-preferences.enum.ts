@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { IsExpiry } from '../validators/expiry.validator.js';
 import { PrefValueTypeStrings } from './preferences.dto.js';
 
@@ -20,7 +20,7 @@ export const UsrPreferenceValueTypes: {
 };
 
 export const UsrPreferenceValidators: {
-  [key in UsrPreference]: z.ZodTypeAny;
+  [key in UsrPreference]: z.ZodType;
 } = {
   [UsrPreference.KeepOriginal]: z.boolean(),
   [UsrPreference.DefaultExpiry]: IsExpiry(),

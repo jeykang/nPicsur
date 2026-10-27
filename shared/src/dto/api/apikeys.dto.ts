@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { EApiKeySchema } from '../../entities/apikey.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { IsApiKey } from '../../validators/api-key.validator.js';

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import tuple from '../types/tuple.js';
 import { IsEntityID } from '../validators/entity-id.validator.js';
 import { IsPrefValue } from '../validators/pref-value.validator.js';
@@ -17,9 +17,7 @@ export const DecodedPrefSchema = z.object({
 });
 export type DecodedPref = z.infer<typeof DecodedPrefSchema>;
 
-export const DecodedUsrPrefSchema = DecodedPrefSchema.merge(
-  z.object({
-    user: IsEntityID(),
-  }),
-);
+export const DecodedUsrPrefSchema = DecodedPrefSchema.extend({
+  user: IsEntityID(),
+});
 export type DecodedUsrPref = z.infer<typeof DecodedUsrPrefSchema>;

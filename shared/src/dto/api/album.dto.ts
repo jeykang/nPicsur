@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { EAlbumSchema, IsAlbumName } from '../../entities/album.entity.js';
 import { EImageSchema } from '../../entities/image.entity.js';
 import { EPublicUserSchema } from '../../entities/user.entity.js';

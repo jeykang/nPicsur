@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { EImageSchema } from '../../entities/image.entity.js';
 import { EPublicUserSchema } from '../../entities/user.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';
@@ -33,7 +33,7 @@ export const ImageMetaResponseSchema = z.object({
   user: EPublicUserSchema.nullable(),
   fileTypes: z.object({
     [ImageEntryVariant.MASTER]: z.string(),
-    [ImageEntryVariant.ORIGINAL]: z.union([z.string(), z.undefined()]),
+    [ImageEntryVariant.ORIGINAL]: z.string().optional(),
   }),
 });
 export class ImageMetaResponse extends createZodDto(ImageMetaResponseSchema) {}

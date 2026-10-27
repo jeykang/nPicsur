@@ -21,7 +21,7 @@ import {
 import { ZodDtoStatic } from 'picsur-shared/dist/util/create-zod-dto';
 import { ParseMime2FileType } from 'picsur-shared/dist/util/parse-mime';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
-import { z } from 'zod';
+import * as z from 'zod';
 import { ApiBuffer } from '../../models/dto/api-buffer.dto';
 import { MultiPartRequest } from '../../models/dto/multi-part-request.dto';
 import { Logger } from '../logger/logger.service';
@@ -88,7 +88,7 @@ export class ApiService {
     @Inject(WA_WINDOW) private readonly windowRef: Window,
   ) {}
 
-  public get<T extends z.AnyZodObject>(
+  public get<T extends z.ZodObject>(
     type: ZodDtoStatic<T>,
     url: string,
   ): RunningRequest<z.infer<T>> {
@@ -103,7 +103,7 @@ export class ApiService {
     return this.fetchBuffer(url, { method: 'GET' });
   }
 
-  public post<T extends z.AnyZodObject, W extends z.AnyZodObject>(
+  public post<T extends z.ZodObject, W extends z.ZodObject>(
     sendType: ZodDtoStatic<T>,
     receiveType: ZodDtoStatic<W>,
     url: string,
@@ -124,21 +124,21 @@ export class ApiService {
     });
   }
 
-  public postEmpty<T extends z.AnyZodObject>(
+  public postEmpty<T extends z.ZodObject>(
     type: ZodDtoStatic<T>,
     url: string,
   ): RunningRequest<z.infer<T>> {
     return this.fetchSafeJson(type, url, { method: 'POST' });
   }
 
-  public delete<T extends z.AnyZodObject>(
+  public delete<T extends z.ZodObject>(
     type: ZodDtoStatic<T>,
     url: string,
   ): RunningRequest<z.infer<T>> {
     return this.fetchSafeJson(type, url, { method: 'DELETE' });
   }
 
-  public postForm<T extends z.AnyZodObject>(
+  public postForm<T extends z.ZodObject>(
     receiveType: ZodDtoStatic<T>,
     url: string,
     data: MultiPartRequest,
@@ -149,12 +149,14 @@ export class ApiService {
     });
   }
 
-  private fetchSafeJson<T extends z.AnyZodObject>(
+  private fetchSafeJson<T extends z.ZodObject>(
     type: ZodDtoStatic<T>,
     url: string,
     options: AxiosRequestConfig,
   ): RunningRequest<z.infer<T>> {
-    const resultSchema = ApiResponseSchema(type.zodSchema as z.AnyZodObject);
+    // Zod can not tell what an object with a generic schema in it holds, so
+    // the answer is checked as any object, and its data is what type says
+    const resultSchema = ApiResponseSchema(type.zodSchema as z.ZodObject);
     type resultType = z.infer<typeof resultSchema>;
 
     const result = this.fetchJsonAs<resultType>(url, options);
@@ -175,7 +177,7 @@ export class ApiService {
           validateResult.data.data.message,
         );
 
-      return validateResult.data.data;
+      return validateResult.data.data as z.infer<T>;
     });
   }
 

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { ERoleSchema, SimpleRoleSchema } from '../../entities/role.entity.js';
 import { createZodDto } from '../../util/create-zod-dto.js';
 import { IsPosInt } from '../../validators/positive-int.validator.js';
@@ -60,7 +60,7 @@ export const SpecialRolesResponseSchema = z.object({
   ImmutableRoles: IsStringList(),
   UndeletableRoles: IsStringList(),
   DefaultRoles: IsStringList(),
-  LockedPermissions: z.record(z.string(), z.array(z.nativeEnum(Permission))),
+  LockedPermissions: z.record(z.string(), z.array(z.enum(Permission))),
 });
 export class SpecialRolesResponse extends createZodDto(
   SpecialRolesResponseSchema,

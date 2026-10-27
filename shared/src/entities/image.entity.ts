@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { IsEntityID } from '../validators/entity-id.validator.js';
 
 export const EImageSchema = z.object({

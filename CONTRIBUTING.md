@@ -24,6 +24,19 @@ pnpm --filter picsur-backend test:e2e
 
 Contributions are licensed under the [AGPL-3.0](LICENSE), like the rest of Picsur.
 
+## Dependencies
+
+[Dependabot](.github/dependabot.yml) opens pull requests every week for new versions of the npm packages, the GitHub Actions and the Node image of the Dockerfile, and for security fixes as soon as GitHub reports a vulnerability. CI runs on each of them. Minor versions and patches of npm packages are grouped into one pull request, and their security fixes into another. New major versions come on their own, as they may need changes to the code.
+
+GitHub keeps Dependabot off in forks like this repository. To turn it on, go to Settings → Advanced Security and enable the dependency graph, Dependabot alerts, Dependabot security updates and Dependabot version updates.
+
+Dependabot leaves these to be done by hand:
+
+- New major versions of Angular, which need its migrations with `ng update`. TypeScript and zone.js move along with Angular.
+- New major versions of Node: change `.nvmrc`, `@types/node` and the three `FROM` lines of the Dockerfile together.
+- A new version of Alpine, which is part of the tag of the Node image, like `-alpine3.24`. Dependabot only proposes images for the same one. Change the tag and the digest in the three `FROM` lines, `docker buildx imagetools inspect node:<tag>` shows the digest.
+- libvips, which the Dockerfile builds from source. Set `VIPS_VERSION` to the new release, and `VIPS_SHA256` to the `sha256sum` of its `vips-<version>.tar.xz`.
+
 ## Releasing
 
 1. In the changelog, rename `## Unreleased` to the new version, like `## 0.8.0`.

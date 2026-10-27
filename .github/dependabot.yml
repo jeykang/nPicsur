@@ -1,4 +1,8 @@
-# Weekly pull requests for dependency updates. CI runs on each of them.
+# Pull requests that update dependencies every week, and that fix known
+# vulnerabilities as soon as GitHub reports them. CI runs on each of them.
+#
+# In a fork, like this repository, GitHub leaves Dependabot off until it is
+# turned on in the settings, see Dependencies in CONTRIBUTING.md.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -9,6 +13,12 @@ updates:
     groups:
       # One pull request for everything that should not break anything
       minor-and-patch:
+        patterns: ['*']
+        update-types: [minor, patch]
+      # The same for security fixes. Those that need a new major version come
+      # on their own, like other new major versions.
+      security-minor-and-patch:
+        applies-to: security-updates
         patterns: ['*']
         update-types: [minor, patch]
     ignore:
@@ -22,6 +32,9 @@ updates:
         update-types: ['version-update:semver-major']
       - dependency-name: zone.js
         update-types: ['version-update:semver-major']
+      # The types of Node move along with Node itself, see below
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
@@ -30,3 +43,14 @@ updates:
     groups:
       actions:
         patterns: ['*']
+
+  # The Node image every stage of the Dockerfile starts from
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # A new major version of Node is chosen by hand, together with .nvmrc
+      # and @types/node
+      - dependency-name: node
+        update-types: ['version-update:semver-major']

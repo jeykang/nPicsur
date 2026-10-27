@@ -3,7 +3,11 @@
 # Build with:   docker build -t picsur .
 # The image runs Picsur on port 8080, see the README for configuration.
 
-ARG NODE_IMAGE=node:24-alpine3.24
+# Every stage starts from the same Node image. It is written out in the three
+# FROM lines that name it, because Dependabot does not read build arguments,
+# and pinned to a digest so that a build starts from the image CI tested.
+# Dependabot proposes newer ones and changes all three lines at once, see
+# Dependencies in CONTRIBUTING.md.
 
 # libvips is built from source, because the version bundled with sharp can
 # not read HEIC (iPhone photos), JPEG XL or JPEG 2000. Only the formats Picsur
@@ -13,7 +17,7 @@ ARG VIPS_VERSION=8.18.6
 ARG VIPS_SHA256=3c41e1d5458081bfa4a5bc54e116c46259c75c6760a18027764555632b9dda3e
 
 # ------------------------------------------------------------------------------
-FROM ${NODE_IMAGE} AS vips
+FROM node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS vips
 ARG VIPS_VERSION
 ARG VIPS_SHA256
 
@@ -49,7 +53,7 @@ RUN wget -q "https://github.com/libvips/libvips/releases/download/v${VIPS_VERSIO
 # ------------------------------------------------------------------------------
 # The JavaScript does not depend on the platform, so it is built once on the
 # build machine instead of under emulation for every platform.
-FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS build
+FROM --platform=$BUILDPLATFORM node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS build
 
 RUN corepack enable
 WORKDIR /picsur
@@ -96,7 +100,7 @@ RUN cd backend/node_modules/sharp \
  && rm -rf /picsur/node_modules/.pnpm/@img+sharp-*
 
 # ------------------------------------------------------------------------------
-FROM ${NODE_IMAGE}
+FROM node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
 
 COPY --from=vips /usr/local/lib/ /usr/local/lib/
 COPY --from=deps --chown=root:root /picsur /picsur

@@ -37,6 +37,12 @@ Dependabot leaves these to be done by hand:
 - A new version of Alpine, which is part of the tag of the Node image, like `-alpine3.24`. Dependabot only proposes images for the same one. Change the tag and the digest in the three `FROM` lines, `docker buildx imagetools inspect node:<tag>` shows the digest.
 - libvips, which the Dockerfile builds from source. Set `VIPS_VERSION` to the new release, and `VIPS_SHA256` to the `sha256sum` of its `vips-<version>.tar.xz`.
 
+### Known vulnerabilities
+
+`pnpm vulnerabilities` lists the known vulnerabilities in the lockfile, from the GitHub Advisory Database like Dependabot's alerts, and what fixes each. It tries updates within the ranges in package.json on a copy of the lockfile, and prints the commands that make them, to run in that order. What is left needs a new range in a package.json, a new major version, or a new version of a package that depends on it. Until there is one, an override in `pnpm-workspace.yaml` can force the fix, with a comment that says why, to remove it again later.
+
+Each advisory comes with where the package is used, and whether the backend runs with it in the Docker image. Some only matter for what Picsur does not do, like rendering Angular on the server, or running a development server on Windows. Those can wait for the next regular update, the description of the advisory says when it applies.
+
 ## Releasing
 
 1. In the changelog, rename `## Unreleased` to the new version, like `## 0.8.0`.

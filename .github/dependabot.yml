@@ -11,9 +11,11 @@ updates:
       interval: weekly
     open-pull-requests-limit: 10
     groups:
-      # One pull request for everything that should not break anything
+      # One pull request for everything that should not break anything,
+      # except NestJS, see below
       minor-and-patch:
         patterns: ['*']
+        exclude-patterns: ['@nestjs/*', '@fastify/multipart']
         update-types: [minor, patch]
       # The same for security fixes. Those that need a new major version come
       # on their own, like other new major versions.
@@ -21,11 +23,13 @@ updates:
         applies-to: security-updates
         patterns: ['*']
         update-types: [minor, patch]
-      # Except those of NestJS, which need each other, like @nestjs/core 12
-      # needs @nestjs/common 12, so they come together
+      # Every update of NestJS in one pull request, as its packages need each
+      # other, like @nestjs/core 12 needs @nestjs/common 12, and
+      # @nestjs/platform-fastify 12 needs @fastify/multipart 10. While a
+      # group's pull request is open, Dependabot holds back new major versions
+      # of what is in it, so NestJS is not in the first group.
       nestjs:
-        patterns: ['@nestjs/*']
-        update-types: [major]
+        patterns: ['@nestjs/*', '@fastify/multipart']
     ignore:
       # New major versions of Angular need the migrations of `ng update`,
       # TypeScript and zone.js move along with Angular

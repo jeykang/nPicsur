@@ -18,6 +18,13 @@ overrides:
   # security releases. One version for everything also keeps the types in sync.
   fastify: ^5.12.5
 
+packageExtensions:
+  # @nestjs/platform-fastify 12 imports rxjs without asking for it, so it only
+  # finds it when pnpm happens to hoist it. Remove once it asks for it itself.
+  '@nestjs/platform-fastify@12':
+    peerDependencies:
+      rxjs: ^7.1.0
+
 # Fixes for dependencies that are no longer maintained
 patchedDependencies:
   # Memory limits above 2 GB were cut down to 32 bits, which could turn them

@@ -18,8 +18,7 @@
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "typecheck:test": "tsc -p test/tsconfig.json",
-    "typeorm": "typeorm-ts-node-esm",
-    "migrate": "PICSUR_PRODUCTION=\"true\" pnpm typeorm migration:generate -d ./src/datasource.ts",
+    "migrate": "pnpm build && PICSUR_PRODUCTION=\"true\" typeorm migration:generate -d ./dist/datasource.js",
     "format": "prettier --write \"src/**/*.ts\"",
     "clean": "rm -rf dist",
     "purge": "rm -rf dist && rm -rf node_modules"
@@ -73,7 +72,6 @@
     "oidc-provider": "^9.13.0",
     "prettier": "^3.9.10",
     "source-map-support": "^0.5.21",
-    "ts-node": "^10.9.2",
     "typescript": "~5.9.3",
     "vite": "^8.3.3",
     "vitest": "^5.0.5"

@@ -43,6 +43,8 @@ Update these manually:
 
 Run `pnpm vulnerabilities` to check the lockfile against the GitHub Advisory Database. It tries updates within the declared version ranges on a copy of the lockfile, then prints commands to apply them in order.
 
+Use it when a Dependabot alert stays open without a pull request. Dependabot cannot always update indirect dependencies, such as follow-redirects through axios.
+
 Remaining fixes may require widening a version range, upgrading a major version, or waiting for a parent dependency to update. A temporary override in `pnpm-workspace.yaml` can force a fix; comment why it is needed and when to remove it.
 
 The report shows where each package is used and whether it runs in the Docker backend. Read each advisory’s affected conditions. Issues limited to unused features, such as Angular server rendering or a Windows development server, can wait for a regular update.

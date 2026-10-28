@@ -137,7 +137,8 @@ const DAY = 24 * 60 * MINUTE;
 // A duration like 15s, 30m or 7d, in milliseconds
 export function ParseDuration(value: string): number | undefined {
   try {
-    const parsed = ms(value);
+    // ms is typed for the strings it can read, the checks below catch others
+    const parsed = ms(value as ms.StringValue);
     return typeof parsed === 'number' && Number.isFinite(parsed)
       ? parsed
       : undefined;

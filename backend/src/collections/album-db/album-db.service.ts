@@ -13,6 +13,7 @@ import { In, QueryFailedError, Repository } from 'typeorm';
 import { EAlbumImageBackend } from '../../database/entities/albums/album-image.entity.js';
 import { EAlbumBackend } from '../../database/entities/albums/album.entity.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
+import { OwnedBy } from '../../util/collection.js';
 
 // Expired images are left out, they are about to be deleted
 const NotExpired = '(image.expires_at IS NULL OR image.expires_at > :now)';
@@ -50,7 +51,7 @@ export class AlbumDbService {
   ): AsyncFailable<EAlbumBackend> {
     try {
       const found = await this.albumRepo.findOne({
-        where: { id, user_id: userid },
+        where: { id, ...OwnedBy(userid) },
       });
       if (!found) return Fail(FT.NotFound, 'Album not found');
       return found;
@@ -79,7 +80,7 @@ export class AlbumDbService {
 
     try {
       const [found, amount] = await this.albumRepo.findAndCount({
-        where: { user_id: userid },
+        where: OwnedBy(userid),
         order: { created: 'DESC' },
         skip: count * page,
         take: count,
@@ -176,7 +177,7 @@ export class AlbumDbService {
         .getRepository(EImageBackend)
         .find({
           where: { id: In(imageIds), user_id: album.user_id },
-          select: ['id'],
+          select: { id: true },
         });
       const foundIds = new Set(found.map((image) => image.id));
       const toAdd = [...new Set(imageIds)].filter((id) => foundIds.has(id));
@@ -271,7 +272,7 @@ export class AlbumDbService {
     if (imageId !== undefined) {
       const rows = await this.albumImageRepo.find({
         where: { album_id: In(ids), image_id: imageId },
-        select: ['album_id'],
+        select: { album_id: true },
       });
       containing = new Set(rows.map((row) => row.album_id));
     }

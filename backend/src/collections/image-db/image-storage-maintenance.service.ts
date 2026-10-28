@@ -231,7 +231,7 @@ export class ImageStorageMaintenanceService {
         (
           await this.imageRepo.find({
             where: { id: In(batch) },
-            select: ['id'],
+            select: { id: true },
           })
         ).map((image) => image.id),
       );
@@ -389,11 +389,11 @@ export class ImageStorageMaintenanceService {
     const [files, derivatives] = await Promise.all([
       this.fileRepo.find({
         where: { image_id: imageId, storage: driver },
-        select: ['storage_key'],
+        select: { storage_key: true },
       }),
       this.derivativeRepo.find({
         where: { image_id: imageId, storage: driver },
-        select: ['storage_key'],
+        select: { storage_key: true },
       }),
     ]);
     return new Set(

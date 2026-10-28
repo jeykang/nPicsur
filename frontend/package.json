@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "ng": "ng",
-    "start": "pnpm branding && ng serve --host 0.0.0.0",
+    "start": "pnpm branding && ng serve",
     "build": "pnpm clean && pnpm branding && ng build",
     "watch": "pnpm branding && ng build --watch --configuration development",
     "branding": "rm -rf src/assets/branding && cp -r ../branding src/assets/branding",

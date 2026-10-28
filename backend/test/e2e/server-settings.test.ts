@@ -257,7 +257,9 @@ describe('server settings', () => {
 
     const unknown = await cli(['settings', 'reset', 'not_a_setting']);
     expect(unknown.code).toBe(1);
-    expect(unknown.output).toContain('There is no setting "not_a_setting"');
+    expect(unknown.output).toContain(
+      'Unknown setting "not_a_setting". Run "settings list" for available settings',
+    );
 
     // Like other environment variables, true and false can be yes and no too
     const no = await cli(['settings', 'list'], { PICSUR_ALLOW_EDITING: 'no' });

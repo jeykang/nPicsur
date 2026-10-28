@@ -63,7 +63,7 @@
     "@nestjs/cli": "^11.0.24",
     "@nestjs/schematics": "^12.0.10",
     "@nestjs/testing": "^11.2.6",
-    "@types/ms": "^0.7.34",
+    "@types/ms": "^2.1.0",
     "@types/node": "^24.19.2",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
@@ -75,7 +75,7 @@
     "source-map-support": "^0.5.21",
     "ts-node": "^10.9.2",
     "typescript": "~5.9.3",
-    "vite": "^7.3.7",
+    "vite": "^8.1.6",
     "vitest": "^5.0.5"
   },
   "engines": {

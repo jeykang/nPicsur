@@ -11,7 +11,7 @@ export const ServerSettingUI: {
   [ServerSetting.StorageDriver]: { name: 'Store new images in' },
   [ServerSetting.StoragePath]: {
     name: 'Directory',
-    helpText: 'Like /picsur/images',
+    helpText: 'Absolute path, e.g. /picsur/images',
   },
   [ServerSetting.S3Endpoint]: {
     name: 'Endpoint',
@@ -21,17 +21,17 @@ export const ServerSettingUI: {
   [ServerSetting.S3Bucket]: { name: 'Bucket' },
   [ServerSetting.S3Prefix]: {
     name: 'Prefix',
-    helpText: 'Optional path in the bucket, like picsur/',
+    helpText: 'Optional path within the bucket, e.g. picsur/',
   },
   [ServerSetting.S3ForcePathStyle]: {
     name: 'Path style addressing',
-    helpText: 'Needed by MinIO and most self hosted services',
+    helpText: 'Required by MinIO and most self-hosted services',
   },
-  [ServerSetting.S3AccessKeyId]: { name: 'Access key id' },
+  [ServerSetting.S3AccessKeyId]: { name: 'Access key ID' },
   [ServerSetting.S3SecretAccessKey]: { name: 'Secret access key' },
 
   [ServerSetting.MaxFileSize]: { name: 'Maximum upload size (MB)' },
-  [ServerSetting.MaxConcurrentConversions]: { name: 'Conversions at once' },
+  [ServerSetting.MaxConcurrentConversions]: { name: 'Concurrent conversions' },
   [ServerSetting.ConversionRateLimit]: {
     name: 'Conversions per visitor per minute',
     helpText: '0 for no limit',
@@ -46,16 +46,16 @@ export const ServerSettingUI: {
   },
   [ServerSetting.RemoveDerivativesAfter]: {
     name: 'Keep converted versions for',
-    helpText: '0 keeps them',
+    helpText: '0 disables cleanup',
   },
   [ServerSetting.GuestUploadExpiry]: {
     name: 'Guest uploads expire after',
-    helpText: 'At the latest, for visitors who are not logged in. 0 keeps them',
+    helpText: 'Maximum lifetime for anonymous uploads. 0 sets no limit',
   },
   [ServerSetting.TrustProxy]: {
     name: 'Trusted proxies',
     helpText:
-      'Comma separated addresses or ranges, true for any, false for none',
+      'Comma-separated addresses or ranges; true trusts all proxies, false trusts none',
   },
   [ServerSetting.HostOverride]: {
     name: 'Public address',
@@ -64,9 +64,9 @@ export const ServerSettingUI: {
 
   [ServerSetting.OidcIssuer]: {
     name: 'Issuer',
-    helpText: 'Like https://auth.example.com',
+    helpText: 'E.g. https://auth.example.com',
   },
-  [ServerSetting.OidcClientId]: { name: 'Client id' },
+  [ServerSetting.OidcClientId]: { name: 'Client ID' },
   [ServerSetting.OidcClientSecret]: { name: 'Client secret' },
   [ServerSetting.OidcScope]: { name: 'Scopes' },
   [ServerSetting.OidcName]: {
@@ -76,21 +76,22 @@ export const ServerSettingUI: {
   [ServerSetting.OidcUsernameClaim]: { name: 'Username claim' },
   [ServerSetting.OidcAutoRegister]: {
     name: 'Create accounts for new users',
-    helpText: 'Anyone who can log in at the provider gets an account',
+    helpText:
+      'Automatically register anyone who can log in through this provider',
   },
   [ServerSetting.OidcAutoLaunch]: {
-    name: 'Go to the provider right away',
+    name: 'Redirect to provider automatically',
     helpText: '/user/login?local still shows the login page',
   },
   [ServerSetting.PasswordLogin]: {
     name: 'Password login',
     helpText: 'To turn it back on: settings reset password_login',
   },
-  [ServerSetting.JwtExpiry]: { name: 'Logins last' },
+  [ServerSetting.JwtExpiry]: { name: 'Login expiry' },
   [ServerSetting.BCryptStrength]: { name: 'Password hashing strength' },
 
   [ServerSetting.TrackingUrl]: { name: 'Ackee server' },
-  [ServerSetting.TrackingId]: { name: 'Ackee website id' },
+  [ServerSetting.TrackingId]: { name: 'Ackee website ID' },
 
   [ServerSetting.Verbose]: {
     name: 'Verbose logging',
@@ -100,7 +101,7 @@ export const ServerSettingUI: {
 
 // What can only be set with environment variables
 export const EnvironmentOptionUI: Record<string, string> = {
-  PICSUR_HOST: 'Listens on',
+  PICSUR_HOST: 'Listen address',
   PICSUR_PORT: 'Port',
   PICSUR_DB_HOST: 'Database server',
   PICSUR_DB_PORT: 'Database port',

@@ -97,7 +97,7 @@ export class StorageMigrationService implements BeforeApplicationShutdown {
       this.state.failed = result.failed;
       this.state.stopped = result.stopped;
       if (result.failed > 0) {
-        this.state.error = `${result.failed} files could not be moved, the server log says why. Moving them again tries them again.`;
+        this.state.error = `${result.failed} files could not be moved. Check the server log, then restart the migration to retry.`;
       }
       this.logger.log(
         `${result.stopped ? 'Stopped' : 'Done'} moving images, moved ${result.moved} files` +

@@ -102,9 +102,9 @@ export class SettingsAccountComponent implements OnInit {
       this.methods = { ...this.methods, password: true };
     this.errorService.success(
       hadPassword
-        ? 'Password changed, you were logged out everywhere else'
+        ? 'Password changed. Other sessions logged out'
         : this.passwordLogin
-          ? 'Password set, you can log in with it now'
+          ? 'Password set. You can now use it to log in'
           : 'Password set',
     );
   }

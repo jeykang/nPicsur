@@ -12,11 +12,11 @@
   @if (!canUpload) {
     <div class="centered">
       @if (loggedIn) {
-        <h1>Uploading is not allowed</h1>
+        <h1>Uploads unavailable</h1>
         <p>Your account cannot upload images.</p>
       } @else {
-        <h1><a routerLink="/user/login">Please log in</a></h1>
-        <p>You do not yet have permission to upload</p>
+        <h1><a routerLink="/user/login">Log in to upload</a></h1>
+        <p>Guest uploads are disabled.</p>
       }
     </div>
   }

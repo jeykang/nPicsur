@@ -87,7 +87,7 @@ export class ServerSettingsService {
     }
     return Fail(
       FT.Network,
-      'Picsur did not come back after restarting, the server log might say why',
+      'Picsur did not respond after restarting. Check the server log',
     );
   }
 

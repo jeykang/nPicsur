@@ -1,8 +1,8 @@
 @if (editing) {
-  <h1>Editing role "{{ model.rolenameValue }}"</h1>
+  <h1>Edit role "{{ model.rolenameValue }}"</h1>
 }
 @if (adding) {
-  <h1>Add new role</h1>
+  <h1>Add role</h1>
 }
 
 <form (ngSubmit)="updateRole()">

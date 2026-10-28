@@ -120,7 +120,7 @@ export class SettingsApiKeysComponent implements OnInit {
   public async deleteApiKey(apikeyId: string) {
     const pressedButton = await this.dialogService.showDialog({
       title: 'Delete this API key?',
-      description: 'Whatever uses it stops working.',
+      description: 'Apps using this key will lose access.',
       buttons: [
         {
           name: 'cancel',
@@ -139,7 +139,7 @@ export class SettingsApiKeysComponent implements OnInit {
       if (HasFailed(result)) {
         this.errorService.showFailure(result, this.logger);
       } else {
-        this.errorService.success('Api key deleted');
+        this.errorService.success('API key deleted');
       }
     }
 
@@ -158,7 +158,7 @@ export class SettingsApiKeysComponent implements OnInit {
     if (HasFailed(result))
       return this.errorService.showFailure(result, this.logger);
 
-    this.errorService.success('Api key name updated');
+    this.errorService.success('API key name updated');
   }
 
   @AutoUnsubscribe()

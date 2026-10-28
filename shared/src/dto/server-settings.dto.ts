@@ -164,7 +164,7 @@ export const ServerSettingValidators: {
   [ServerSetting.StoragePath]: z
     .string()
     .max(1024)
-    .regex(/^\/[^\0\r\n]*$/, 'Should be a full path, like /picsur/images'),
+    .regex(/^\/[^\0\r\n]*$/, 'Enter an absolute path, e.g. /picsur/images'),
   [ServerSetting.S3Endpoint]: IsHttpUrl(),
   [ServerSetting.S3Region]: z
     .string()
@@ -182,7 +182,7 @@ export const ServerSettingValidators: {
   [ServerSetting.S3ForcePathStyle]: Bool,
   [ServerSetting.S3AccessKeyId]: z
     .string()
-    .regex(/^\S{1,256}$/, 'Invalid access key id'),
+    .regex(/^\S{1,256}$/, 'Invalid access key ID'),
   [ServerSetting.S3SecretAccessKey]: z
     .string()
     .regex(/^\S{1,256}$/, 'Invalid secret access key'),
@@ -193,7 +193,7 @@ export const ServerSettingValidators: {
   [ServerSetting.ConversionTimeLimit]: Duration(
     SECOND,
     10 * MINUTE,
-    'Should be a duration between 1s and 10m, like 15s',
+    'Enter a duration from 1s to 10m, e.g. 15s',
   ),
   [ServerSetting.ConversionMemoryLimit]: PositiveInt(65536, 16),
   [ServerSetting.AllowEditing]: Bool,
@@ -204,7 +204,7 @@ export const ServerSettingValidators: {
       Duration(
         MINUTE,
         Number.MAX_SAFE_INTEGER,
-        'Should be 0, or a duration of at least 1m, like 7d',
+        'Enter 0 or a duration of at least 1m, e.g. 7d',
       ),
     ),
   [ServerSetting.GuestUploadExpiry]: z
@@ -213,7 +213,7 @@ export const ServerSettingValidators: {
       Duration(
         MINUTE,
         10 * 365 * DAY,
-        'Should be 0, or a duration between 1m and 3650d, like 1d',
+        'Enter 0 or a duration from 1m to 3650d, e.g. 1d',
       ),
     ),
   [ServerSetting.TrustProxy]: z
@@ -229,14 +229,14 @@ export const ServerSettingValidators: {
           .every(
             (entry) => IpOrRange.test(entry) || NamedRanges.includes(entry),
           ),
-      'Should be true, false, or addresses and ranges separated by commas',
+      'Enter true, false, or comma-separated addresses and ranges',
     ),
   [ServerSetting.HostOverride]: IsHttpUrl(),
 
   [ServerSetting.OidcIssuer]: IsHttpUrl(),
   [ServerSetting.OidcClientId]: z
     .string()
-    .regex(/^\S{1,512}$/, 'Invalid client id'),
+    .regex(/^\S{1,512}$/, 'Invalid client ID'),
   [ServerSetting.OidcClientSecret]: z
     .string()
     .regex(/^\S{1,1024}$/, 'Invalid client secret'),
@@ -245,15 +245,15 @@ export const ServerSettingValidators: {
     .max(1024)
     .refine(
       (value) => value.split(/ +/).every((scope) => ScopeToken.test(scope)),
-      'Should be scopes separated by spaces',
+      'Separate scopes with spaces',
     )
     .refine(
       (value) => value.split(/ +/).includes('openid'),
-      'Should include openid',
+      'Include the openid scope',
     ),
   [ServerSetting.OidcName]: z
     .string()
-    .regex(/^[^\x00-\x1f\x7f]{1,64}$/, 'Should be at most 64 characters'),
+    .regex(/^[^\x00-\x1f\x7f]{1,64}$/, 'Use no more than 64 characters'),
   [ServerSetting.OidcUsernameClaim]: z
     .string()
     .regex(/^\S{1,256}$/, 'Invalid claim name'),
@@ -264,7 +264,7 @@ export const ServerSettingValidators: {
   [ServerSetting.JwtExpiry]: Duration(
     MINUTE,
     365 * DAY,
-    'Should be a duration between 1m and 365d, like 7d',
+    'Enter a duration from 1m to 365d, e.g. 7d',
   ),
   // Every step doubles the time logging in takes
   [ServerSetting.BCryptStrength]: PositiveInt(15, 4),

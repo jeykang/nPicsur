@@ -10,6 +10,7 @@ import { EAlbumImageBackend } from '../../database/entities/albums/album-image.e
 import { EImageFileBackend } from '../../database/entities/images/image-file.entity.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
 import { EUserBackend } from '../../database/entities/users/user.entity.js';
+import { OwnedBy } from '../../util/collection.js';
 import { ImageFileDBService } from './image-file-db.service.js';
 
 // Deleting an image deletes its rows first, and only then the data in object
@@ -55,7 +56,7 @@ export class ImageDBService {
   ): AsyncFailable<EImageBackend> {
     try {
       const found = await this.imageRepo.findOne({
-        where: { id, user_id: userid },
+        where: { id, ...OwnedBy(userid) },
       });
 
       if (!found) return Fail(FT.NotFound, 'Image not found');
@@ -171,7 +172,7 @@ export class ImageDBService {
           ? []
           : await this.imageRepo.manager.getRepository(EUserBackend).find({
               where: { id: In(userIds) },
-              select: ['id', 'username'],
+              select: { id: true, username: true },
             });
       const byId = new Map(
         users.map((user) => [
@@ -203,7 +204,7 @@ export class ImageDBService {
   ): AsyncFailable<EImageBackend> {
     try {
       const found = await this.imageRepo.findOne({
-        where: { id, user_id: userid },
+        where: { id, ...OwnedBy(userid) },
       });
 
       if (!found) return Fail(FT.NotFound, 'Image not found');
@@ -233,10 +234,7 @@ export class ImageDBService {
     let deletable_images: EImageBackend[];
     try {
       deletable_images = await this.imageRepo.find({
-        where: {
-          id: In(ids),
-          user_id: userid,
-        },
+        where: { id: In(ids), ...OwnedBy(userid) },
       });
     } catch (e) {
       return Fail(FT.Database, e);
@@ -284,7 +282,7 @@ export class ImageDBService {
       );
 
     try {
-      await this.imageRepo.delete({});
+      await this.imageRepo.deleteAll();
     } catch (e) {
       return Fail(FT.Database, e);
     }
@@ -349,7 +347,7 @@ export class ImageDBService {
   }
 
   private orphanedCondition(imageAlias: string): string {
-    const users = this.imageRepo.manager.connection.getMetadata(EUserBackend);
+    const users = this.imageRepo.manager.dataSource.getMetadata(EUserBackend);
     return `NOT EXISTS (SELECT 1 FROM "${users.tableName}" "owner" WHERE "owner"."id" = "${imageAlias}"."user_id")`;
   }
 

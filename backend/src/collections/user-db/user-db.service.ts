@@ -221,7 +221,7 @@ export class UserDbService {
     try {
       const found = await this.usersRepository.findOne({
         where: { id: uuid },
-        select: ['id', 'hashed_password'],
+        select: { id: true, hashed_password: true },
       });
       if (!found) return Fail(FT.NotFound, 'User not found');
       return !!found.hashed_password;
@@ -275,7 +275,7 @@ export class UserDbService {
     try {
       const found = await this.usersRepository.findOne({
         where: { username },
-        select: ['id'],
+        select: { id: true },
       });
 
       return { available: !found };

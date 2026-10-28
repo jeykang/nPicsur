@@ -134,7 +134,7 @@ export class ImageFileDBService {
     try {
       const found = await this.imageFileRepo.find({
         where: { image_id: imageId },
-        select: ['variant', 'filetype'],
+        select: { variant: true, filetype: true },
       });
 
       if (!found) return Fail(FT.NotFound, 'Image not found');

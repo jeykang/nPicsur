@@ -61,11 +61,11 @@ export class ApiKeyDbService {
     try {
       const apikey = await this.apikeyRepo.findOne({
         where: {
-          user:
-            userid !== undefined
-              ? // This is stupid, but typeorm do typeorm
-                ({ id: userid } as any)
-              : undefined,
+          // TypeORM throws on undefined, so without a user it is left out
+          ...(userid === undefined
+            ? {}
+            : // This is stupid, but typeorm do typeorm
+              { user: { id: userid } as any }),
           id,
         },
         loadRelationIds: true,
@@ -88,11 +88,11 @@ export class ApiKeyDbService {
     try {
       const [apikeys, amount] = await this.apikeyRepo.findAndCount({
         where: {
-          user:
-            userid !== undefined
-              ? // This is stupid, but typeorm do typeorm
-                ({ id: userid } as any)
-              : undefined,
+          // TypeORM throws on undefined, so without a user it is left out
+          ...(userid === undefined
+            ? {}
+            : // This is stupid, but typeorm do typeorm
+              { user: { id: userid } as any }),
         },
         order: { created: 'DESC' },
         skip: count * page,
@@ -148,7 +148,7 @@ export class ApiKeyDbService {
     try {
       const apikey = await this.apikeyRepo.findOne({
         where: { key_hash: HashApiKey(key) },
-        relations: ['user'],
+        relations: { user: true },
       });
       if (!apikey) return Fail(FT.NotFound, 'API key not found');
 

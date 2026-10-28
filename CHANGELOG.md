@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Lighter
+
+- The Docker image is about 26 MB smaller, as it no longer includes TypeScript and ts-node, which nothing used.
+
 ### Changed
 
 - Simplified UI text, setup instructions, and documentation.

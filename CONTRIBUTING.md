@@ -26,7 +26,7 @@ Contributions are licensed under the [AGPL-3.0](LICENSE), like the rest of Picsu
 
 ## Dependencies
 
-[Dependabot](.github/dependabot.yml) opens pull requests every week for new versions of the npm packages, the GitHub Actions and the Node image of the Dockerfile, and for security fixes as soon as GitHub reports a vulnerability. CI runs on each of them. Minor versions and patches of npm packages are grouped into one pull request, and their security fixes into another. New major versions come on their own, as they may need changes to the code, except those of NestJS packages, which need each other and come together.
+[Dependabot](.github/dependabot.yml) opens pull requests every week for new versions of the npm packages, the GitHub Actions and the Node image of the Dockerfile, and for security fixes as soon as GitHub reports a vulnerability. CI runs on each of them. Minor versions and patches of npm packages are grouped into one pull request, and their security fixes into another. New major versions come on their own, as they may need changes to the code. Dependabot holds them back while the pull request of minor versions and patches is open, so they come with the first weekly run after it is merged. Every update of NestJS comes in a pull request of its own, as its packages need each other.
 
 GitHub keeps Dependabot off in forks like this repository. To turn it on, go to Settings → Advanced Security and enable the dependency graph, Dependabot alerts, Dependabot security updates and Dependabot version updates.
 

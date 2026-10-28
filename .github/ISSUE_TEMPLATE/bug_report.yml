@@ -6,13 +6,13 @@ body:
     id: what-happened
     attributes:
       label: What happened
-      description: And what you expected to happen instead.
+      description: Describe the problem and the expected behavior.
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: Steps to make it happen
+      label: Steps to reproduce
       placeholder: |
         1. Upload a HEIC photo
         2. Open it
@@ -23,7 +23,7 @@ body:
     id: version
     attributes:
       label: Version
-      description: Shown at the bottom of every page, like V0.7.0. With the `edge` image, also when you pulled it.
+      description: Shown in the footer, e.g. V0.7.0. For `edge`, include the date you pulled the image.
     validations:
       required: true
   - type: dropdown
@@ -50,10 +50,10 @@ body:
     id: browser
     attributes:
       label: Browser
-      description: When it happens in the browser, which one and its version.
+      description: Browser name and version, if relevant.
   - type: textarea
     id: log
     attributes:
       label: Server log
-      description: What Picsur logged around that time, from `docker logs picsur` for example. Leave out anything secret.
+      description: Include relevant output from `docker logs picsur` or your server log. Remove secrets.
       render: text

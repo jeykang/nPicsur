@@ -73,7 +73,7 @@ export class EditDialogComponent {
       return this.close();
     }
 
-    this.errorService.success('Image successfully updated');
+    this.errorService.success('Image updated');
 
     this.dialogRef.close(result);
   }

@@ -5,14 +5,14 @@
 }
 
 @if (methods?.oidc; as oidc) {
-  <h2>Logging in with {{ oidc.provider }}</h2>
+  <h2>Login with {{ oidc.provider }}</h2>
   @if (oidc.linked) {
     <p>
       Linked to your {{ oidc.provider }} account{{
         oidc.name ? ' (' + oidc.name + ')' : ''
       }}.
       @if (!passwordLogin) {
-        Password login is off, so it cannot be unlinked.
+        Enable password login before unlinking this account.
       } @else if (!hasPassword) {
         Set a password before unlinking it.
       }

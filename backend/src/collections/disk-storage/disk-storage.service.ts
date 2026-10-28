@@ -351,7 +351,7 @@ async function ContainerWarning(path: string): Promise<string | null> {
     existsSync('/run/.containerenv') ||
     rootType === 'overlay';
   if (!inContainer || mountPoint !== '/') return null;
-  return `"${path}" is not on a volume, so the images stored there are lost when the container is replaced, like when Picsur is updated. Mount a volume there.`;
+  return `"${path}" is not on a volume. Mount a volume there to prevent image loss when the container is replaced or updated.`;
 }
 
 // The mount a path is on, from /proc/self/mountinfo: the one with the longest

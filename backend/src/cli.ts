@@ -34,30 +34,24 @@ import { DatabaseModule } from './database/database.module.js';
 const usage = `Usage: node dist/cli.js <command>
 
 Commands:
-  storage status          Show where image data is stored
-  storage migrate         Move image data to where new images are stored,
-                          as set on the settings page or with
-                          PICSUR_STORAGE_DRIVER. Converted versions stored
-                          elsewhere are dropped, they are made again when
-                          needed. Can be run while Picsur is running.
+  storage status          Show image storage locations and usage
+  storage migrate         Move images to the configured storage destination.
+                          Uses saved settings or PICSUR_STORAGE_DRIVER.
+                          Discarded conversions are recreated on demand.
+                          Safe to run while Picsur is active.
   storage gc [--dry-run] [--min-age <seconds>]
-                          Delete files in the bucket and the directory that
-                          no image uses. Files younger than an hour are
-                          skipped, they might belong to an upload that is in
-                          progress.
+                          Delete unused files from the bucket and directory.
+                          Skips files under an hour old to protect uploads
+                          in progress; --min-age changes this cutoff.
   images delete-orphaned [--dry-run]
-                          Delete the images of users that no longer exist.
-                          Deleting a user deletes their images, but Picsur
-                          0.5 kept them.
-  settings list           Show the server settings, and where each comes
-                          from: saved on the settings page, which comes
-                          first, an environment variable, or the default.
+                          Delete images left by users deleted in Picsur 0.5.
+                          Newer versions delete images with their owner.
+  settings list           Show settings and their sources, in priority order:
+                          saved value, environment variable, default.
   settings reset <setting>...
-                          Remove what is saved on the settings page for these
-                          settings, like password_login or
-                          PICSUR_PASSWORD_LOGIN, so their environment
-                          variable or default applies again. Takes effect
-                          when Picsur restarts.
+                          Clear saved values to restore environment values
+                          or defaults. Accepts names such as password_login
+                          or PICSUR_PASSWORD_LOGIN. Restart Picsur to apply.
 `;
 
 const commands: Record<string, string[]> = {
@@ -101,7 +95,7 @@ async function resetSettings(names: string[]): Promise<number> {
     const key = settingByName(name);
     if (key === null) {
       console.error(
-        `There is no setting "${name}", "settings list" shows them all`,
+        `Unknown setting "${name}". Run "settings list" for available settings`,
       );
       return 1;
     }
@@ -199,9 +193,7 @@ async function main(args: string[]): Promise<number> {
       }
     } else if (command === 'gc') {
       if (storages.configured.length === 0) {
-        logger.error(
-          'No bucket or directory is configured, there is nothing to clean up',
-        );
+        logger.error('No bucket or directory configured. Nothing to clean up');
         return 1;
       }
       const dryRun = flags.includes('--dry-run');

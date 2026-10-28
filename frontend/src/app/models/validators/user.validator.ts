@@ -47,7 +47,7 @@ export const CreatePasswordError = (
     case 'maxlength':
       return 'Password is too long';
     case 'compare':
-      return 'Password does not match';
+      return 'Passwords do not match';
     default:
       return 'Invalid password';
   }

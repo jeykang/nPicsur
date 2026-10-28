@@ -45,15 +45,15 @@ export class SettingsApiKeyEditorComponent {
 
   getErrorMessage() {
     if (this.field.hasError('required')) {
-      return 'You must enter a value';
+      return 'Enter a name';
     }
 
     if (this.field.hasError('minlength')) {
-      return 'Minimum length is 3';
+      return 'Use at least 3 characters';
     }
 
     if (this.field.hasError('maxlength')) {
-      return 'Maximum length is 255';
+      return 'Use no more than 255 characters';
     }
 
     return 'Unknown error';

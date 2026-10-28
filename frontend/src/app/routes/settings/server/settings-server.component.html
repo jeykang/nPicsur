@@ -78,7 +78,7 @@
       <mat-card-content class="notice-content">
         <mat-icon color="warn">error_outline</mat-icon>
         <span class="grow">
-          The last restart failed, the previous settings are in use:
+          Restart failed. Previous settings restored:
           {{ settings.restart_error }}
         </span>
       </mat-card-content>
@@ -90,7 +90,7 @@
       <mat-card-content class="notice-content">
         <mat-icon>settings_suggest</mat-icon>
         <span class="grow">
-          Saved here instead of the environment:
+          Saved settings override these environment variables:
           @for (env of overriddenEnv; track env; let last = $last) {
             <code>{{ env }}</code
             >{{ last ? '' : ', ' }}
@@ -102,7 +102,7 @@
           [disabled]="busy !== null"
           (click)="useEnvironment()"
         >
-          USE THE ENVIRONMENT
+          USE ENVIRONMENT VALUES
         </button>
       </mat-card-content>
     </mat-card>
@@ -180,9 +180,9 @@
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>{{ name(S.StorageDriver) }}</mat-label>
           <mat-select [formControl]="control(S.StorageDriver)">
-            <mat-option value="database">The database</mat-option>
+            <mat-option value="database">Database</mat-option>
             <mat-option value="s3">S3 compatible object storage</mat-option>
-            <mat-option value="filesystem">A directory on disk</mat-option>
+            <mat-option value="filesystem">Directory on disk</mat-option>
           </mat-select>
         </mat-form-field>
       </div>
@@ -190,7 +190,7 @@
 
     @if (showBucket) {
       @if (driver !== 's3' && bucketIsSet) {
-        <p>Still used for the images stored there.</p>
+        <p>Existing images still use this storage.</p>
         @if (saved(S.S3Bucket)) {
           <button
             mat-stroked-button
@@ -199,7 +199,7 @@
             [disabled]="busy !== null || storage.files.s3 > 0"
             (click)="removeBucket()"
           >
-            REMOVE THE BUCKET
+            REMOVE BUCKET CONFIGURATION
           </button>
         }
       }
@@ -244,8 +244,8 @@
             >
               {{
                 removeSecrets.has(S.S3SecretAccessKey)
-                  ? 'KEEP THE SAVED SECRET'
-                  : 'REMOVE THE SAVED SECRET'
+                  ? 'KEEP SAVED SECRET'
+                  : 'REMOVE SAVED SECRET'
               }}
             </button>
           }
@@ -265,13 +265,13 @@
         [disabled]="busy !== null"
         (click)="testStorage(Driver.S3)"
       >
-        {{ testing === 's3' ? 'TESTING...' : 'TEST THE BUCKET' }}
+        {{ testing === 's3' ? 'TESTING...' : 'TEST BUCKET' }}
       </button>
     }
 
     @if (showPath) {
       @if (driver !== 'filesystem' && pathIsSet) {
-        <p>Still used for the images stored there.</p>
+        <p>Existing images still use this storage.</p>
         @if (saved(S.StoragePath)) {
           <button
             mat-stroked-button
@@ -280,7 +280,7 @@
             [disabled]="busy !== null || storage.files.filesystem > 0"
             (click)="removePath()"
           >
-            STOP USING THE DIRECTORY
+            REMOVE DIRECTORY CONFIGURATION
           </button>
         }
       }
@@ -305,7 +305,7 @@
         [disabled]="busy !== null"
         (click)="testStorage(Driver.Filesystem)"
       >
-        {{ testing === 'filesystem' ? 'TESTING...' : 'TEST THE DIRECTORY' }}
+        {{ testing === 'filesystem' ? 'TESTING...' : 'TEST DIRECTORY' }}
       </button>
     }
 
@@ -391,7 +391,7 @@
       </div>
     </div>
 
-    <h2>Logging in</h2>
+    <h2>Login</h2>
     <div class="row">
       <div class="col-lg-6 col-12">
         <ng-container
@@ -437,8 +437,8 @@
           >
             {{
               removeSecrets.has(S.OidcClientSecret)
-                ? 'KEEP THE SAVED SECRET'
-                : 'REMOVE THE SAVED SECRET'
+                ? 'KEEP SAVED SECRET'
+                : 'REMOVE SAVED SECRET'
             }}
           </button>
         }
@@ -481,11 +481,11 @@
         [disabled]="busy !== null"
         (click)="testOidc()"
       >
-        {{ testing === 'oidc' ? 'TESTING...' : 'TEST THE PROVIDER' }}
+        {{ testing === 'oidc' ? 'TESTING...' : 'TEST PROVIDER' }}
       </button>
     </div>
 
-    <h2>Counting visits</h2>
+    <h2>Visit tracking</h2>
     <div class="row">
       <div class="col-lg-6 col-12">
         <ng-container
@@ -522,7 +522,7 @@
     </div>
   </form>
 
-  <h2>Set with environment variables</h2>
+  <h2>Environment-only settings</h2>
   <table class="environment">
     @for (option of environment; track option.env) {
       <tr>

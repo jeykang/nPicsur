@@ -67,7 +67,7 @@ export class HeaderComponent implements OnInit {
   }[] = [
     { value: 'dark', name: 'Dark', icon: 'dark_mode' },
     { value: 'light', name: 'Light', icon: 'light_mode' },
-    { value: 'system', name: 'Like the system', icon: 'brightness_auto' },
+    { value: 'system', name: 'System default', icon: 'brightness_auto' },
   ];
   public theme: ThemeChoice = 'dark';
 

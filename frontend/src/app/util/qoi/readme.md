@@ -1,5 +1,3 @@
 # QOI.js
 
-I included it directly because it needed to be typescript compatible
-
-<https://github.com/kchapelier/qoijs>
+Vendored from [QOI.js](https://github.com/kchapelier/qoijs) and adapted for TypeScript.

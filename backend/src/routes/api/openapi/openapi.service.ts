@@ -41,9 +41,9 @@ const Success = (data: z.ZodType) =>
 const ParamDescriptions = new Map<unknown, string>([
   [
     ImageFullIdPipe,
-    'The id of the image, with an extension like .png to get it in that format, or without one for the original upload',
+    'Image ID with a format extension (e.g. .png), or no extension for the original upload',
   ],
-  [ImageIdPipe, 'The id of the image'],
+  [ImageIdPipe, 'Image ID'],
 ]);
 
 const Methods: Partial<Record<RequestMethod, string>> = {
@@ -118,7 +118,7 @@ export class OpenApiService {
         title: 'Picsur',
         version: this.hostConfig.getVersion(),
         description:
-          'Visitors who are not logged in have the permissions of the guest role. Answers in JSON have success, statusCode, timestamp and timeMs next to their data.',
+          'Anonymous requests use the guest role’s permissions. JSON responses include success, statusCode, timestamp, timeMs, and data.',
       },
       paths: Sorted(paths),
       components: {
@@ -127,13 +127,13 @@ export class OpenApiService {
             type: 'http',
             scheme: 'bearer',
             bearerFormat: 'JWT',
-            description: 'The token /api/user/login gives',
+            description: 'Login token returned by /api/user/login',
           },
           apikey: {
             type: 'apiKey',
             in: 'header',
             name: 'Authorization',
-            description: 'Api-Key, a space, and the key',
+            description: 'Use the header value: Api-Key <key>',
           },
         },
       },
@@ -258,8 +258,8 @@ export class OpenApiService {
     return {
       description:
         permissions.length === 0
-          ? 'Anyone can use this.'
-          : `Needs the permissions ${permissions.join(', ')}.`,
+          ? 'No permissions required.'
+          : `Required permissions: ${permissions.join(', ')}.`,
       'x-permissions': permissions,
       ...(parameters.length > 0 ? { parameters } : {}),
       ...(requestBody !== undefined ? { requestBody } : {}),
@@ -298,7 +298,7 @@ export class OpenApiService {
     );
     if (returns?.zodSchema !== undefined) {
       return {
-        description: 'Done',
+        description: 'Success',
         content: {
           'application/json': {
             schema: ToJsonSchema(Success(returns.zodSchema), 'output'),
@@ -314,7 +314,7 @@ export class OpenApiService {
         },
       };
     }
-    return { description: 'Done' };
+    return { description: 'Success' };
   }
 }
 

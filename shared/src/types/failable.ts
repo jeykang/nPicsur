@@ -59,12 +59,12 @@ const FTProps: {
   [FT.SysValidation]: {
     important: true,
     code: 500,
-    message: 'Validation of internal items failed',
+    message: 'Internal validation failed',
   },
   [FT.UsrValidation]: {
     important: false,
     code: 400,
-    message: 'Validation of user input failed',
+    message: 'Invalid input',
   },
   [FT.BadRequest]: {
     important: false,
@@ -84,7 +84,7 @@ const FTProps: {
   [FT.NotFound]: {
     important: false,
     code: 404,
-    message: 'Item(s) could not be found',
+    message: 'Not found',
   },
   [FT.RouteNotFound]: {
     important: false,
@@ -104,7 +104,7 @@ const FTProps: {
   [FT.Impossible]: {
     important: true,
     code: 422,
-    message: 'What you are doing is impossible',
+    message: 'This action cannot be completed',
   },
 };
 

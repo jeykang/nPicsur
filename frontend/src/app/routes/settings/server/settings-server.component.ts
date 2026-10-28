@@ -200,7 +200,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
   // saved here, or will be once the form is saved
   public hint(key: ServerSetting): string {
     if (this.locked(key)) {
-      return 'Cannot be saved without an encryption key, see the server log';
+      return 'An encryption key is required to save secrets. Check the server log';
     }
     const state = this.state(key);
     const fromEnv =
@@ -258,7 +258,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     if (state === null) return '';
     if (SecretServerSettings.includes(key)) {
       return state.saved && !this.removeSecrets.has(key)
-        ? 'Saved, leave empty to keep it'
+        ? 'Leave empty to keep the saved secret'
         : '';
     }
     const fallback = this.fallback(key);
@@ -457,15 +457,15 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     if (result.driver === 'filesystem') this.pathWarning = result.warning;
     if (result.warning !== null) {
       this.errorService.warn(
-        `Images can be stored in ${where}, see the warning`,
+        `Storage test passed for ${where}. Review the warning below`,
         this.logger,
       );
       return;
     }
     this.errorService.success(
       result.created
-        ? `Created ${where}, images can be stored there`
-        : `Images can be stored in ${where}`,
+        ? `Created ${where}. Storage test passed`
+        : `Storage test passed for ${where}`,
     );
   }
 
@@ -483,7 +483,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     if (HasFailed(result)) {
       return this.errorService.showFailure(result, this.logger);
     }
-    this.errorService.success(`Found the provider ${result.issuer}`);
+    this.errorService.success(`Provider connection verified: ${result.issuer}`);
   }
 
   async promptRestart() {
@@ -496,7 +496,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     );
     const toMove = next === this.storage.driver ? 0 : this.filesNotIn(next);
 
-    let description = 'Picsur is unavailable for a moment while it restarts.';
+    let description = 'Picsur will be briefly unavailable during the restart.';
     if (toMove > 0) {
       description += ` ${toMove} image ${toMove === 1 ? 'file' : 'files'} can then be moved to ${StorageName(next)}.`;
     }
@@ -535,7 +535,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
     if (result.restart_error !== null) {
       this.errorService.warn(
-        'The restart failed, the previous settings are in use',
+        'Restart failed. Previous settings restored',
         this.logger,
       );
       return;
@@ -566,19 +566,19 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
 
   private environmentValue(option: EnvironmentOption): string {
     if (option.value !== null) {
-      return option.set ? option.value : `${option.value}, the default`;
+      return option.set ? option.value : `${option.value} (default)`;
     }
     // Secrets
     if (option.set) return 'Set';
     switch (option.env) {
       case 'PICSUR_JWT_SECRET':
-        return 'Generated, kept in the database';
+        return 'Generated and stored in the database';
       case 'PICSUR_ENCRYPTION_KEY':
         return this.settings?.encryption_key === 'database'
-          ? 'Generated, kept in the database'
-          : 'None, secrets cannot be saved';
+          ? 'Generated and stored in the database'
+          : 'No key; secrets cannot be saved';
       default:
-        return 'The default';
+        return 'Default';
     }
   }
 
@@ -630,7 +630,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
         this.errorService.success(
           storage.migration.stopped
             ? 'Stopped moving images'
-            : 'All images are moved',
+            : 'Image migration complete',
         );
       }
     }
@@ -723,7 +723,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
         bytes === null ||
         !ServerSettingValidators[key].safeParse(bytes).success
       ) {
-        return { error: 'Should be a size in MB, like 128' };
+        return { error: 'Enter a size in MB, e.g. 128' };
       }
       return null;
     }

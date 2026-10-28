@@ -2,79 +2,83 @@
 
 ## Unreleased
 
+### Changed
+
+- Simplified UI text, setup instructions, and documentation.
+
 ### Security
 
-- A request with a very long list in it, like of images to delete at once, could make the server use a lot of memory while checking it, as every wrong entry was kept track of.
-- The Docker image is built on Node.js 24.22.1, a security release, and with libvips 8.18.7, which checks TIFF and JPEG 2000 images and the EXIF data in images more strictly.
+- Limited validation errors for large lists, such as bulk image deletions, to prevent excessive memory use.
+- Updated the Docker image to Node.js 24.22.1 (a security release) and libvips 8.18.7, which adds stricter TIFF, JPEG 2000, and EXIF validation.
 
 ## 0.7.1
 
 ### New
 
-- My Images can be searched by name, and narrowed down to how the images are stored, an album, or when they were uploaded. The search is kept in the address, so reloading or going back keeps it. `/api/image/list` takes the same filters.
-- Several images can be selected on My Images, to delete them or put them in an album at once.
-- The answer to an upload says where the image can be found: its page, the image itself in a format browsers show, and the link that deletes it when it has a delete key. At the public address when one is set.
-- `/api/openapi.json` describes the api as an OpenAPI document, made from the schemas the server checks requests and answers with, so it always matches the version that runs. See [Api](README.md#api).
-- New images can expire by themselves, after a time chosen under Settings → Preferences. An upload can ask for its own time with `?expires_after=` in seconds, and the ShareX config can be exported with one. Uploads of visitors who are not logged in can be kept for at most a time set on the settings page or with `PICSUR_GUEST_UPLOAD_EXPIRY`. See [How do I make images expire by themselves?](README.md#how-do-i-make-images-expire-by-themselves)
+- Search My Images by name and filter by format, album, or upload date. Filters persist in the URL and are also supported by `/api/image/list`.
+- Select multiple images in My Images to delete them or add them to an album.
+- Upload responses include links to the image page, a browser-compatible image, and a deletion page when a delete key exists. Links use the configured public address, if set.
+- Added an [OpenAPI reference](README.md#api) at `/api/openapi.json`, generated from the running server’s request and response schemas.
+- Set a default upload expiry under Settings → Preferences, in a ShareX config, or per request with `?expires_after=<seconds>`. Limit anonymous upload lifetimes with `PICSUR_GUEST_UPLOAD_EXPIRY` or Settings → Server. See [image expiry](README.md#how-do-i-make-images-expire-by-themselves).
 
 ### Faster
 
-- Browsers and proxies that already have an image get a short answer that it did not change, instead of the image again, and Picsur does not read the image for that. Images are sent with an `ETag` and a `Last-Modified` header for this.
+- Images include `ETag` and `Last-Modified` headers. Conditional requests return 304 when unchanged, avoiding image reads and downloads.
 
 ### Lighter
 
-- Images stored in S3 or in a directory are sent while they are read, instead of being read into memory completely first. Measured with Picsur started like the Docker image starts it, while 64 visitors downloaded 4.6 MB photos at about 2 MB/s each: about 245 MB instead of 430 MB with images in a directory, and 250 MB instead of 515 MB with images in S3. Visitors on the same machine, which download as fast as they can, took about 10% less memory than before, and got images from S3 16% faster and from a directory 12% slower.
-- Picsur no longer limits how many connections to the bucket it opens at once, which was 50. Images that visitors download slowly keep theirs open, and would make everything else wait.
+- Stream images from S3 and disk instead of buffering entire files. With 64 clients downloading 4.6 MB photos at about 2 MB/s each, memory use fell from 430 MB to 245 MB for disk storage and from 515 MB to 250 MB for S3. Tests used the Docker startup settings. With unrestricted local clients, memory use fell about 10%; S3 downloads were 16% faster and disk downloads 12% slower.
+- Removed the 50-connection limit for S3. Slow downloads no longer exhaust the connection pool and block other requests.
 
 ### Fixed
 
-- Images set to expire could be shown from a browser's cache for a month, also after they were deleted. They are now cached until they expire at most.
-- A HEAD request for an image in a format, like `/i/<id>.png`, was answered as if the image existed, also when it did not.
-- An address that is no page, like a mistyped one, showed an empty page with a loading bar that never stopped, instead of the page that says it was not found. A page that could not be loaded, like right after an update, left the loading bar running as well.
+- Cached images now expire by their scheduled expiry time, instead of remaining cached for up to a month.
+- HEAD requests for missing images, such as `/i/<id>.png`, now return a not-found response.
+- Unknown URLs now show the not-found page. Failed page loads, including after an update, no longer leave the loading bar running.
 
 ## 0.7.0
 
 ### New
 
-- A settings page for the server itself, under Settings → Server: where images are stored, including the S3 connection and a way to test it, the upload size, the conversion limits and the trusted proxies. Picsur restarts itself to apply them, and goes back to the settings it had before when it cannot start with the new ones. Environment variables still work, for what is not saved on the page: what is saved there comes first. The page lists the variables that are not used because of that, and can go back to them.
-- `node dist/cli.js settings list` shows where each of those settings comes from, and `node dist/cli.js settings reset <setting>` removes what is saved for it, so its environment variable or default applies again.
-- Secrets saved on that page are encrypted. By default with a generated key that is kept in the database. The new `PICSUR_ENCRYPTION_KEY` keeps the key out of the database, which protects secrets from copies of it as well. Secrets saved before it was set are encrypted with it when Picsur starts.
-- Images can be moved between the database and S3 from that page, which shows how far along it is. Picsur keeps working in the meantime.
-- The command line tool uses the settings from the page as well.
-- APNG, ICO and TGA images can be uploaded, and any image can be converted to them. Animated PNGs stay animated, also when converted to GIF or WebP and the other way around, and are kept as they were uploaded, like PNG images. Icons are read from their largest image, and written with images of at most 256 pixels. TGA images are read in all their variants, including run length encoded and color-mapped ones.
-- Logging in with an OpenID Connect provider, like Authelia, Authentik or Keycloak, set up on the settings page or with `PICSUR_OIDC_*` variables. Users link their account at the provider to their account here, or get an account the first time they log in when that is turned on. Password login can be turned off once the admin's own account is linked, and turned on again with `node dist/cli.js settings reset password_login`. See [Logging in with OpenID Connect](README.md#logging-in-with-openid-connect).
-- Images can be stored as files in a directory, besides the database and S3, with `PICSUR_STORAGE_DRIVER=filesystem` and `PICSUR_STORAGE_PATH`, or on the settings page. The Docker image has `/picsur/images` ready for a volume, and the settings page warns when the directory is not on one. Images can be moved between any of the three, and `storage gc` cleans up the directory too.
+- Added Settings → Server for storage, upload limits, conversion limits, and trusted proxies. It can test storage connections and restart Picsur to apply changes. Failed restarts restore the previous settings. Saved values override environment variables; the page lists overrides and lets you restore environment values.
+- Added `node dist/cli.js settings list` to show setting sources and `settings reset <setting>` to restore an environment value or default.
+- Saved secrets are encrypted with a generated database key. Set `PICSUR_ENCRYPTION_KEY` to keep the key separate from the database. Existing secrets are re-encrypted on startup.
+- Move images between database and S3 storage from the settings page, with progress reporting and no downtime.
+- The CLI now respects saved server settings.
+- Added APNG, ICO, and TGA uploads and conversions. PNG, GIF, and WebP conversions preserve animation. APNG uploads keep their original format. Icons use the largest embedded image and export at up to 256 pixels. TGA decoding supports all variants, including run-length encoding and color maps.
+- Added [OpenID Connect login](README.md#logging-in-with-openid-connect), configured through Settings → Server or `PICSUR_OIDC_*`. Users can link existing accounts or register automatically if enabled. Admins can disable password login after linking their own account and restore it with `node dist/cli.js settings reset password_login`.
+- Added filesystem storage through Settings → Server or `PICSUR_STORAGE_DRIVER=filesystem` and `PICSUR_STORAGE_PATH`. The Docker image includes `/picsur/images` for a volume; the settings page warns if storage is outside a volume. Migration supports all three storage types; `storage gc` also cleans up filesystem storage.
 
 ### Faster
 
-- JPEG, PNG, WebP and GIF uploads are kept as they were uploaded, only without their metadata, instead of being converted to QOI. A lossless copy of a photo is many times larger than the photo itself while holding nothing more: a 12 megapixel JPEG used to take up 9 times its size. Uploading it is about 9 times faster now, and making a smaller version of it about 5 times. Other formats are still converted to QOI. Images uploaded before stay as they are.
-- Lists of images, the gallery and albums load WebP thumbnails instead of QOI ones. The thumbnail of a photo is about 30 times smaller, 26 KB instead of 823 KB, and browsers show them without decoding them in a script first. Thumbnails of animations are animated.
-- Converting animations to GIF is 2 to 6 times faster, with files up to 13% larger. 30 frames of a video at 480x270 take 1.7 seconds instead of 4.1, and 30 frames of noise, the worst case, 4 seconds instead of 26, which was past the default time limit.
-- The processes that convert images are used for more than one conversion, instead of starting a new one every time, which took longer than converting most images. A small image that was not converted to the requested size and format before is ready in about 20 ms instead of 120 ms. A process is replaced after 50 conversions, when a conversion fails, or when it holds on to a lot of memory afterwards, and stops after 30 seconds without work.
+- JPEG, PNG, WebP, and GIF uploads now retain their format with metadata removed. Other formats still use QOI; existing images are unchanged. For a 12 MP JPEG, this avoids a 9-fold size increase, makes uploads about 9 times faster, and generates resized versions about 5 times faster.
+- Image lists, galleries, and albums use browser-native WebP thumbnails instead of QOI. A sample photo thumbnail shrank from 823 KB to 26 KB. Animated thumbnails retain animation.
+- GIF conversion is 2–6 times faster, with files up to 13% larger. A 30-frame, 480×270 video took 1.7 seconds instead of 4.1; a worst-case noise animation took 4 seconds instead of 26, within the default time limit.
+- Reuse image conversion workers. A small uncached conversion now takes about 20 ms instead of 120 ms. Workers are replaced after 50 conversions, a failure, or excessive retained memory, and stop after 30 seconds idle.
 
 ### Lighter
 
-- Picsur gives back the memory it took while it was busy once it is idle again, instead of keeping it until it restarts, and takes less of it while busy. Measured with the Docker image: 120 MB when idle instead of 160 MB, about 250 MB instead of 390 MB while handling a lot of requests, and back to about 140 MB within half a minute after. Outside the Docker image, this needs Node to be started with `--expose-gc`, see the `start:prod` script.
+- Reduced memory use under load. Picsur now returns unused memory when idle. Docker measurements: 120 MB idle (previously 160 MB), about 250 MB under load (390 MB), and about 140 MB within 30 seconds after load. Outside Docker, use Node’s `--expose-gc` flag, as in `start:prod`.
 
 ### Changed
 
-- The System Settings page is part of Settings → Server, which has every setting of the server now, and what was set on it is moved over when Picsur first starts. Each of these can be set with an environment variable as well: `PICSUR_CONVERSION_TIME_LIMIT`, `PICSUR_CONVERSION_MEMORY_LIMIT`, `PICSUR_ALLOW_EDITING`, `PICSUR_REMOVE_DERIVATIVES_AFTER`, `PICSUR_HOST_OVERRIDE`, `PICSUR_BCRYPT_STRENGTH`, `PICSUR_TRACKING_URL` and `PICSUR_TRACKING_ID`. They take effect as soon as they are saved, as before, and so does how long logins last, which used to need a restart.
-- What is saved on the settings page comes before `PICSUR_JWT_EXPIRY` as well, which used to come first. `PICSUR_VERBOSE` can be set on the page too.
-- The settings page shows what can only be set with environment variables, like the database connection.
-- Settings that are true or false take `yes`, `no`, `1` and `0` in the environment as well, like `PICSUR_VERBOSE` always did.
-- Visits are only counted with Ackee when both its address and the website id are set. The setting to turn counting on did nothing, and is gone.
+- Moved System Settings into Settings → Server and migrated saved values. Added environment variables for `PICSUR_CONVERSION_TIME_LIMIT`, `PICSUR_CONVERSION_MEMORY_LIMIT`, `PICSUR_ALLOW_EDITING`, `PICSUR_REMOVE_DERIVATIVES_AFTER`, `PICSUR_HOST_OVERRIDE`, `PICSUR_BCRYPT_STRENGTH`, `PICSUR_TRACKING_URL`, and `PICSUR_TRACKING_ID`. These settings and login expiry now apply without a restart.
+- Saved settings now override `PICSUR_JWT_EXPIRY`. `PICSUR_VERBOSE` can also be changed on the settings page.
+- The settings page displays environment-only options, such as the database connection.
+- All boolean environment settings now accept `yes`, `no`, `1`, and `0` as well as `true` and `false`.
+- Ackee tracking now requires both its URL and website ID. Removed the unused enable switch.
 
 ### Fixed
 
 - Images set to expire after 6 hours expired after 2.
-- Role names that were not accepted were refused with the messages for usernames, like "Username is too short".
-- The upload page asked users who were logged in, but not allowed to upload, to log in.
-- Images had no alt text for screen readers. They now have their title as alt text, and album covers say which album they are the cover of.
-- In the customize dialog, a width, height or quality the server does not accept left every option out of the address, instead of only that one.
-- Link previews of the pages of an instance said they were picsur.org, with the logo from there.
-- Photos were shown sideways when their EXIF orientation said to turn them, like phones do for photos taken upright. Animations are turned as well, each frame by itself. Images uploaded before stay as they are.
-- Conversion memory limits above about 1.5 GB were not applied as set: depending on the value, conversions had no memory limit at all, a much lower one, or could not run at all.
-- Animations could not be turned a quarter with `rotate=90` or `rotate=270` in the url, and turning them upside down with `rotate=180` or mirroring them with `flipy` played them backwards.
+- Invalid role names now get role-specific errors instead of username errors.
+- The upload page now explains missing upload permission instead of asking logged-in users to log in again.
+- Added image titles as alt text and album names to cover descriptions for screen readers.
+- Invalid width, height, or quality values in the customize dialog no longer remove all options from the image URL.
+- Link previews now use the instance’s address and logo instead of picsur.org.
+- Apply EXIF orientation to photos and every animation frame. Previously uploaded images are unchanged.
+- Fixed conversion memory limits above about 1.5 GB, which could be ignored, reduced, or prevent conversions entirely.
+- Fixed animation rotation at `90` and `270` degrees. `rotate=180` and `flipy` no longer reverse playback.
 
 ## 0.6.0
 
@@ -82,64 +86,64 @@ The first release of this fork, after Picsur 0.5.7. See [Upgrading from Picsur 0
 
 ### Security
 
-- Users allowed to manage users, roles or api keys could make themselves administrator: by changing the admin's password, giving themselves the admin role, adding permissions to their own role, or reading the admin's api keys. Users and roles can now only be managed by someone who has every permission they have, and api keys are only ever shown to their owner.
-- Rate limiting did not work at all, which left password guessing unthrottled.
-- Anyone who could view an image could make the server convert it to any size and format without limit, exhausting memory and disk. Conversions are now limited per visitor and overall, and in size.
+- Closed privilege escalation through user, role, and API key management. Users can only manage accounts and roles whose permissions they hold; API keys are only shown to their owners.
+- Fixed rate limiting, including protection against password guessing.
+- Limited image conversion frequency, concurrency, and dimensions to prevent memory and disk exhaustion.
 - New instances got the admin password `picsur` when `PICSUR_ADMIN_PASSWORD` was not set. A random one is generated instead, and a warning is logged when the admin still uses `picsur`.
 - Changing a password now logs that user out everywhere.
 - Deletion links deleted the image as soon as they were opened, including by the link previews of chat apps. They now ask for confirmation.
-- Api keys were stored as they are, so anyone who could read the database or a backup of it could use them. Only a hash of them is stored now, and they are only shown once, when they are created. Existing keys keep working.
-- `/api/user/me` handed out login tokens to api keys, which kept working after the key was deleted.
-- The JWT secret could be read and changed through the settings api. It is now only set with `PICSUR_JWT_SECRET`, or generated on first start. Tokens are only accepted when signed with HS256.
-- Url settings were checked with a regular expression that accepted almost anything and could be made to run for minutes.
+- API keys are now hashed and shown only at creation. Existing keys still work.
+- `/api/user/me` handed out login tokens to API keys, which kept working after the key was deleted.
+- The JWT secret could be read and changed through the settings API. It is now only set with `PICSUR_JWT_SECRET`, or generated on first start. Tokens are only accepted when signed with HS256.
+- Replaced permissive URL validation that could take minutes to process malicious input.
 - Logging in did not check the `user-login` permission of the user logging in, and the response time revealed which usernames exist.
 - The statistics proxy served whatever the tracking server answered as if it came from Picsur, and passed on the visitor's credentials.
 - Image metadata showed the uploader's roles to anyone who could view the image.
 - Image workers could reach any libvips loader installed, like those for PDF or SVG, and inherited the server's environment and its secrets.
-- The secret, the database password and attempted api keys were written to the logs.
-- The content security policy allowed inline scripts. It no longer does, so markup that makes it into a page can not run scripts.
-- No dependency has a known vulnerability anymore. The server's had 94, 4 of them critical. The frontend used Angular 18, which no longer gets security fixes, with 17 advisories against it that were never fixed for 18, it now uses Angular 22.
+- The secret, the database password and attempted API keys were written to the logs.
+- The content security policy allowed inline scripts. It no longer does, so markup that makes it into a page cannot run scripts.
+- Resolved the dependency advisories known at release: 94 in the backend, including 4 critical. Upgraded Angular 18 to 22, addressing 17 advisories left unfixed in Angular 18.
 
 ### New
 
 - Images can be stored in S3 compatible object storage instead of the database, with `PICSUR_STORAGE_DRIVER=s3` and the `PICSUR_S3_*` settings. Existing images can be moved in either direction with `node dist/cli.js storage migrate`.
 - A Docker image for amd64 and arm64 at `ghcr.io/jeykang/npicsur`, with HEIC, JPEG XL and JPEG 2000 support. It runs as an unprivileged user.
-- Users can change their own password, under settings, account. This logs them out everywhere else.
-- A light theme. The button next to the account menu switches between dark (still the default), light and following the system, for each browser.
-- A public gallery, of the images their owners chose to show there with "Show in the public gallery" when editing them. It needs the new "View Gallery" permission, which the guest and user roles get.
-- Albums, under "My Albums" in the account menu. Images are added with the album button on their page or on "My Images". Like images, anyone with the link can see an album. Deleting an album keeps its images, and albums are deleted along with their user.
+- Users can change their own password under Settings → Account. This logs them out everywhere else.
+- Added a light theme. The account-menu button switches between dark (default), light, and the system preference. The choice is saved per browser.
+- Added an opt-in public gallery. Enable “Show in the public gallery” when editing an image. Guest and user roles receive the new “View the gallery” permission.
+- Added My Albums to the account menu. Add images from their page or My Images. Anyone with the album link can view it. Deleting an album keeps its images; deleting a user removes their albums.
 - `PICSUR_TRUST_PROXY`, `PICSUR_MAX_CONCURRENT_CONVERSIONS` and `PICSUR_CONVERSION_RATE_LIMIT`.
 - An end-to-end test suite, run in CI with both storage drivers and against the Docker image.
 
 ### Changed
 
-- Telemetry is removed. Every instance reported its hostname, user and image counts, CPU and RAM to the original author's server every hour, and `PICSUR_TELEMETRY=false` did not turn it off.
-- Requires Node.js 22.12 or newer, 24 is recommended. The backend runs on NestJS 11 and Fastify 5, the frontend on Angular 22.
+- Removed hourly telemetry reporting of hostname, user and image counts, CPU, and RAM to the original author. `PICSUR_TELEMETRY=false` had not disabled it.
+- Requires Node.js 22.12 or newer; Node 24 is recommended. Uses NestJS 11, Fastify 5, and Angular 22.
 - Rate limits are 300 requests a minute per address, with lower limits for logging in, registering, uploading and making changes.
 - Deleting a user deletes their images as well. `node dist/cli.js images delete-orphaned` deletes the images of users deleted before.
 - Unknown `/api` routes answer with a JSON 404 instead of the frontend.
 - Image metadata is no longer cached for a month, and the placeholder for missing images is not cached at all.
 - The "Source Code" link in the footer points to this fork.
-- The ShareX config builder creates a new api key for every config, named ShareX.
+- The ShareX config builder creates a new API key for every config, named ShareX.
 - The package metadata names the AGPL-3.0, the license in `LICENSE`, instead of the GPL-3.0.
 
 ### Fixed
 
 - Deleting with a deletion link failed for anyone without upload permission.
 - Editing custom roles failed.
-- Cached conversions were rewritten on every view, and the ones not viewed for a day were cleaned up while still in use.
+- Stopped rewriting cached conversions on every view and deleting active conversions during cleanup.
 - With editing disabled, an unedited image was cached as the edited one.
-- Uploading something that is not an image, or too large, gave a server error instead of a clear one.
+- Invalid or oversized uploads now return a clear error instead of a generic server error.
 - A failing conversion could crash the server.
-- Renaming an api key to fewer than 3 characters broke the list of keys.
-- Settings only accept sensible values, so a typo can no longer lock everyone out or make every login hang.
+- Renaming an API key to fewer than 3 characters broke the list of keys.
+- Validate settings to prevent invalid values from locking users out or stalling logins.
 - The cleanup of cached conversions can be turned off by setting it to 0, as its help text said.
 - Generated secrets and keys never contained the last letter of the alphabet.
 - `PICSUR_JWT_SECRET` and `PICSUR_JWT_EXPIRY` needed two restarts to take effect.
 - The version was shown as 0.0.0 when not started through npm.
 - The pages of images whose uploader was deleted failed to load.
-- Deleting an image while a converted version of it was being made gave an error, and could leave a file behind in the bucket.
+- Deleting an image during conversion no longer causes an error or leaves a file in the bucket.
 - Converting greyscale images with transparency to QOI or BMP failed, and the BMP decoder rejected some valid files.
-- While the server could not be reached, pages stayed empty with the loading bar running forever, and the upload page asked to log in. They now say that the server can not be reached, and continue by themselves once it is back.
-- Being logged in did not survive the server being unreachable while a page loaded.
-- Error messages of the server, like that a rate limit was reached, were shown as "A network error occurred".
+- Pages now report connection failures and recover when the server returns. Previously, they could stay blank with a loading bar, or incorrectly ask users to log in.
+- Preserve login state when the server is unavailable during page load.
+- Show server error messages, such as rate limits, instead of “A network error occurred”.

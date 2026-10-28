@@ -11,7 +11,7 @@ export const UsrPreferenceHelpText: {
   [key in UsrPreference]: string;
 } = {
   [UsrPreference.KeepOriginal]:
-    'Keeps your uploads exactly as uploaded, including metadata like where a photo was taken.',
+    'Preserve original files, including metadata such as photo locations.',
   [UsrPreference.DefaultExpiry]:
-    'For what you upload from now on. It can be changed for each image.',
+    'Applies to future uploads. You can change each image’s expiry later.',
 };

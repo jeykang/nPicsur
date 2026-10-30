@@ -302,7 +302,7 @@ export class SettingsServerComponent implements OnInit, OnDestroy {
     } catch {
       // The address of the page it is
     }
-    return origin + '/user/oidc';
+    return origin + this.infoService.basePath + '/user/oidc';
   }
 
   public get hasChanges(): boolean {

@@ -44,6 +44,9 @@ describe.skipIf(loginFromEnv)('logging in with OpenID Connect', () => {
       .find((header) => header.startsWith('picsur_oidc='));
     expect(cookie).toMatch(/HttpOnly/);
     expect(cookie).toMatch(/SameSite=Lax/);
+    // Browsers only send it to the callback, under the base path if any
+    const basePath = new URL(inject('baseUrl')).pathname.replace(/\/+$/, '');
+    expect(cookie).toContain(`; Path=${basePath}/api/user/oidc;`);
     return { url, cookie: cookie!.split(';')[0] };
   }
 

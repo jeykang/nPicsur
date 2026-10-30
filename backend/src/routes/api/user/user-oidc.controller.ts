@@ -13,6 +13,7 @@ import {
   ThrowIfFailed,
 } from 'picsur-shared/dist/types/failable';
 import { UserDbService } from '../../../collections/user-db/user-db.service.js';
+import { BasePath } from '../../../config/base-path.js';
 import { InfoConfigService } from '../../../config/late/info.config.service.js';
 import { EasyThrottle } from '../../../decorators/easy-throttle.decorator.js';
 import {
@@ -50,7 +51,7 @@ function setLoginCookie(req: FastifyRequest, reply: FastifyReply, id: string) {
   const maxAge = id === '' ? 0 : OidcLoginLifetime / 1000;
   reply.header(
     'set-cookie',
-    `${LoginCookie}=${id}; Path=${LoginCookiePath}; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${secure}`,
+    `${LoginCookie}=${id}; Path=${BasePath()}${LoginCookiePath}; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${secure}`,
   );
 }
 
@@ -164,10 +165,11 @@ export class UserOidcController {
   // Where the provider sends the browser back to, which has to be registered
   // with the provider. The public url when one is set in the settings,
   // otherwise the address the browser uses, as long as it is this server.
+  // The page is under the base path either way.
   private redirectUri(req: FastifyRequest): string {
     const hostOverride = this.infoConfig.getHostnameOverride();
     if (hostOverride !== undefined) {
-      return new URL(hostOverride).origin + CallbackPage;
+      return new URL(hostOverride).origin + BasePath() + CallbackPage;
     }
 
     let base = `${req.protocol}://${req.host}`;
@@ -180,6 +182,6 @@ export class UserOidcController {
         // Not an url, the address of the request it is
       }
     }
-    return base + CallbackPage;
+    return base + BasePath() + CallbackPage;
   }
 }

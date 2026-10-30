@@ -135,6 +135,22 @@ describe('info', () => {
     },
   );
 
+  // The links of the frontend are relative to the base of the page
+  it('sets the base of the page to where Picsur is served', async () => {
+    const basePath = new URL(inject('baseUrl')).pathname.replace(/\/+$/, '');
+    for (const path of ['', '/', '/index.html', '/view/some-id']) {
+      const res = await guest.get(path);
+      expect(res.status, path).toBe(200);
+      expect(res.body.toString(), path).toContain(`<base href="${basePath}/"`);
+    }
+  });
+
+  // Proxies either pass the base path on, or take it off themselves
+  it('can be reached without the base path', async () => {
+    const res = await fetch(new URL(inject('baseUrl')).origin + '/api/info');
+    expect(res.status).toBe(200);
+  });
+
   it('serves the frontend for its own routes', async () => {
     for (const path of ['/upload', '/view/some-id', '/settings/users']) {
       const res = await guest.get(path);

@@ -13,6 +13,7 @@ import { ApiErrorResponseSchema } from 'picsur-shared/dist/dto/api/api.dto';
 import { UserLoginRequestSchema } from 'picsur-shared/dist/dto/api/user.dto';
 import type { ZodDtoStatic } from 'picsur-shared/dist/util/create-zod-dto';
 import * as z from 'zod';
+import { BasePath } from '../../../config/base-path.js';
 import { HostConfigService } from '../../../config/early/host.config.service.js';
 import { ImageFullIdPipe } from '../../../decorators/image-id/image-full-id.pipe.js';
 import { ImageIdPipe } from '../../../decorators/image-id/image-id.pipe.js';
@@ -120,6 +121,8 @@ export class OpenApiService {
         description:
           'Anonymous requests use the guest role’s permissions. JSON responses include success, statusCode, timestamp, timeMs, and data.',
       },
+      // The paths are under the base path, the default is the root
+      ...(BasePath() !== '' ? { servers: [{ url: BasePath() }] } : {}),
       paths: Sorted(paths),
       components: {
         securitySchemes: {

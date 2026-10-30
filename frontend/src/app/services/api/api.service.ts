@@ -238,6 +238,13 @@ export class ApiService {
     });
   }
 
+  // Paths like /api/info are within Picsur, which can be served under a path
+  // of its own. The page's base is where it is served.
+  private resolve(url: string): string {
+    if (!url.startsWith('/') || url.startsWith('//')) return url;
+    return new URL('.' + url, this.windowRef.document.baseURI).href;
+  }
+
   private fetch(
     url: string,
     options: AxiosRequestConfig,
@@ -258,7 +265,7 @@ export class ApiService {
     const resultPromise: AsyncFailable<AxiosResponse> = (async () => {
       try {
         const result = await axios.request({
-          url,
+          url: this.resolve(url),
           onDownloadProgress: (e) => {
             downloadProgress.next((e.loaded / (e.total ?? 1000000)) * 100);
           },

@@ -56,7 +56,7 @@ describe('image upload and retrieval', () => {
       delete: `${base}/api/image/delete/${image.id}/${image.delete_key}`,
     });
     const served = await Client.guest().get(
-      new URL(image.links.image).pathname,
+      image.links.image.slice(base.length),
     );
     expect(served.headers.get('content-type')).toBe('image/png');
 
@@ -1425,7 +1425,11 @@ describe('image management', () => {
       manualRedirect: true,
     });
     expect(link.status).toBe(302);
-    expect(link.headers.get('location')).toBe(`/delete/${id}/${delete_key}`);
+    // The page is under the base path, when Picsur is served under one
+    const basePath = new URL(inject('baseUrl')).pathname.replace(/\/+$/, '');
+    expect(link.headers.get('location')).toBe(
+      `${basePath}/delete/${id}/${delete_key}`,
+    );
 
     // Like a chat app fetching a preview of the link
     const preview = await guest.get(`/api/image/delete/${id}/${delete_key}`);

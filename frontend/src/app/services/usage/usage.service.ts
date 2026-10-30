@@ -56,11 +56,14 @@ export class UsageService {
 
     if (!this.instance) {
       const ackee = await import('ackee-tracker');
-      this.instance = ackee.create('/api/usage/report', {
-        ignoreLocalhost: false,
-        ignoreOwnVisits: false,
-        detailed,
-      });
+      this.instance = ackee.create(
+        this.hostInfo.basePath + '/api/usage/report',
+        {
+          ignoreLocalhost: false,
+          ignoreOwnVisits: false,
+          detailed,
+        },
+      );
     }
 
     if (this.tracker) {

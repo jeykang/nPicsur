@@ -8,6 +8,10 @@ services:
       # PICSUR_HOST: '0.0.0.0'
       # PICSUR_PORT: 8080
 
+      ## Path Picsur is served under behind a reverse proxy, such as
+      ## https://example.com/picsur/. Defaults to the root.
+      # PICSUR_BASE_PATH: /picsur
+
       PICSUR_DB_HOST: picsur_postgres
       # PICSUR_DB_PORT: 5432
       # PICSUR_DB_USERNAME: picsur
@@ -44,8 +48,8 @@ services:
       ## loopback, linklocal, uniquelocal.
       # PICSUR_TRUST_PROXY: "172.16.0.0/12"
 
-      ## Public URL for image links and provider login.
-      ## Defaults to the address in the browser.
+      ## Public URL for image links and provider login, including the base
+      ## path if there is one. Defaults to the address in the browser.
       # PICSUR_HOST_OVERRIDE: https://images.example.com
 
       ## Concurrent conversion limit (default: CPU count) and conversions

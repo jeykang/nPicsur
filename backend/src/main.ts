@@ -1,6 +1,7 @@
 import fastifyHelmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import fastifyReplyFrom from '@fastify/reply-from';
+import type { IncomingMessage } from 'http';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import {
@@ -10,6 +11,7 @@ import {
 import { ServerSetting } from 'picsur-shared/dist/dto/server-settings.dto';
 import { ParseBool } from 'picsur-shared/dist/util/parse-simple';
 import { AppModule } from './app.module.js';
+import { BasePath, StripBasePath } from './config/base-path.js';
 import { EnvPrefix } from './config/config.static.js';
 import { HostConfigService } from './config/early/host.config.service.js';
 import { ServeStaticConfigService } from './config/early/serve-static.config.service.js';
@@ -59,6 +61,7 @@ async function bootstrap(
   // Create fasify
   const fastifyAdapter = new FastifyAdapter({
     trustProxy: getTrustProxy(),
+    rewriteUrl: (req: IncomingMessage) => StripBasePath(req.url ?? '/'),
   });
   await fastifyAdapter.register(multipart as any);
   await fastifyAdapter.register(fastifyHelmet as any, HelmetOptions);
@@ -105,6 +108,7 @@ async function bootstrap(
     await registerFrontend(
       fastify,
       app.get(ServeStaticConfigService).getStaticDirectory(),
+      BasePath(),
     );
 
     // Start app

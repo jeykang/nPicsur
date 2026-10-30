@@ -34,6 +34,7 @@ import {
 import { TestS3Storage } from '../../collections/object-storage/object-storage.service.js';
 import { ServerSettingsDbService } from '../../collections/server-settings-db/server-settings-db.service.js';
 import { SystemStateDbService } from '../../collections/system-state-db/system-state-db.service.js';
+import { BasePath } from '../../config/base-path.js';
 import { EnvPrefix } from '../../config/config.static.js';
 import { GetDbConnectionOptions } from '../../config/db-connection.js';
 import { HostConfigService } from '../../config/early/host.config.service.js';
@@ -509,6 +510,7 @@ export class ServerSettingsService implements OnApplicationBootstrap {
     return [
       option('HOST', this.hostConfig.getHost()),
       option('PORT', this.hostConfig.getPort()),
+      option('BASE_PATH', BasePath() || '/'),
       option('DB_HOST', db.host),
       option('DB_PORT', db.port),
       option('DB_DATABASE', db.database),

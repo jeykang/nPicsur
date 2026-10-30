@@ -1,7 +1,8 @@
 import fastifyStatic from '@fastify/static';
 import { Logger } from '@nestjs/common';
 import type { FastifyInstance } from 'fastify';
-import { createReadStream, existsSync, statSync } from 'fs';
+import { existsSync, statSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { join, resolve, sep } from 'path';
 import { ApiErrorResponse } from 'picsur-shared/dist/dto/api/api.dto';
 import { Fail, FT } from 'picsur-shared/dist/types/failable';
@@ -11,10 +12,20 @@ const BackendPrefixes = ['/api/', '/i/'];
 
 const logger = new Logger('Frontend');
 
+// The frontend's links are relative to the base of the page, which is set to
+// where Picsur is served
+export function WithBasePath(page: string, basePath: string): string {
+  return page.replace(/<base href="[^"]*"/, `<base href="${basePath}/"`);
+}
+
 // Serves the compiled frontend, and its index.html for every other GET
 // request so the Angular router can handle it. Unknown api routes get a
 // proper 404 instead of the frontend.
-export async function registerFrontend(fastify: FastifyInstance, root: string) {
+export async function registerFrontend(
+  fastify: FastifyInstance,
+  root: string,
+  basePath: string,
+) {
   const indexFile = join(root, 'index.html');
   if (!existsSync(indexFile)) {
     logger.warn(`No frontend found in ${root}, only serving the api`);
@@ -25,10 +36,12 @@ export async function registerFrontend(fastify: FastifyInstance, root: string) {
     // Files that exist at startup get a route of their own, anything else
     // goes to the fallback below
     wildcard: false,
+    // Which is also where the page itself is sent from, with the base path
+    globIgnore: ['index.html'],
   });
   const rootDir = resolve(root) + sep;
 
-  fastify.get('/*', (request, reply) => {
+  fastify.get('/*', async (request, reply) => {
     const path = request.url.split('?')[0];
     if (path === '/api' || BackendPrefixes.some((p) => path.startsWith(p))) {
       const failure = Fail(FT.RouteNotFound);
@@ -51,6 +64,7 @@ export async function registerFrontend(fastify: FastifyInstance, root: string) {
     const file = resolve(root, relative);
     if (
       relative !== '' &&
+      file !== resolve(indexFile) &&
       file.startsWith(rootDir) &&
       existsSync(file) &&
       statSync(file).isFile()
@@ -62,9 +76,10 @@ export async function registerFrontend(fastify: FastifyInstance, root: string) {
       return reply.status(404).send();
     }
 
+    const page = await readFile(indexFile, 'utf8');
     return reply
       .type('text/html')
       .header('Cache-Control', 'no-cache')
-      .send(createReadStream(indexFile));
+      .send(WithBasePath(page, basePath));
   });
 }

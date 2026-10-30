@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### New
+
+- Serve Picsur under a path, such as `https://example.com/picsur/`, by setting `PICSUR_BASE_PATH`. The reverse proxy can pass the path on or remove it. See [Serving Picsur under a path](README.md#serving-picsur-under-a-path).
+
+### Fixed
+
+- Public addresses ending in `/` no longer produce broken image and album links in the frontend.
+
 ## 0.7.2
 
 ### Lighter

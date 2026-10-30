@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { Inject, Injectable } from '@angular/core';
 import { WA_LOCATION } from '@ng-web-apis/common';
 import { InfoResponse } from 'picsur-shared/dist/dto/api/info.dto';
@@ -25,6 +26,7 @@ export class InfoService {
   private infoSubject: BehaviorSubject<ServerInfo>;
   constructor(
     @Inject(WA_LOCATION) private readonly location: Location,
+    @Inject(DOCUMENT) private readonly document: Document,
     private readonly api: ApiService,
     private readonly infoStorage: InfoStorageService,
   ) {
@@ -48,16 +50,24 @@ export class InfoService {
     });
   }
 
+  // Where Picsur is, like https://example.com or https://example.com/picsur
   public getHostname(allowOverride = false): string {
     if (allowOverride) {
       const info = this.snapshot;
 
       if (info.host_override !== undefined) {
-        return info.host_override;
+        return info.host_override.replace(/\/+$/, '');
       }
     }
 
-    return this.location.protocol + '//' + this.location.host;
+    return this.location.protocol + '//' + this.location.host + this.basePath;
+  }
+
+  // The path Picsur is served under, like /picsur, or '' at the root. The
+  // server sets the base of the page to it.
+  public get basePath(): string {
+    const base = new URL(this.document.baseURI).pathname;
+    return base.replace(/\/+$/, '');
   }
 
   public isLoaded(): boolean {

@@ -51,6 +51,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
 import type { TestProject } from 'vitest/node';
+import { ParseBasePath } from '../../src/config/base-path.js';
 import { backendRoot, spawnBackend } from './helpers/backend.js';
 
 export const ADMIN_PASSWORD = 'e2e-admin-password';
@@ -181,7 +182,7 @@ export default async function setup(project: TestProject) {
   // without building the frontend first.
   writeFileSync(
     join(frontendRoot, 'index.html'),
-    '<!doctype html><html><body><app-root>picsur-e2e</app-root></body></html>',
+    '<!doctype html><html><head><base href="/" /></head><body><app-root>picsur-e2e</app-root></body></html>',
   );
 
   const outputDir = join(backendRoot, 'test/e2e/.output');
@@ -193,12 +194,14 @@ export default async function setup(project: TestProject) {
   );
 
   const port = await getFreePort();
-  const baseUrl = `http://127.0.0.1:${port}`;
   const db = dbConfig();
 
   const extraEnv: Record<string, string> = JSON.parse(
     process.env['E2E_SERVER_ENV'] ?? '{}',
   );
+  // Served under a path of its own, the tests use that path too
+  const basePath = ParseBasePath(extraEnv['PICSUR_BASE_PATH']);
+  const baseUrl = `http://127.0.0.1:${port}${basePath}`;
   const usesObjectStorage = Object.keys(extraEnv).some((key) =>
     key.startsWith('PICSUR_S3_'),
   );

@@ -38,6 +38,7 @@ import {
   ThrowIfFailed,
 } from 'picsur-shared/dist/types/failable';
 import { ParseFileType } from 'picsur-shared/dist/util/parse-mime';
+import { BasePath } from '../../config/base-path.js';
 import { InfoConfigService } from '../../config/late/info.config.service.js';
 import { EImageBackend } from '../../database/entities/images/image.entity.js';
 import { EasyThrottle } from '../../decorators/easy-throttle.decorator.js';
@@ -121,7 +122,8 @@ export class ImageManageController {
     masterType: string,
   ): ImageUploadResponse['links'] {
     const base = (
-      this.infoConfig.getHostnameOverride() ?? `${req.protocol}://${req.host}`
+      this.infoConfig.getHostnameOverride() ??
+      `${req.protocol}://${req.host}${BasePath()}`
     ).replace(/\/+$/, '');
 
     // Otherwise it is converted to what browsers show of its kind
@@ -229,7 +231,7 @@ export class ImageManageController {
     @Res({ passthrough: true }) res: FastifyReply,
   ): Promise<string> {
     // Both are validated, an uuid and 32 letters or digits
-    res.header('Location', `/delete/${params.id}/${params.key}`);
+    res.header('Location', `${BasePath()}/delete/${params.id}/${params.key}`);
     return 'Confirm deleting the image';
   }
 }

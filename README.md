@@ -96,6 +96,7 @@ Set these options through environment variables. They configure startup or let y
 | `PICSUR_JWT_SECRET`           | generated, stored in the db         | Signs login tokens. Anyone with this secret can impersonate any user                                                                              |
 | `PICSUR_ENCRYPTION_KEY`       | generated, stored in the db         | Encrypts saved secrets. Set it to keep the encryption key out of the database; see below                                                          |
 | `PICSUR_HOST` / `PICSUR_PORT` | `0.0.0.0` / `8080`                  | Where the server listens                                                                                                                          |
+| `PICSUR_BASE_PATH`            | the root                            | Path Picsur is served under behind a reverse proxy, such as `/picsur`. See [Serving Picsur under a path](#serving-picsur-under-a-path)            |
 | `PICSUR_STATIC_FRONTEND_ROOT` | the built in frontend               | Only needed for a custom frontend                                                                                                                 |
 | `PICSUR_PRODUCTION`           | `false`, `true` in the Docker image | Set to `true` outside development. Development mode syncs tables to the code and enables verbose logging                                          |
 | `PICSUR_DEMO`                 | `false`                             | Demo mode: guests can upload, and all images are deleted every `PICSUR_DEMO_INTERVAL` milliseconds. The guest role keeps the permission to upload |
@@ -117,7 +118,7 @@ Configure the remaining options under Settings → Server or through environment
 | `PICSUR_ALLOW_EDITING`              | `true`                              | Allow resizing, rotation, and other URL edits. Format conversion is always available                                                                                                                       |
 | `PICSUR_REMOVE_DERIVATIVES_AFTER`   | `7d`                                | Remove converted versions after this idle period; recreate them on demand. `0` disables cleanup                                                                                                            |
 | `PICSUR_TRUST_PROXY`                | loopback and private IPv4 addresses | Proxies trusted to supply `X-Forwarded-For` for rate limiting. Accepts `true`, `false`, or a comma-separated list of addresses, ranges, and names: `loopback`, `linklocal`, `uniquelocal` (including IPv6) |
-| `PICSUR_HOST_OVERRIDE`              | the browser's                       | Public URL, such as `https://images.example.com`, used for image links and provider login                                                                                                                  |
+| `PICSUR_HOST_OVERRIDE`              | the browser's                       | Public URL, such as `https://images.example.com`, used for image links and provider login. Include the base path, if any                                                                                   |
 | `PICSUR_OIDC_*`                     |                                     | See [Logging in with OpenID Connect](#logging-in-with-openid-connect)                                                                                                                                      |
 | `PICSUR_PASSWORD_LOGIN`             | `true`                              | Whether users can log in with a password, see [Logging in with OpenID Connect](#logging-in-with-openid-connect)                                                                                            |
 | `PICSUR_JWT_EXPIRY`                 | `7d`                                | Login expiry after inactivity                                                                                                                                                                              |
@@ -146,6 +147,38 @@ Secrets saved on the settings page are encrypted. By default, the encryption key
 To keep the key separate, set `PICSUR_ENCRYPTION_KEY` to a random value, such as the output of `openssl rand -base64 32`. On the next start, Picsur re-encrypts existing secrets with this key and removes the old database key. Back up your key separately: without it, you must enter the secrets again.
 
 Encrypted values use the format `enc:v1:env:...` or `enc:v1:db:...`. See [`settings-encryption.ts`](backend/src/config/settings-encryption.ts) for the format and manual decryption details.
+
+## Serving Picsur under a path
+
+Picsur can share an address with other sites, such as `https://example.com/picsur/`. Set `PICSUR_BASE_PATH` to the path:
+
+```yaml
+services:
+  picsur:
+    # ...
+    environment:
+      PICSUR_BASE_PATH: /picsur
+```
+
+The path can contain multiple segments, such as `/apps/picsur`. Its first segment must not be `api`, `i`, `assets`, or `media`, which Picsur uses for its own routes and files.
+
+The reverse proxy can pass the path on or remove it. With Nginx:
+
+```nginx
+location /picsur/ {
+    client_max_body_size 128m;
+    proxy_pass http://127.0.0.1:8080/;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+Nginx redirects `/picsur` to `/picsur/` automatically, preserving the query string. `$http_host` keeps the port in generated links when the public address uses a non-standard port.
+
+If you set a public address, include the path, as in `https://example.com/picsur`. For OpenID Connect, register `https://example.com/picsur/user/oidc` with the provider; Settings → Server shows the exact URI.
+
+Sites on the same address can read each other's browser storage, including Picsur's login. Share an address only with sites you trust.
 
 ## Storing images on disk
 

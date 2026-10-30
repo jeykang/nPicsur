@@ -8,6 +8,7 @@ import {
 } from 'picsur-shared/dist/util/parse-simple';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { BasePath } from '../base-path.js';
 import { EnvPrefix, PackageRoot } from '../config.static.js';
 import { GetServerSettingBool } from '../server-settings.js';
 
@@ -21,6 +22,7 @@ export class HostConfigService {
     this.logger.log(
       'Location: http://' + this.getHost() + ':' + this.getPort(),
     );
+    if (BasePath() !== '') this.logger.log('Base path: ' + BasePath());
 
     if (this.isDemo()) {
       this.logger.log('Running in demo mode');

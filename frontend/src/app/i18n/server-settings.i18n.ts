@@ -59,7 +59,8 @@ export const ServerSettingUI: {
   },
   [ServerSetting.HostOverride]: {
     name: 'Public address',
-    helpText: "Leave empty to use the browser's address",
+    helpText:
+      "Include the base path, if any. Leave empty to use the browser's address",
   },
 
   [ServerSetting.OidcIssuer]: {
@@ -103,6 +104,7 @@ export const ServerSettingUI: {
 export const EnvironmentOptionUI: Record<string, string> = {
   PICSUR_HOST: 'Listen address',
   PICSUR_PORT: 'Port',
+  PICSUR_BASE_PATH: 'Served under',
   PICSUR_DB_HOST: 'Database server',
   PICSUR_DB_PORT: 'Database port',
   PICSUR_DB_DATABASE: 'Database',

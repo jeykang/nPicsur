@@ -34,7 +34,8 @@ export class DeleteComponent implements OnInit {
   }
 
   get previewUrl() {
-    return `/i/${encodeURIComponent(this.id)}.jpg?width=512&shrinkonly=yes`;
+    // Relative to the base of the page, where Picsur is served
+    return `i/${encodeURIComponent(this.id)}.jpg?width=512&shrinkonly=yes`;
   }
 
   async delete() {

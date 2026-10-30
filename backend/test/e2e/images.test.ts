@@ -56,7 +56,7 @@ describe('image upload and retrieval', () => {
       delete: `${base}/api/image/delete/${image.id}/${image.delete_key}`,
     });
     const served = await Client.guest().get(
-      new URL(image.links.image).pathname,
+      image.links.image.slice(base.length),
     );
     expect(served.headers.get('content-type')).toBe('image/png');
 
@@ -71,14 +71,22 @@ describe('image upload and retrieval', () => {
     expect(animation.links.image).toBe(`${base}/i/${animation.id}.webp`);
 
     // At the public address when it is set
-    expectSuccess(
-      await update(admin, { host_override: 'https://img.example.com/' }),
-    );
     try {
-      const linked = expectSuccess(await user.client.upload(png));
-      expect(linked.links.view).toBe(
-        `https://img.example.com/view/${linked.id}`,
-      );
+      for (const publicBase of [
+        'https://img.example.com',
+        'https://img.example.com/apps/picsur',
+      ]) {
+        expectSuccess(await update(admin, { host_override: `${publicBase}/` }));
+        // The frontend builds image and album links from this address too.
+        const info = expectSuccess(await Client.guest().get('/api/info'));
+        expect(info.host_override).toBe(publicBase);
+        const linked = expectSuccess(await user.client.upload(png));
+        expect(linked.links).toEqual({
+          view: `${publicBase}/view/${linked.id}`,
+          image: `${publicBase}/i/${linked.id}.png`,
+          delete: `${publicBase}/api/image/delete/${linked.id}/${linked.delete_key}`,
+        });
+      }
     } finally {
       expectSuccess(await update(admin, { host_override: null }));
     }
@@ -1425,7 +1433,11 @@ describe('image management', () => {
       manualRedirect: true,
     });
     expect(link.status).toBe(302);
-    expect(link.headers.get('location')).toBe(`/delete/${id}/${delete_key}`);
+    // The page is under the base path, when Picsur is served under one
+    const basePath = new URL(inject('baseUrl')).pathname.replace(/\/+$/, '');
+    expect(link.headers.get('location')).toBe(
+      `${basePath}/delete/${id}/${delete_key}`,
+    );
 
     // Like a chat app fetching a preview of the link
     const preview = await guest.get(`/api/image/delete/${id}/${delete_key}`);

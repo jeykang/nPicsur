@@ -22,6 +22,8 @@ describe('info', () => {
     // The document itself, not wrapped like other answers
     const doc = res.json;
     expect(doc.openapi).toBe('3.0.3');
+    const basePath = new URL(inject('baseUrl')).pathname.replace(/\/+$/, '');
+    expect(doc.servers ?? [{ url: '/' }]).toEqual([{ url: basePath || '/' }]);
     const info = expectSuccess(await guest.get('/api/info'));
     expect(doc.info.version).toBe(info.version);
 
@@ -144,6 +146,26 @@ describe('info', () => {
       expect(res.body.toString(), path).toContain(`<base href="${basePath}/"`);
     }
   });
+
+  it.runIf(inject('dockerImage') !== null)(
+    'loads the built frontend assets from the public base path',
+    async () => {
+      const base = inject('baseUrl') + '/';
+      const page = (await guest.get('/')).body.toString();
+      const assets = [...page.matchAll(/(?:src|href)="([^"]+\.(?:js|css))"/g)];
+      expect(assets.length).toBeGreaterThan(0);
+      for (const [, path] of assets) {
+        const url = new URL(path, base);
+        // The reverse proxy may serve an unrelated site outside this path.
+        expect(url.href.startsWith(base), path).toBe(true);
+        const asset = await fetch(url);
+        expect(asset.status, path).toBe(200);
+        expect(asset.headers.get('content-type'), path).toContain(
+          path.endsWith('.js') ? 'javascript' : 'text/css',
+        );
+      }
+    },
+  );
 
   // Proxies either pass the base path on, or take it off themselves
   it('can be reached without the base path', async () => {

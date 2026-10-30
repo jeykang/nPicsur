@@ -160,9 +160,15 @@ services:
       PICSUR_BASE_PATH: /picsur
 ```
 
+The path can contain multiple segments, such as `/apps/picsur`. Its first segment must not be `api`, `i`, or `assets`, which Picsur uses for its own routes.
+
 The reverse proxy can pass the path on or remove it. With Nginx:
 
 ```nginx
+location = /picsur {
+    return 301 /picsur/;
+}
+
 location /picsur/ {
     client_max_body_size 128m;
     proxy_pass http://127.0.0.1:8080/;

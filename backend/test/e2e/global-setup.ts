@@ -51,6 +51,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
 import type { TestProject } from 'vitest/node';
+import { ParseBasePath } from '../../src/config/base-path.js';
 import { backendRoot, spawnBackend } from './helpers/backend.js';
 
 export const ADMIN_PASSWORD = 'e2e-admin-password';
@@ -199,9 +200,7 @@ export default async function setup(project: TestProject) {
     process.env['E2E_SERVER_ENV'] ?? '{}',
   );
   // Served under a path of its own, the tests use that path too
-  const basePath = (extraEnv['PICSUR_BASE_PATH'] ?? '')
-    .replace(/^\/*/, '/')
-    .replace(/\/+$/, '');
+  const basePath = ParseBasePath(extraEnv['PICSUR_BASE_PATH']);
   const baseUrl = `http://127.0.0.1:${port}${basePath}`;
   const usesObjectStorage = Object.keys(extraEnv).some((key) =>
     key.startsWith('PICSUR_S3_'),

@@ -56,7 +56,7 @@ export class InfoService {
       const info = this.snapshot;
 
       if (info.host_override !== undefined) {
-        return info.host_override;
+        return info.host_override.replace(/\/+$/, '');
       }
     }
 

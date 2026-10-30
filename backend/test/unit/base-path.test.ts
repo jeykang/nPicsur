@@ -24,6 +24,10 @@ describe('serving Picsur under a path of its own', () => {
       '/%2e%2e',
       'https://example.com/picsur',
       '/"><script>',
+      '/api',
+      '/api/picsur',
+      '/i/',
+      '/assets/photos',
     ]) {
       expect(() => ParseBasePath(value), value).toThrow(/PICSUR_BASE_PATH/);
     }

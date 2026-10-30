@@ -6,6 +6,9 @@ import { GetServerSettingOrDefault } from '../server-settings.js';
 export class InfoConfigService {
   // The address Picsur is reached at, for links to images, when it is set
   public getHostnameOverride(): string | undefined {
-    return GetServerSettingOrDefault(ServerSetting.HostOverride) ?? undefined;
+    return GetServerSettingOrDefault(ServerSetting.HostOverride)?.replace(
+      /\/+$/,
+      '',
+    );
   }
 }

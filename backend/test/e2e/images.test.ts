@@ -71,14 +71,22 @@ describe('image upload and retrieval', () => {
     expect(animation.links.image).toBe(`${base}/i/${animation.id}.webp`);
 
     // At the public address when it is set
-    expectSuccess(
-      await update(admin, { host_override: 'https://img.example.com/' }),
-    );
     try {
-      const linked = expectSuccess(await user.client.upload(png));
-      expect(linked.links.view).toBe(
-        `https://img.example.com/view/${linked.id}`,
-      );
+      for (const publicBase of [
+        'https://img.example.com',
+        'https://img.example.com/apps/picsur',
+      ]) {
+        expectSuccess(await update(admin, { host_override: `${publicBase}/` }));
+        // The frontend builds image and album links from this address too.
+        const info = expectSuccess(await Client.guest().get('/api/info'));
+        expect(info.host_override).toBe(publicBase);
+        const linked = expectSuccess(await user.client.upload(png));
+        expect(linked.links).toEqual({
+          view: `${publicBase}/view/${linked.id}`,
+          image: `${publicBase}/i/${linked.id}.png`,
+          delete: `${publicBase}/api/image/delete/${linked.id}/${linked.delete_key}`,
+        });
+      }
     } finally {
       expectSuccess(await update(admin, { host_override: null }));
     }

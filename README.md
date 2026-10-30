@@ -165,18 +165,16 @@ The path can contain multiple segments, such as `/apps/picsur`. Its first segmen
 The reverse proxy can pass the path on or remove it. With Nginx:
 
 ```nginx
-location = /picsur {
-    return 301 /picsur/;
-}
-
 location /picsur/ {
     client_max_body_size 128m;
     proxy_pass http://127.0.0.1:8080/;
-    proxy_set_header Host $host;
+    proxy_set_header Host $http_host;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
 ```
+
+Nginx redirects `/picsur` to `/picsur/` automatically, preserving the query string. `$http_host` keeps the port in generated links when the public address uses a non-standard port.
 
 If you set a public address, include the path, as in `https://example.com/picsur`. For OpenID Connect, register `https://example.com/picsur/user/oidc` with the provider; Settings → Server shows the exact URI.
 

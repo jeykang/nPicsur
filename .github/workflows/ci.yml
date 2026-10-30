@@ -18,11 +18,9 @@ env:
   # Images are only published for master and for release tags like v0.6.0
   PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) }}
   E2E_DB_HOST: 127.0.0.1
-  # Object storage for the tests, a local S3 imitation. This also exercises
-  # the compiled frontend under a nested path in the Docker tests.
+  # Object storage for the tests, a local S3 imitation
   S3_TEST_ENV: >-
     {"PICSUR_STORAGE_DRIVER": "s3",
-    "PICSUR_BASE_PATH": "/apps/picsur",
     "PICSUR_S3_ENDPOINT": "http://127.0.0.1:5000",
     "PICSUR_S3_FORCE_PATH_STYLE": "true",
     "PICSUR_S3_ACCESS_KEY_ID": "test",
@@ -115,8 +113,10 @@ jobs:
         include:
           - platform: linux/amd64
             runner: ubuntu-24.04
+            base_path: ''
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
+            base_path: /apps/picsur
     services:
       postgres:
         image: postgres:17-alpine
@@ -163,10 +163,16 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile --filter picsur-backend...
       - name: End-to-end tests against the image
-        run: pnpm --filter picsur-backend test:e2e
+        # Cover the built frontend at both the root and a nested path using
+        # the two platforms we already build.
+        run: |
+          export E2E_SERVER_ENV="$(jq --arg path "$TEST_BASE_PATH" \
+            '. + {PICSUR_BASE_PATH: $path}' <<< "$E2E_SERVER_ENV")"
+          pnpm --filter picsur-backend test:e2e
         env:
           E2E_DOCKER_IMAGE: picsur:test
           E2E_SERVER_ENV: ${{ env.S3_TEST_ENV }}
+          TEST_BASE_PATH: ${{ matrix.base_path }}
       - name: Upload the server log
         if: failure()
         uses: actions/upload-artifact@v7

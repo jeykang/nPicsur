@@ -20,10 +20,11 @@ export function ParseBasePath(value: string | undefined): string {
     }
   }
   // A proxy may already have removed the prefix. These paths would then be
-  // indistinguishable from the API, images or static assets themselves.
-  if (['api', 'i', 'assets'].includes(segments[0])) {
+  // indistinguishable from the API, images or static files themselves. The
+  // frontend's fonts are in media, where Angular puts what its styles use.
+  if (['api', 'i', 'assets', 'media'].includes(segments[0])) {
     throw new Error(
-      `${BasePathEnv} must not start with /api, /i or /assets; choose a path like /picsur`,
+      `${BasePathEnv} must not start with /api, /i, /assets or /media; choose a path like /picsur`,
     );
   }
   return '/' + segments.join('/');

@@ -24,11 +24,11 @@
     "purge": "rm -rf dist && rm -rf node_modules"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1161.0",
+    "@aws-sdk/client-s3": "^3.1164.0",
     "@fastify/helmet": "^13.2.0",
     "@fastify/multipart": "^10.1.6",
-    "@fastify/reply-from": "^12.8.0",
-    "@fastify/static": "^10.1.8",
+    "@fastify/reply-from": "^12.8.1",
+    "@fastify/static": "^10.1.10",
     "@nestjs/common": "^12.3.2",
     "@nestjs/config": "^12.0.1",
     "@nestjs/core": "^12.3.2",
@@ -39,11 +39,11 @@
     "@nestjs/throttler": "^6.7.1",
     "@nestjs/typeorm": "^12.0.2",
     "bcrypt-ts": "^9.0.3",
-    "fastify": "^5.12.7",
+    "fastify": "^5.12.8",
     "file-type": "^21.3.4",
     "ms": "2.1.3",
     "node-addon-api": "^8.9.2",
-    "openid-client": "^6.8.8",
+    "openid-client": "^6.8.9",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -53,7 +53,7 @@
     "posix.js": "^0.1.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "semver": "^7.8.5",
+    "semver": "^7.8.6",
     "sharp": "^0.35.5",
     "typeorm": "^1.1.2",
     "zod": "^4.6.7"
@@ -73,8 +73,8 @@
     "prettier": "^3.9.10",
     "source-map-support": "^0.5.21",
     "typescript": "~5.9.3",
-    "vite": "^8.3.5",
-    "vitest": "^5.0.5"
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
   },
   "engines": {
     "node": ">=22.12.0"
